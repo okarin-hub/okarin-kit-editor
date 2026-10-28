@@ -25,6 +25,19 @@ export function tracePolygons(ctx: PathLike, polys: Pt[][]): void {
   });
 }
 
+/** True when the point lies inside at least one of the polygons (ray casting). */
+export function pointInPolygons(polys: Pt[][], x: number, y: number): boolean {
+  return polys.some((poly) => {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const [xi, yi] = poly[i];
+      const [xj, yj] = poly[j];
+      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  });
+}
+
 /** Bounding rectangle of all polygons. */
 export function polygonsBox(polys: Pt[][]): { x: number; y: number; width: number; height: number } {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;

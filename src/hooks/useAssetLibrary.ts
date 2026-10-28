@@ -19,6 +19,7 @@ export type SystemFontStatus = 'idle' | 'loading' | 'ready' | 'unsupported' | 'd
 export interface AssetLibrary {
   logos: LibraryEntry[];
   patterns: LibraryEntry[];
+  textures: LibraryEntry[];
   fonts: LibraryFont[];
   templates: KitTemplate[];
   templateErrors: { file: string; error: string }[];
@@ -49,12 +50,13 @@ async function registerLibraryFont(font: LibraryFont, loaded: Set<string>): Prom
 }
 
 /**
- * Reads the project library folders (logos / patterns / fonts) through /api/library and the fonts
+ * Reads the project library folders (logos / patterns / textures / fonts) through /api/library and the fonts
  * installed on this PC (Local Font Access API, Chromium/Edge only, asks the user for permission).
  */
 export function useAssetLibrary(): AssetLibrary {
   const [logos, setLogos] = useState<LibraryEntry[]>([]);
   const [patterns, setPatterns] = useState<LibraryEntry[]>([]);
+  const [textures, setTextures] = useState<LibraryEntry[]>([]);
   const [fonts, setFonts] = useState<LibraryFont[]>([]);
   const [templates, setTemplates] = useState<KitTemplate[]>([]);
   const [templateErrors, setTemplateErrors] = useState<{ file: string; error: string }[]>([]);
@@ -75,6 +77,7 @@ export function useAssetLibrary(): AssetLibrary {
       if (data.error) throw new Error(data.error);
       setLogos(data.logos ?? []);
       setPatterns(data.patterns ?? []);
+      setTextures(data.textures ?? []);
       setTemplates(data.templates ?? []);
       setTemplateErrors(data.templateErrors ?? []);
       setRoot(data.root ?? '');
@@ -134,6 +137,7 @@ export function useAssetLibrary(): AssetLibrary {
   return {
     logos,
     patterns,
+    textures,
     fonts,
     templates,
     templateErrors,

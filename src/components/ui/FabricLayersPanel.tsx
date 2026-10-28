@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Eye, EyeOff, Plus, Shirt, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Eye, EyeOff, FolderOpen, Plus, RefreshCw, Shirt, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { FabricConfig, FabricLayer, FabricTextureType, KitPartId } from '@/types/kit';
 import { createFabricPattern } from '@/utils/fabricRenderer';
+import { AssetLibrary } from '@/hooks/useAssetLibrary';
+import { preloadImage } from '@/utils/imageCache';
 
 const FABRIC_TEXTURES: { id: FabricTextureType; label: string; desc: string }[] = [
   { id: 'jersey-dimple', label: 'Jersey Mesh Oval Datar', desc: 'Lubang oval mendatar bertingkat, seperti jersey bola putih' },
@@ -31,9 +33,10 @@ export const DEFAULT_FABRIC_CONFIG: FabricConfig = {
 };
 
 /** Magnified swatch of a fabric overlay (2.4x) on a typical jersey colour, so the weave is visible. */
-const FabricSwatch: React.FC<{ type: FabricTextureType; small?: boolean }> = ({ type, small }) => {
+const FabricSwatch: React.FC<{ type: FabricTextureType; image?: string; small?: boolean }> = ({ type, image, small }) => {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
+    if (type === 'custom-image') return;
     const cv = ref.current;
     const ctx = cv?.getContext('2d');
     if (!cv || !ctx) return;
@@ -49,6 +52,16 @@ const FabricSwatch: React.FC<{ type: FabricTextureType; small?: boolean }> = ({ 
     ctx.fillRect(0, 0, cv.width / k, cv.height / k);
     ctx.restore();
   }, [type, small]);
+  if (type === 'custom-image') {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={image}
+        alt=""
+        className={`rounded border border-slate-700 shrink-0 object-cover bg-slate-200 ${small ? 'w-9 h-6' : 'w-[72px] h-12'}`}
+      />
+    );
+  }
   return (
     <canvas
       ref={ref}
@@ -61,11 +74,12 @@ const FabricSwatch: React.FC<{ type: FabricTextureType; small?: boolean }> = ({ 
 
 interface FabricLayersPanelProps {
   config: FabricConfig;
+  library: AssetLibrary;
   onChange: (config: FabricConfig) => void;
 }
 
 /** Fabric textures as layers: each one has its own weave, size, strength and the parts it covers. */
-export const FabricLayersPanel: React.FC<FabricLayersPanelProps> = ({ config, onChange }) => {
+export const FabricLayersPanel: React.FC<FabricLayersPanelProps> = ({ config, library, onChange }) => {
   const [openId, setOpenId] = useState<string | null>(config.layers[0]?.id ?? null);
 
   const update = (id: string, patch: Partial<FabricLayer>) =>
@@ -122,7 +136,8 @@ export const FabricLayersPanel: React.FC<FabricLayersPanelProps> = ({ config, on
 
       {config.layers.map((l) => {
         const open = openId === l.id;
-        const label = FABRIC_TEXTURES.find((t) => t.id === l.type)?.label ?? 'Tekstur';
+        const isLib = l.type === 'custom-image';
+        const label = isLib ? l.name || 'Tekstur Pustaka' : FABRIC_TEXTURES.find((t) => t.id === l.type)?.label ?? 'Tekstur';
         return (
           <div key={l.id} className="rounded-lg border border-slate-800 bg-slate-900/40">
             <div className="flex items-center gap-2 px-2 py-1.5">
@@ -130,7 +145,7 @@ export const FabricLayersPanel: React.FC<FabricLayersPanelProps> = ({ config, on
                 {l.visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
               </button>
               <button type="button" onClick={() => setOpenId(open ? null : l.id)} className="flex-1 min-w-0 flex items-center gap-2 text-left">
-                <FabricSwatch type={l.type} small />
+                <FabricSwatch type={l.type} image={l.image} small />
                 <span className="min-w-0">
                   <span className="block truncate text-[11px] font-semibold text-slate-200">{label}</span>
                   <span className="block text-[10px] text-slate-500">{l.parts.length} bagian</span>
@@ -167,12 +182,56 @@ export const FabricLayersPanel: React.FC<FabricLayersPanelProps> = ({ config, on
                   ))}
                 </div>
 
+                {/* Library textures */}
+                <div className="space-y-1.5 bg-slate-900/40 border border-slate-800 rounded-lg p-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-slate-300 flex items-center gap-1.5">
+                      <FolderOpen className="w-3.5 h-3.5 text-amber-400" />
+                      Tekstur dari Pustaka ({library.textures.length})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => library.reload()}
+                      className="text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800 flex items-center gap-1"
+                      title="Baca ulang folder library/textures"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${library.loading ? 'animate-spin' : ''}`} />
+                      Muat ulang
+                    </button>
+                  </div>
+                  {library.textures.length === 0 ? (
+                    <p className="text-[10px] text-slate-500 leading-snug">
+                      Belum ada tekstur. Taruh gambar (PNG, JPG, SVG, WebP) di folder <code>library/textures</code> lalu klik Muat ulang.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-5 gap-1.5 max-h-32 overflow-y-auto pr-0.5">
+                      {library.textures.map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          title={`${t.name}${t.category ? ' - ' + t.category : ''}`}
+                          onClick={async () => {
+                            await preloadImage(t.url);
+                            update(l.id, { type: 'custom-image', image: t.url, name: t.name, opacity: Math.max(l.opacity, 0.5) });
+                          }}
+                          className={`aspect-square rounded-md border overflow-hidden transition-all ${
+                            isLib && l.image === t.url ? 'border-amber-400 bg-amber-500/10' : 'border-slate-700 bg-slate-800 hover:border-slate-500'
+                          }`}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={t.url} alt={t.name} className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-[11px] text-slate-400">
                     <span>Ukuran Pori / Serat</span>
                     <span className="font-mono text-amber-300">{l.scale.toFixed(1)}x</span>
                   </div>
-                  <input type="range" min="0.4" max="3" step="0.1" value={l.scale} onChange={(e) => update(l.id, { scale: parseFloat(e.target.value) })} className="w-full accent-amber-500 cursor-pointer" />
+                  <input type="range" min={isLib ? 0.2 : 0.4} max={isLib ? 6 : 3} step="0.1" value={l.scale} onChange={(e) => update(l.id, { scale: parseFloat(e.target.value) })} className="w-full accent-amber-500 cursor-pointer" />
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-[11px] text-slate-400">

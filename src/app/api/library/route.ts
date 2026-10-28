@@ -72,6 +72,7 @@ export async function GET() {
         templateErrors: tpl.errors,
         logos: walk('logos', IMAGE_EXT),
         patterns: walk('patterns', IMAGE_EXT),
+        textures: walk('textures', IMAGE_EXT),
         fonts,
       },
       { headers: { 'Cache-Control': 'no-store' } }

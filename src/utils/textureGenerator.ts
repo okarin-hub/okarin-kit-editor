@@ -11,7 +11,7 @@ import {
 import { drawPatternLayersForPart } from '@/utils/patternRenderer';
 import { drawTemplateForPart } from '@/utils/templateRenderer';
 import { drawCreditText } from '@/utils/creditRenderer';
-import { partPolygons, tracePolygons } from '@/utils/partShape';
+import { partPolygons, pointInPolygons, tracePolygons } from '@/utils/partShape';
 import { drawFabricForPart } from '@/utils/fabricRenderer';
 import { getStyledLogo } from '@/utils/logoStyle';
 import { getCachedImage, preloadImage } from '@/utils/imageCache';
@@ -185,8 +185,15 @@ export function renderKitCanvas(
       ctx.scale(scaleRatio, scaleRatio);
     }
 
-    // Clip to the part's regions so graphics never bleed onto neighbouring pieces
-    const partDef = shapeParts.map[item.partId];
+    // Clip to the part's regions so graphics never bleed onto neighbouring pieces. The part is the one under
+    // the logo's centre: a logo dragged from the chest onto the shorts must follow it, not stay clipped to the chest.
+    const icx = item.x + item.width / 2;
+    const icy = item.y + item.height / 2;
+    const ownPart = shapeParts.map[item.partId];
+    const partDef =
+      ownPart && pointInPolygons(partPolygons(ownPart), icx, icy)
+        ? ownPart
+        : [...shapeParts.renderOrder].reverse().find((p) => pointInPolygons(partPolygons(p), icx, icy)) ?? ownPart;
     if (partDef) {
       ctx.beginPath();
       tracePolygons(ctx, partPolygons(partDef));

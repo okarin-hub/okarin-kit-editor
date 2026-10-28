@@ -35,8 +35,12 @@ export const InteractiveGraphicItem: React.FC<InteractiveGraphicItemProps> = ({
     <Group
       id={item.id}
       ref={shapeRef}
-      x={item.x}
-      y={item.y}
+      // item.x / item.y are the top-left of the UNROTATED box; the texture generator (3D + export)
+      // rotates around the box centre, so the node pivots on its centre too (position = centre).
+      x={item.x + item.width / 2}
+      y={item.y + item.height / 2}
+      offsetX={item.width / 2}
+      offsetY={item.height / 2}
       width={item.width}
       height={item.height}
       rotation={item.rotation}
@@ -57,8 +61,8 @@ export const InteractiveGraphicItem: React.FC<InteractiveGraphicItemProps> = ({
       onDragEnd={(e) => {
         onChange({
           ...item,
-          x: Math.round(e.target.x()),
-          y: Math.round(e.target.y()),
+          x: Math.round(e.target.x() - item.width / 2),
+          y: Math.round(e.target.y() - item.height / 2),
         });
       }}
       onTransformEnd={() => {
@@ -72,12 +76,15 @@ export const InteractiveGraphicItem: React.FC<InteractiveGraphicItemProps> = ({
         node.scaleX(1);
         node.scaleY(1);
 
+        // the offset point is the box centre, so node.x() / node.y() stay the centre while it scales
+        const width = Math.max(12, Math.round(node.width() * scaleX));
+        const height = Math.max(12, Math.round(node.height() * scaleY));
         onChange({
           ...item,
-          x: Math.round(node.x()),
-          y: Math.round(node.y()),
-          width: Math.max(12, Math.round(node.width() * scaleX)),
-          height: Math.max(12, Math.round(node.height() * scaleY)),
+          x: Math.round(node.x() - width / 2),
+          y: Math.round(node.y() - height / 2),
+          width,
+          height,
           rotation: Math.round(node.rotation()),
         });
       }}

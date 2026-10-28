@@ -15,14 +15,14 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 
 | # | Pri | Masalah | Ide |
 |---|---|---|---|
-| 1 | P1 | **Pemetaan bagian hanya tebakan.** Bagian layer ditebak dari persentase piksel di tiap area; layer yang melintasi banyak area atau memenuhi 1024 × 1024 sering ditempel ke bagian yang salah atau ke banyak bagian. | Biarkan pengguna memperbaiki bagian di pratinjau sebelum menyimpan. |
-| 2 | P1 | **PSD template resmi menghasilkan banyak layer tak berguna** (mesh, bayangan, garis jahit titik-titik, UV, background) yang jadi zona dan menutupi desain. | Filter layer penuh / opasitas rendah / bernama "mesh", "uv", "background". |
+| 1 | P2 | **Pemetaan bagian masih tebakan.** Bagian layer ditebak dari persentase piksel di tiap area; layer yang melintasi banyak area sering ditempel ke bagian yang salah. Setelah konversi, klik sebuah layer di laporan untuk mengubah bagiannya (langsung disimpan). | Tampilkan tebakan di pratinjau sebelum menyimpan. |
+| 2 | P3 | **PSD template resmi berisi banyak layer yang hanya membantu desainer** (mesh, bayangan, jahitan titik-titik, panduan, mask, latar). Sekarang tidak dicentang secara bawaan (115 layer jadi 19 di PSD resmi 2019, dengan label alasannya); tombol *Semua* tetap memilihnya. Filter memakai nama (Inggris dan Jepang) dan ukuran, jadi nama yang tidak biasa bisa lolos atau layer berguna bisa ikut berlabel. | Pratinjau tiap layer. |
 | 3 | P1 | **Efek PSD tidak terbawa:** mode blend, efek layer (bayangan, stroke, overlay warna), clipping mask, layer penyesuaian, smart object, teks dan bentuk vektor. | Dukung clipping mask dan mode blend dasar; rasterize otomatis. |
 | 4 | P2 | Konversi PSD besar lambat (tiap layer diproses 1024 × 1024 di main thread). | Web Worker, crop mask ke kotak pembatas, unggah paralel. |
 | 5 | P2 | Mask disimpan ukuran penuh walau isinya kecil (112 layer ≈ 3,4 MB). | Simpan mask yang di-crop dengan offset. |
 | 6 | P2 | Zona mask tidak bisa diedit titik demi titik atau diberi bentuk tepi. | "Ubah mask jadi poligon". |
 | 7 | P2 | Mask dicat satu warna, jadi layer abu-abu kehilangan nuansanya. | Mode "pertahankan luminansi". |
-| 8 | P2 | PNG pisah-warna kasar: tepi bergerigi, gradasi pecah jadi banyak layer, maksimal 80 zona. | Penghalusan tepi, penggabungan cluster, pratinjau. |
+| 8 | P2 | Pemisahan PNG per warna sudah lebih baik tetapi tetap perkiraan: tepi anti-alias dan warna noise diserap ke wilayah di sekitarnya, namun gradasi dan desain berbayang masih pecah menjadi beberapa warna, dan maksimal 80 zona. Sebuah zona warna ikut ke setiap bagian yang memuat beberapa puluh pikselnya, jadi daftar bagiannya bisa lebih banyak dari dugaan. | Penghalusan tepi per zona, pratinjau bagian. |
 | 9 | P2 | Gambar tidak persegi diregangkan ke 1024 × 1024 tanpa pilihan fit / crop. | Opsi fit / crop / regang. |
 | 10 | P3 | Hanya layer piksel; grup tidak dipertahankan sebagai folder. Fill opacity PSD diabaikan. | |
 
@@ -49,7 +49,7 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 | # | Pri | Masalah |
 |---|---|---|
 | 19 | P2 | **Lengan panjang dibuat otomatis** (tabung meruncing): tanpa siku, tanpa lipatan, dan sambungan bahu bisa terlihat sempit dari sudut tertentu. Modelnya sendiri hanya punya lengan pendek. |
-| 20 | P2 | **UV celana adalah perkiraan.** Model hanya memakai x 81–320 area celana, game memakai x 0–330. Preview meregangkan sisi luar (x 81 → 0, sekitar 1,34×) agar area 2D tampil di 3D; faktor itu bukan hasil ukur dari model game. |
+| 20 | P2 | **UV celana adalah perkiraan.** Model hanya memakai x 81–320 area celana, game memakai x 0–330. Preview meregangkan sisi luar (x 81 → 0, sekitar 1,34×) agar area 2D tampil di 3D; faktor itu bukan hasil ukur dari model game. Di preview, hem baju juga menutupi bagian atas celana, jadi hanya sekitar x 0-148 dari area celana 336 px (celana kanan: 876-1024) yang terlihat; logo yang ditaruh lebih ke dalam tersembunyi di bawah baju. |
 | 21 | P3 | Material kain masih sederhana (tanpa normal map atau pencahayaan realistis). |
 | 22 | P3 | Peringatan konsol: three.js `PCFSoftShadowMap has been removed`; Konva memperingatkan lebih dari 5 layer. |
 
@@ -62,3 +62,15 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 | 25 | P3 | **Terjemahan berupa kamus** (`src/i18n/dictionary.ts`) yang diterapkan pada teks layar. Teks UI baru yang belum ada di kamus tetap berbahasa Indonesia (bahasa sumber) di semua bahasa. Nama dari library-mu tidak pernah diterjemahkan. |
 | 26 | P3 | *Bantuan → Cek pembaruan* butuh internet dan feed rilis yang bisa dijangkau. |
 | 27 | P3 | Model 3D adalah aset pihak ketiga yang hak distribusinya tidak jelas (lihat [Kredit](KREDIT.md)). |
+
+## Logo, impor, dan kain (ditambahkan di 0.1.1)
+
+| # | Pri | Masalah |
+|---|---|---|
+| 28 | P3 | Canvas 2D menampilkan logo utuh, tetapi preview 3D dan export memotongnya ke bagian yang ada di bawah titik tengahnya. Logo yang melintasi dua bagian hanya tampil potongan di dalam bagian itu di 3D. |
+| 29 | P3 | Logo yang kamu seret ke celana atau lengan tetap memakai rotasinya. Bagian itu disimpan miring di tekstur, jadi atur rotasi ke 90° / -90° (tombol *Ratakan Otomatis* dan logo baru melakukannya sendiri). |
+| 30 | P3 | Posisi anchor logo dan lengan berasal dari model CometKIT, bukan dari game. Di game hem baju bisa menutupi celana dengan cara berbeda, jadi periksa kit yang sudah jadi di PES. |
+| 31 | P3 | Pola dan tekstur kain dari pustaka disimpan di proyek lewat path file (logo ditanam di proyek). Kalau filenya dihapus dari `library`, layernya kosong setelah dimuat ulang. |
+| 32 | P3 | PSD dari template PES 2019 punya tata letak berbeda dari tekstur 2021, sehingga banyak layer jatuh di bagian yang salah; perbaiki dari laporan setelah konversi. |
+| 33 | P3 | Impor PSD / PNG yang gagal di tengah meninggalkan folder kosong di `library/templates`; hapus manual. |
+| 34 | P3 | Pemisahan PNG per warna pada desain bermotif halftone atau dither masih bisa menghasilkan banyak potongan kecil. Naikkan toleransi warna. |

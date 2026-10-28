@@ -38,7 +38,8 @@ export type FabricTextureType =
   | 'micro-mesh'
   | 'knit-honeycomb'
   | 'diagonal-twill'
-  | 'ribbed';
+  | 'ribbed'
+  | 'custom-image'; // tile image from library/textures (FabricLayer.image)
 
 /** One fabric texture layer: a weave drawn over the chosen parts. */
 export interface FabricLayer {
@@ -49,6 +50,10 @@ export interface FabricLayer {
   scale: number;
   visible: boolean;
   parts: KitPartId[];
+  /** Library tile (URL) used when type is 'custom-image'. */
+  image?: string;
+  /** Display name of the library tile. */
+  name?: string;
 }
 
 export interface FabricConfig {

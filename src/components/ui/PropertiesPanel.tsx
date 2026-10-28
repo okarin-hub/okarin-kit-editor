@@ -49,7 +49,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           <span>Editor Bagian &amp; Tekstur Kain</span>
         </div>
 
-        <FabricLayersPanel config={fabricConfig} onChange={(cfg) => onUpdateFabricConfig?.(cfg)} />
+        <FabricLayersPanel config={fabricConfig} library={library} onChange={(cfg) => onUpdateFabricConfig?.(cfg)} />
 
         <div className="p-4 bg-slate-900/40 rounded-xl border border-slate-800/60 text-center space-y-2">
           <div className="w-10 h-10 rounded-full bg-slate-800/80 flex items-center justify-center text-slate-500 mx-auto">

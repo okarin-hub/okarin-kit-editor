@@ -2,6 +2,21 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## 0.1.1 — fixes and library textures
+
+**New**
+- **Fabric textures from the library.** Put tile images (a mesh, knit or weave swatch) in `library/textures` and use them in a fabric texture layer; they show in 2D, 3D and every export. See [Adding your own logos](ADDING-LOGOS.md).
+- **PSD import is less noisy.** Layers that only help the artist (mesh, stitch lines, shadows, guides, masks, thin lines, canvas-sized) start unchecked with a reason tag (115 layers become 19 in the official 2019 PSD). After converting you can click a layer to change its parts; the change is saved at once. A ZIP renamed to `.psd` now gives a clear message.
+- **PNG import (split by colour) is smarter.** A small area of a colour is no longer lost: the white sponsor lettering on a chest used to be dropped because the same white on socks and cuffs was bigger, so the zone was only attached to those parts. A zone now joins every part that holds a few dozen of its pixels. The empty background is recognised by where it sits (almost no pixels on a kit part) instead of by being the biggest colour, so a navy kit no longer starts with its main colour switched off. Anti-aliasing blends and noise colours are absorbed into the region they border and specks are merged (on a synthetic test the colour list went from 21 to 4 and specks from 2382 to 204).
+- **Auto Align** has Right Sock / Left Sock buttons.
+
+**Fixed**
+- **A logo moved to another part disappeared from the 3D model and the export.** A logo was clipped to the part it was created on, so a logo added on the chest and then dragged onto the shorts or a sleeve showed in 2D but was cut away in 3D. The part is now the one under the logo's centre.
+- **Logo placement on sleeves, shorts and socks.** New logos and the *Auto Align* buttons now land where the part faces the front on the 3D model, rotated to read upright (shorts and sleeves are stored sideways in the texture). Before, a logo on the shorts went to the middle of the area, which the shirt hem covers (only x 0-148 of the 336 px shorts area is visible in the preview), and socks had no default position at all (the logo went to the chest).
+- **Rotated logos were misplaced in the 2D canvas.** A logo with a rotation (every logo placed on the shirt back starts at 180°) pivoted on its top-left corner in 2D but on its centre in the 3D preview and the export, so the 2D view showed it shifted by one logo width / height.
+- **Converting a PNG / PSD failed** with *part must be one of ...* when a colour or layer fell on the credit area. `credit` is now accepted in templates.
+- **Switching between 2D, 3D and split view** no longer rebuilds the 3D scene: the camera and sleeve mode are kept and WebGL contexts are no longer leaked, which could blank the 3D view after many switches.
+
 ## 0.1.0 — first public release
 
 Okarin Kit Editor (formerly a private project) is now open source under the GPL-3.0, with a Windows build.

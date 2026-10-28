@@ -1152,9 +1152,10 @@ export default function Home() {
             ref={containerRef}
             className="flex-1 flex items-center justify-center p-3 relative overflow-hidden select-none gap-3"
           >
-            {/* 2D Canvas Panel (Visible in '2d' and 'split' modes) */}
-            {(viewMode === '2d' || viewMode === 'split') && (
-              <div className={`h-full flex flex-col items-center justify-center gap-2 relative ${viewMode === 'split' ? 'flex-1' : 'w-full'}`}>
+            {/* 2D Canvas Panel (Visible in '2d' and 'split' modes). Both panels stay mounted and are only
+                hidden, so switching view keeps the 3D camera / sleeve mode and never rebuilds the WebGL scene. */}
+            {(
+              <div className={`h-full flex-col items-center justify-center gap-2 relative ${viewMode === '3d' ? 'hidden' : 'flex'} ${viewMode === 'split' ? 'flex-1' : 'w-full'}`}>
                 <DrawBar
                   tool={drawTool}
                   pointCount={drawPts.length}
@@ -1210,8 +1211,8 @@ export default function Home() {
             )}
 
             {/* 3D Preview Panel (Visible in '3d' and 'split' modes) */}
-            {(viewMode === '3d' || viewMode === 'split') && (
-              <div className={`h-full relative ${viewMode === 'split' ? 'flex-1' : 'w-full'}`}>
+            {(
+              <div className={`h-full relative ${viewMode === '2d' ? 'hidden' : ''} ${viewMode === 'split' ? 'flex-1' : 'w-full'}`}>
                 <Kit3DViewerWrapper
                   textureDataUrl={texture3DDataUrl}
                   zoneDrag={zoneDrag3D}

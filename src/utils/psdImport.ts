@@ -23,6 +23,32 @@ export interface PsdLayerInfo {
   right: number;
   bottom: number;
   layer: any; // ag-psd layer (kept for conversion)
+  /** Why the layer is probably not useful as a zone (guide, mesh, shadow, stitch line, ...). Unset = useful. */
+  junk?: string;
+}
+
+/**
+ * Words (English and the Japanese ones used by the official Konami PSDs) that mark layers which only
+ * help the artist: mesh overlays, stitch lines, shadows, guides, masks and backgrounds.
+ */
+const JUNK_NAMES: [RegExp, string][] = [
+  [/mesh|メッシュ/i, 'mesh'],
+  [/shadow|影/i, 'bayangan'],
+  [/dotted|stitch|ステッチ|縫/i, 'jahitan'],
+  [/\bguides?\b|\blabels?\b|\buv\b|ガイド|ラベル|領域/i, 'panduan'],
+  [/\bmask\b|マスク/i, 'mask'],
+  [/background|背景|下地/i, 'latar'],
+];
+
+/** Returns the reason a layer is most likely not a useful zone, or undefined when it looks useful. */
+export function junkReason(info: Pick<PsdLayerInfo, 'name' | 'opacity' | 'left' | 'top' | 'right' | 'bottom'>, psdW: number, psdH: number): string | undefined {
+  for (const [re, reason] of JUNK_NAMES) if (re.test(info.name)) return reason;
+  const w = info.right - info.left;
+  const h = info.bottom - info.top;
+  if (w >= psdW * 0.95 && h >= psdH * 0.95) return 'seukuran kanvas';
+  if (Math.min(w, h) <= 8) return 'garis tipis';
+  if (info.opacity < 0.15) return 'transparan';
+  return undefined;
 }
 
 export interface ParsedPsd {
@@ -44,6 +70,10 @@ export interface ConvertedZone {
 export async function parsePsd(file: File): Promise<ParsedPsd> {
   const { readPsd } = await import('ag-psd');
   const buffer = await file.arrayBuffer();
+  const head = new Uint8Array(buffer, 0, Math.min(4, buffer.byteLength));
+  if (head[0] === 0x50 && head[1] === 0x4b) {
+    throw new Error('File ini ZIP, bukan PSD. Ekstrak dulu, lalu pilih file .psd di dalamnya.');
+  }
   const psd = readPsd(buffer, {
     skipCompositeImageData: true,
     skipThumbnail: true,
@@ -86,6 +116,9 @@ export async function parsePsd(file: File): Promise<ParsedPsd> {
     });
   };
   walk(psd.children, [], false);
+  layers.forEach((l) => {
+    l.junk = junkReason(l, psd.width, psd.height);
+  });
 
   return { fileName: file.name, width: psd.width, height: psd.height, layers, skipped };
 }
@@ -109,6 +142,10 @@ export interface MaskMeta {
   mode?: 'auto' | 'tint' | 'keep';
   /** Fixed default colour (otherwise the mean colour of the visible pixels). */
   defaultColor?: string;
+  /** A part joins the zone when it holds at least this share of the zone's pixels (default 0.15). */
+  minPartShare?: number;
+  /** ...and at least this many pixels (default 0). Colour-split zones use low values so a small logo is not dropped. */
+  minPartPixels?: number;
 }
 
 /**
@@ -162,7 +199,9 @@ export function finalizeMask(
   });
   const covered = perPart.reduce((a, b) => a + b.n, 0);
   const sorted = [...perPart].sort((a, b) => b.n - a.n);
-  let parts: KitPartId[] = sorted.filter((p) => p.n > 0 && p.n / Math.max(1, covered) >= 0.15).map((p) => p.id);
+  const minShare = meta.minPartShare ?? 0.15;
+  const minPixels = meta.minPartPixels ?? 0;
+  let parts: KitPartId[] = sorted.filter((p) => p.n > 0 && p.n >= minPixels && p.n / Math.max(1, covered) >= minShare).map((p) => p.id);
   if (parts.length === 0) parts = [sorted[0].n > 0 ? sorted[0].id : 'front'];
 
   // Tinted layers become white-on-transparent (smaller files, tint-ready); coloured layers keep pixels
@@ -190,6 +229,12 @@ export function finalizeMask(
   };
 
   return { zone, maskFile: file, maskDataUrl: canvas.toDataURL('image/png'), parts, pixels: count };
+}
+
+/** Returns the zone with its parts replaced (first = main part, the rest go to `parts`). */
+export function withZoneParts(zone: Record<string, unknown>, parts: KitPartId[]): Record<string, unknown> {
+  const { parts: _old, ...rest } = zone;
+  return { ...rest, part: parts[0], ...(parts.length > 1 ? { parts: parts.slice(1) } : {}) };
 }
 
 /** Converts one PSD layer. Returns null for layers without visible pixels. */

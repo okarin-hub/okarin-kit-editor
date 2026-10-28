@@ -11,7 +11,7 @@ export const TEMPLATE_DIR = path.join(LIBRARY_ROOT, 'templates');
 
 export const PART_IDS = [
   'front', 'back', 'leftSleeve', 'rightSleeve', 'leftShorts', 'rightShorts',
-  'leftSock', 'rightSock', 'collar', 'armband',
+  'leftSock', 'rightSock', 'collar', 'armband', 'credit',
 ] as const;
 
 const PART_GROUP: Record<string, string> = {

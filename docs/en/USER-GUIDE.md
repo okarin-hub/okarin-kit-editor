@@ -85,7 +85,8 @@ stitching along the edge of every part.
 
 Select a part (click it on the canvas or use a part shortcut) to edit its colour and trim. The tab also holds the
 **fabric texture layers** (micro-mesh, honeycomb, twill, ribbing, three jersey meshes): each layer has its own size,
-intensity and parts. Fabric is drawn on top of colours, patterns and zones, and also over an imported design.
+intensity and parts. A layer can also use your own tile image from `library/textures`. Fabric is drawn on top of
+colours, patterns and zones, and also over an imported design.
 
 ## 6. Logo and Name tabs
 

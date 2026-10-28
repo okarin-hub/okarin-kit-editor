@@ -80,11 +80,19 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
   }, [textureDataUrl]);
 
   // Helper to load and bind texture into Three.js material
+  const textureSeq = useRef(0);
   const applyTextureToMaterial = (mat: THREE.MeshStandardMaterial, url: string) => {
     const textureLoader = new THREE.TextureLoader();
+    const seq = ++textureSeq.current;
     textureLoader.load(
       url,
       (texture) => {
+        // a newer texture was requested while this one decoded: drop the stale one
+        if (seq !== textureSeq.current) {
+          texture.dispose();
+          return;
+        }
+        mat.map?.dispose();
         texture.flipY = false; // glTF standard
         texture.colorSpace = THREE.SRGBColorSpace;
         texture.generateMipmaps = true;
@@ -105,8 +113,10 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
     const container = mountRef.current;
     if (!container) return;
 
-    const width = container.clientWidth;
-    const height = container.clientHeight;
+    // The panel can be hidden (display: none) while another view mode is active: size 0 is not drawable
+    const width = container.clientWidth || 1;
+    const height = container.clientHeight || 1;
+    let disposed = false;
 
     // Scene
     const scene = new THREE.Scene();
@@ -290,6 +300,7 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
     loader.load(
       '/model/pes_kit.glb',
       (gltf) => {
+        if (disposed) return; // unmounted (or React strict-mode remount) before the model arrived
         const model = gltf.scene;
         kitMeshGroupRef.current = model;
 
@@ -352,6 +363,7 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
       },
       undefined,
       (err) => {
+        if (disposed) return;
         console.error('Failed to load pes_kit.glb:', err);
         setIsLoading(false);
       }
@@ -361,25 +373,28 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
     let animationFrameId: number;
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
+      if (!container.clientWidth || !container.clientHeight) return; // hidden: skip the work
       controls.update();
       renderer.render(scene, camera);
     };
     animate();
 
-    // Resize listener
+    // Resize with the container (window resize, split / single view switch)
     const handleResize = () => {
-      if (!container || !renderer || !camera) return;
       const w = container.clientWidth;
       const h = container.clientHeight;
+      if (!w || !h) return;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
     };
-    window.addEventListener('resize', handleResize);
+    const resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(container);
 
     return () => {
+      disposed = true;
       cancelAnimationFrame(animationFrameId);
-      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       container.removeEventListener('pointerdown', onZonePointerDown, true);
       window.removeEventListener('pointermove', onZonePointerMove);
       window.removeEventListener('pointerup', onZonePointerUp);
@@ -390,6 +405,7 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
         container.removeChild(renderer.domElement);
       }
       renderer.dispose();
+      renderer.forceContextLoss(); // browsers cap live WebGL contexts; release this one right away
     };
   }, []);
 

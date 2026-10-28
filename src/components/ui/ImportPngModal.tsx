@@ -5,6 +5,7 @@ import { X, ImagePlus, Loader2, AlertTriangle, Check, Layers, Palette } from 'lu
 import { KitTemplate } from '@/types/kit';
 import {
   analyzeColors,
+  clusterPartShares,
   ColorAnalysis,
   clusterHex,
   clusterMask,
@@ -73,12 +74,13 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
       const a = analyzeColors(imageData, tolerance);
       setAnalysis(a);
       const opaque = a.clusters.reduce((n, c) => n + c.count, 0) || 1;
+      const onParts = clusterPartShares(a.labels, a.clusters.length);
       setClusters(
         a.clusters.map((c, i) => ({
           id: c.id,
           name: `Warna ${i + 1}`,
-          // the biggest colour is usually the background; tiny noise colours are off by default
-          on: !(i === 0 && c.count / opaque > 0.45) && c.count / opaque >= 0.003,
+          // the empty background (almost no pixels on a kit part) and tiny noise colours start off
+          on: onParts[i] >= 0.3 && c.count / opaque >= 0.003,
         }))
       );
     }, 150);
@@ -276,7 +278,7 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
             <span>
               Fitur ini masih eksperimental: pemetaan bagian bisa meleset, konversi bisa lambat, dan sebagian efek tidak
               terbawa. Hasilnya aman dicoba karena disimpan sebagai template baru (tidak menimpa apa pun). Daftar masalah
-              yang diketahui ada di <code>docs/CATATAN-BUG.md</code>.
+              yang diketahui ada di <code>docs/en/KNOWN-ISSUES.md</code>.
             </span>
           </div>
           {!report && (

@@ -82,6 +82,24 @@ const NumberField: React.FC<{ value: number; min?: number; onCommit: (v: number)
   );
 };
 
+/**
+ * Where a new logo is centred on parts that are rotated or partly hidden in the texture, and the rotation
+ * that makes it read upright on the 3D model. Measured on the model's UV (pes_kit.glb):
+ *  - Shorts: the leg length runs along the texture x axis (hem at the outer edge, x 0 / 1024). The shirt hem
+ *    covers everything but x 0..148 (right island: 876..1024); the leg faces the front at y ~ 875.
+ *  - Socks: upright in the texture; the sock faces the front at (130, 441), right sock (894, 444).
+ *  - Sleeves: the arm runs along the texture x axis. About 30% from the sleeve end, half way between the
+ *    top of the arm (y 482) and its front (y 524), is what you see from the front: (280, 503) / (744, 503).
+ */
+const PART_ANCHORS: Partial<Record<KitPartId, { x: number; y: number; rotation: number }>> = {
+  leftSleeve: { x: 280, y: 503, rotation: 90 },
+  rightSleeve: { x: 744, y: 503, rotation: -90 },
+  leftShorts: { x: 75, y: 875, rotation: 90 },
+  rightShorts: { x: 949, y: 877, rotation: -90 },
+  leftSock: { x: 130, y: 441, rotation: 0 },
+  rightSock: { x: 894, y: 444, rotation: 0 },
+};
+
 export const LogosPanel: React.FC<LogosPanelProps> = ({
   graphicItems,
   selectedGraphicId,
@@ -125,30 +143,14 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
     let h = 50;
     let defaultRotation = 0;
 
-    if (activePartId === 'leftSleeve') {
-      defaultX = 276;
-      defaultY = 446;
-      targetPart = 'leftSleeve';
+    const anchored = activePartId !== 'all' ? PART_ANCHORS[activePartId] : undefined;
+    if (anchored && activePartId !== 'all') {
+      targetPart = activePartId;
       w = 50;
       h = 50;
-    } else if (activePartId === 'rightSleeve') {
-      defaultX = 698;
-      defaultY = 446;
-      targetPart = 'rightSleeve';
-      w = 50;
-      h = 50;
-    } else if (activePartId === 'leftShorts') {
-      defaultX = 140;
-      defaultY = 760;
-      targetPart = 'leftShorts';
-      w = 50;
-      h = 50;
-    } else if (activePartId === 'rightShorts') {
-      defaultX = 840;
-      defaultY = 760;
-      targetPart = 'rightShorts';
-      w = 50;
-      h = 50;
+      defaultX = anchored.x - w / 2;
+      defaultY = anchored.y - h / 2;
+      defaultRotation = anchored.rotation;
     } else if (activePartId === 'back') {
       // The shirt back is stored upside-down in the PES template: place the logo
       // ~150px below the neckline and rotate it 180° so it reads upright on the shirt.
@@ -706,28 +708,40 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
                 🛡️ Dada Kiri (Crest)
               </button>
               <button
-                onClick={() => alignToAnchor(301, 471, 'leftSleeve')}
+                onClick={() => alignToAnchor(PART_ANCHORS.leftSleeve!.x, PART_ANCHORS.leftSleeve!.y, 'leftSleeve', PART_ANCHORS.leftSleeve!.rotation)}
                 className="py-1 px-2 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-center"
               >
                 🏆 Lengan Kanan
               </button>
               <button
-                onClick={() => alignToAnchor(723, 471, 'rightSleeve')}
+                onClick={() => alignToAnchor(PART_ANCHORS.rightSleeve!.x, PART_ANCHORS.rightSleeve!.y, 'rightSleeve', PART_ANCHORS.rightSleeve!.rotation)}
                 className="py-1 px-2 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-center"
               >
                 🏆 Lengan Kiri
               </button>
               <button
-                onClick={() => alignToAnchor(172, 785, 'leftShorts')}
+                onClick={() => alignToAnchor(PART_ANCHORS.leftShorts!.x, PART_ANCHORS.leftShorts!.y, 'leftShorts', PART_ANCHORS.leftShorts!.rotation)}
                 className="py-1 px-2 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-center"
               >
                 🩳 Celana Kanan
               </button>
               <button
-                onClick={() => alignToAnchor(852, 785, 'rightShorts')}
+                onClick={() => alignToAnchor(PART_ANCHORS.rightShorts!.x, PART_ANCHORS.rightShorts!.y, 'rightShorts', PART_ANCHORS.rightShorts!.rotation)}
                 className="py-1 px-2 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-center"
               >
                 🩳 Celana Kiri
+              </button>
+              <button
+                onClick={() => alignToAnchor(PART_ANCHORS.leftSock!.x, PART_ANCHORS.leftSock!.y, 'leftSock', PART_ANCHORS.leftSock!.rotation)}
+                className="py-1 px-2 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-center"
+              >
+                🧦 Kaus Kaki Kanan
+              </button>
+              <button
+                onClick={() => alignToAnchor(PART_ANCHORS.rightSock!.x, PART_ANCHORS.rightSock!.y, 'rightSock', PART_ANCHORS.rightSock!.rotation)}
+                className="py-1 px-2 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-center"
+              >
+                🧦 Kaus Kaki Kiri
               </button>
               <button
                 onClick={() => alignToAnchor(512, 52, 'back', 180)}

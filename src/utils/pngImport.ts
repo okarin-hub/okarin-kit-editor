@@ -1,4 +1,5 @@
 import { finalizeMask, ConvertedZone } from '@/utils/psdImport';
+import { PES_2021_PARTS } from '@/constants/pes2021Parts';
 
 /**
  * PNG -> template conversion (runs in the browser). A flat PNG has no layers, so there are two ways
@@ -101,100 +102,9 @@ export async function convertPngFile(
 // Mode 2: split one PNG by colour
 // ---------------------------------------------------------------------------------------------
 
-export interface ColorCluster {
-  id: number;
-  color: [number, number, number];
-  count: number;
-}
-
-export interface ColorAnalysis {
-  clusters: ColorCluster[];
-  /** Cluster index per pixel (65535 = transparent / unused). */
-  labels: Uint16Array;
-  transparent: number;
-}
-
-const NONE = 65535;
-
-/**
- * Groups the colours of an image into clusters. Colours are first counted in 5-bit bins; bins are
- * then merged greedily (most frequent first) when they lie within `tolerance` of a cluster centre.
- */
-export function analyzeColors(data: ImageData, tolerance: number, maxClusters = 32): ColorAnalysis {
-  const d = data.data;
-  const BINS = 32 * 32 * 32;
-  const counts = new Uint32Array(BINS);
-  const sums = new Float64Array(BINS * 3);
-  let transparent = 0;
-  for (let i = 0; i < d.length; i += 4) {
-    if (d[i + 3] < 128) {
-      transparent++;
-      continue;
-    }
-    const b = ((d[i] >> 3) << 10) | ((d[i + 1] >> 3) << 5) | (d[i + 2] >> 3);
-    counts[b]++;
-    sums[b * 3] += d[i];
-    sums[b * 3 + 1] += d[i + 1];
-    sums[b * 3 + 2] += d[i + 2];
-  }
-
-  const bins: { b: number; n: number; c: [number, number, number] }[] = [];
-  for (let b = 0; b < BINS; b++) {
-    if (counts[b] > 0) bins.push({ b, n: counts[b], c: [sums[b * 3] / counts[b], sums[b * 3 + 1] / counts[b], sums[b * 3 + 2] / counts[b]] });
-  }
-  bins.sort((a, b) => b.n - a.n);
-
-  const clusters: { c: [number, number, number]; n: number }[] = [];
-  const binToCluster = new Int32Array(BINS).fill(-1);
-  const dist = (a: number[], b: number[]) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
-
-  for (const bin of bins) {
-    let best = -1;
-    let bestD = Infinity;
-    clusters.forEach((cl, i) => {
-      const dd = dist(cl.c, bin.c);
-      if (dd < bestD) {
-        bestD = dd;
-        best = i;
-      }
-    });
-    if (best >= 0 && (bestD <= tolerance || clusters.length >= maxClusters)) {
-      binToCluster[bin.b] = best;
-      const cl = clusters[best];
-      cl.c = [
-        (cl.c[0] * cl.n + bin.c[0] * bin.n) / (cl.n + bin.n),
-        (cl.c[1] * cl.n + bin.c[1] * bin.n) / (cl.n + bin.n),
-        (cl.c[2] * cl.n + bin.c[2] * bin.n) / (cl.n + bin.n),
-      ];
-      cl.n += bin.n;
-    } else {
-      binToCluster[bin.b] = clusters.length;
-      clusters.push({ c: [...bin.c], n: bin.n });
-    }
-  }
-
-  // clusters ordered by size (largest first); remap labels
-  const order = clusters.map((_, i) => i).sort((a, b) => clusters[b].n - clusters[a].n);
-  const remap = new Int32Array(clusters.length);
-  order.forEach((old, ni) => (remap[old] = ni));
-
-  const labels = new Uint16Array(SIZE * SIZE).fill(NONE);
-  for (let p = 0, i = 0; p < SIZE * SIZE; p++, i += 4) {
-    if (d[i + 3] < 128) continue;
-    const b = ((d[i] >> 3) << 10) | ((d[i + 1] >> 3) << 5) | (d[i + 2] >> 3);
-    labels[p] = remap[binToCluster[b]];
-  }
-
-  return {
-    clusters: order.map((old, ni) => ({
-      id: ni,
-      color: [Math.round(clusters[old].c[0]), Math.round(clusters[old].c[1]), Math.round(clusters[old].c[2])] as [number, number, number],
-      count: clusters[old].n,
-    })),
-    labels,
-    transparent,
-  };
-}
+// The clustering itself lives in colorClusters.ts (pure, no DOM); re-exported for the importer UI
+export { analyzeColors } from '@/utils/colorClusters';
+export type { ColorCluster, ColorAnalysis } from '@/utils/colorClusters';
 
 /** Pixel masks (1 = in the piece) for the connected components of a cluster. */
 export function splitComponents(labels: Uint16Array, cluster: number, minArea: number): Uint8Array[] {
@@ -261,7 +171,9 @@ export function convertPieceMask(
       img.data[i + 3] = 255;
     }
   }
-  return finalizeMask(canvas, ctx, img, { name, mode: 'tint', defaultColor: clusterHex(color) }, index);
+  // A colour zone often spans several parts (white = sponsor on the chest + cuffs + socks). A part joins with
+  // a few dozen pixels, otherwise a small logo loses to the big areas of the same colour and vanishes.
+  return finalizeMask(canvas, ctx, img, { name, mode: 'tint', defaultColor: clusterHex(color), minPartShare: 0.004, minPartPixels: 60 }, index);
 }
 
 /** Pixel mask of a whole cluster. */
@@ -269,4 +181,38 @@ export function clusterMask(labels: Uint16Array, cluster: number): Uint8Array {
   const m = new Uint8Array(SIZE * SIZE);
   for (let p = 0; p < SIZE * SIZE; p++) if (labels[p] === cluster) m[p] = 1;
   return m;
+}
+
+let partsMaskCache: Uint8Array | null = null;
+
+/** 1 where a pixel of the texture belongs to some kit part, 0 on the empty background around them. */
+function partsMask(): Uint8Array {
+  if (partsMaskCache) return partsMaskCache;
+  const m = new Uint8Array(SIZE * SIZE);
+  PES_2021_PARTS.forEach((p) =>
+    p.regions.forEach((r) => {
+      const y1 = Math.min(SIZE, Math.ceil(r.y + r.height));
+      const x1 = Math.min(SIZE, Math.ceil(r.x + r.width));
+      for (let y = Math.max(0, Math.floor(r.y)); y < y1; y++) m.fill(1, y * SIZE + Math.max(0, Math.floor(r.x)), y * SIZE + x1);
+    })
+  );
+  partsMaskCache = m;
+  return m;
+}
+
+/**
+ * Per cluster: the share (0..1) of its pixels that lie on a kit part. The empty background around the
+ * parts is the cluster with almost no pixels on a part, however large it is (a navy kit can be 60% navy).
+ */
+export function clusterPartShares(labels: Uint16Array, clusterCount: number): number[] {
+  const mask = partsMask();
+  const inside = new Float64Array(clusterCount);
+  const total = new Float64Array(clusterCount);
+  for (let p = 0; p < SIZE * SIZE; p++) {
+    const l = labels[p];
+    if (l === 65535) continue;
+    total[l]++;
+    if (mask[p]) inside[l]++;
+  }
+  return Array.from(total, (t, i) => (t ? inside[i] / t : 0));
 }

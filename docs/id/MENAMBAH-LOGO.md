@@ -1,4 +1,4 @@
-# Menambah logo sendiri (dan pola, font)
+# Menambah logo sendiri (dan pola, tekstur kain, font)
 
 [English](../en/ADDING-LOGOS.md) · [Kembali ke README](../../README.id.md)
 
@@ -19,6 +19,7 @@ Isinya:
 library/
 ├─ logos/       logo, sponsor, badge        (PNG, JPG, WebP, SVG, GIF)
 ├─ patterns/    tile pola                   (PNG, JPG, WebP, SVG, GIF)
+├─ textures/    tile tekstur kain           (PNG, JPG, WebP, SVG, GIF)
 ├─ fonts/       font                        (TTF, OTF, WOFF, WOFF2)
 └─ templates/   template milikmu            (.json, lihat TEMPLATE.md)
 ```
@@ -57,17 +58,25 @@ gambarnya sebagai jenis. Tile sebaiknya bisa diulang mulus. Tile satu warna atau
 *Warna Pola*; tile berwarna dipakai apa adanya. Skala, geser, rotasi, cermin, dan opasitas bekerja seperti pola
 bawaan.
 
-## 5. Menambah font
+## 5. Menambah tekstur kain
+
+Salin gambar tile (swatch mesh, rajutan, atau tenunan) ke `library/textures/`, tekan **Muat ulang** di kartu *Layer Tekstur
+Kain*, buka sebuah layer lalu pilih gambarnya di *Tekstur dari Pustaka*. Gambar diulang (tile) di bagian yang dipakai
+layer dan tampil di canvas 2D, preview 3D, dan semua hasil export. *Ukuran Pori / Serat* mengatur ukuran tile (1,0 = 64 px
+dari tekstur 1024 px) dan *Intensitas* mengatur kekuatannya. Tile sebaiknya bisa diulang mulus. Pola terang atau gelap
+di latar transparan paling cocok.
+
+## 6. Menambah font
 
 Salin `.ttf` / `.otf` / `.woff` / `.woff2` ke `library/fonts/`. Nama file (tanpa ekstensi) menjadi nama font,
 misalnya `Bebas Neue.ttf` → *Bebas Neue*. Font yang terpasang di Windows juga bisa dimuat lewat *Muat font terpasang
 di PC* di pemilih font (Chrome / Edge meminta izin).
 
-## 6. Menambah template
+## 7. Menambah template
 
 Lihat [Template sendiri](TEMPLATE.md).
 
-## 7. Untuk yang mem-fork repositori
+## 8. Untuk yang mem-fork repositori
 
 Isi `library/` (kecuali file `README.txt`) **sengaja** ada di `.gitignore`. Jangan commit logo, template kit, atau
 karya orang lain: biasanya itu merek dagang atau berhak cipta. Simpan di komputermu sendiri, atau bagikan lewat

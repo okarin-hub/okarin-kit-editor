@@ -11,6 +11,7 @@ ID  Taruh file milikmu di sub-folder di sini. Aplikasi membaca folder ini sendir
 
   logos/       logos, sponsors, badges      (PNG, JPG, WebP, SVG, GIF)
   patterns/    pattern tiles                (PNG, JPG, WebP, SVG, GIF)
+  textures/    fabric texture tiles         (PNG, JPG, WebP, SVG, GIF)
   fonts/       fonts                        (TTF, OTF, WOFF, WOFF2)
   templates/   your own templates           (.json)
 

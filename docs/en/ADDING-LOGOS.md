@@ -1,4 +1,4 @@
-# Adding your own logos (and patterns, fonts)
+# Adding your own logos (and patterns, fabric textures, fonts)
 
 [Bahasa Indonesia](../id/MENAMBAH-LOGO.md) · [Back to README](../../README.md)
 
@@ -19,6 +19,7 @@ Inside it:
 library/
 ├─ logos/       logos, sponsors, badges      (PNG, JPG, WebP, SVG, GIF)
 ├─ patterns/    pattern tiles                (PNG, JPG, WebP, SVG, GIF)
+├─ textures/    fabric texture tiles         (PNG, JPG, WebP, SVG, GIF)
 ├─ fonts/       fonts                        (TTF, OTF, WOFF, WOFF2)
 └─ templates/   your own templates           (.json, see TEMPLATES.md)
 ```
@@ -57,17 +58,25 @@ the image as its type. A tile should repeat seamlessly. Single-colour or transpa
 *Pattern colour*; coloured tiles are used as they are. Scale, offset, rotation, mirror and opacity work as for
 built-in patterns.
 
-## 5. Add a font
+## 5. Add a fabric texture
+
+Copy a tile image (a mesh, knit or weave swatch) into `library/textures/`, press **Reload** in the *Fabric texture layers*
+card, open a layer and pick the image under *Texture from Library*. It is tiled over the parts the layer covers and shows
+in the 2D canvas, the 3D preview and every export. *Pore / fibre size* sets the tile size (1.0 = 64 px of the 1024 px
+texture) and *Intensity* sets how strong it is. A tile should repeat seamlessly. Light or dark patterns on a transparent
+background work best.
+
+## 6. Add a font
 
 Copy `.ttf` / `.otf` / `.woff` / `.woff2` into `library/fonts/`. The file name (without extension) becomes the font
 name, for example `Bebas Neue.ttf` → *Bebas Neue*. Fonts installed on Windows can also be loaded with *Load fonts
 installed on the PC* in the font picker (Chrome / Edge ask for permission).
 
-## 6. Add a template
+## 7. Add a template
 
 See [Custom templates](TEMPLATES.md).
 
-## 7. For people who fork the repository
+## 8. For people who fork the repository
 
 The contents of `library/` (except the `README.txt` files) are listed in `.gitignore` **on purpose**. Do not commit
 logos, kit templates or other people's artwork: they are usually trademarks or copyrighted. Keep them on your own

@@ -86,7 +86,8 @@ benang, dan jahitan di tepi tiap bagian.
 
 Pilih bagian (klik di canvas atau pakai pintasan part) untuk mengubah warna dan lisnya. Tab ini juga berisi
 **layer tekstur kain** (micro-mesh, honeycomb, twill, ribbing, tiga jersey mesh): tiap layer punya ukuran,
-intensitas, dan bagian sendiri. Kain digambar di atas warna, pola, dan zona, dan juga di atas desain impor.
+intensitas, dan bagian sendiri. Layer juga bisa memakai gambar tile milikmu dari `library/textures`. Kain digambar di
+atas warna, pola, dan zona, dan juga di atas desain impor.
 
 ## 6. Tab Logo dan Nama
 

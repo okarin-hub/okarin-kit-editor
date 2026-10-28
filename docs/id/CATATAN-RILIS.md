@@ -2,6 +2,21 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## 0.1.1 — perbaikan dan tekstur dari pustaka
+
+**Baru**
+- **Tekstur kain dari pustaka.** Taruh gambar tile (swatch mesh, rajutan, atau tenunan) di `library/textures` dan pakai di layer tekstur kain; tampil di 2D, 3D, dan semua export. Lihat [Menambah logo sendiri](MENAMBAH-LOGO.md).
+- **Import PSD lebih sedikit sampah.** Layer yang hanya membantu desainer (mesh, jahitan, bayangan, panduan, mask, garis tipis, seukuran kanvas) tidak dicentang secara bawaan dan diberi label alasan (115 layer jadi 19 di PSD resmi 2019). Setelah konversi, klik sebuah layer untuk mengubah bagiannya; perubahan langsung disimpan. ZIP yang dinamai `.psd` kini memberi pesan yang jelas.
+- **Import PNG (pisah per warna) lebih cerdas.** Area kecil sebuah warna tidak lagi hilang: tulisan sponsor putih di dada dulu terbuang karena putih yang sama di kaus kaki dan cuff lebih besar, sehingga zonanya hanya ditempel ke bagian itu. Sekarang sebuah zona ikut ke setiap bagian yang memuat beberapa puluh pikselnya. Latar kosong dikenali dari posisinya (hampir tidak ada piksel di bagian kit), bukan dari ukurannya, jadi kit berwarna navy tidak lagi memulai dengan warna utamanya dimatikan. Campuran anti-alias dan warna noise diserap ke wilayah yang berbatasan dan bintik digabung (pada uji sintetis daftar warna turun dari 21 ke 4 dan bintik dari 2382 ke 204).
+- **Ratakan Otomatis** punya tombol Kaus Kaki Kanan / Kiri.
+
+**Diperbaiki**
+- **Logo yang dipindah ke bagian lain hilang dari model 3D dan export.** Logo dipotong mengikuti bagian tempat ia dibuat, jadi logo yang dibuat di dada lalu diseret ke celana atau lengan tampil di 2D tetapi terpotong habis di 3D. Sekarang bagiannya adalah yang berada di bawah titik tengah logo.
+- **Penempatan logo di lengan, celana, dan kaus kaki.** Logo baru dan tombol *Ratakan Otomatis* sekarang mendarat di sisi yang menghadap depan pada model 3D, diputar supaya terbaca tegak (celana dan lengan disimpan miring di tekstur). Sebelumnya logo di celana ditaruh di tengah area, yang tertutup hem baju (hanya x 0-148 dari area celana 336 px yang terlihat di preview), dan kaus kaki tidak punya posisi awal sama sekali (logonya masuk ke dada).
+- **Logo yang diputar salah tempat di canvas 2D.** Logo yang punya rotasi (semua logo di punggung baju mulai dari 180°) berputar di pojok kiri atasnya di 2D, tetapi di titik tengahnya di preview 3D dan export, jadi tampilan 2D menggesernya sejauh satu lebar / tinggi logo.
+- **Konversi PNG / PSD gagal** dengan pesan *part harus salah satu dari ...* saat sebuah warna atau layer jatuh di area credit. `credit` sekarang diterima di template.
+- **Pindah antara tampilan 2D, 3D, dan split** tidak lagi membangun ulang scene 3D: kamera dan mode lengan tetap, dan konteks WebGL tidak lagi bocor, yang dulu bisa mengosongkan tampilan 3D setelah banyak pindah.
+
 ## 0.1.0 — rilis publik pertama
 
 Okarin Kit Editor (sebelumnya proyek pribadi) kini open source dengan lisensi GPL-3.0, lengkap dengan build Windows.

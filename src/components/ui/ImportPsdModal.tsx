@@ -2,8 +2,8 @@
 
 import React, { useRef, useState } from 'react';
 import { X, FileUp, Loader2, AlertTriangle, Check, Layers, EyeOff } from 'lucide-react';
-import { KitTemplate } from '@/types/kit';
-import { parsePsd, convertLayer, ParsedPsd } from '@/utils/psdImport';
+import { KitPartId, KitTemplate } from '@/types/kit';
+import { parsePsd, convertLayer, withZoneParts, ParsedPsd } from '@/utils/psdImport';
 import { PES_2021_PARTS } from '@/constants/pes2021Parts';
 
 interface ImportPsdModalProps {
@@ -28,6 +28,14 @@ async function post(body: unknown) {
 
 const partName = (id: string) => PES_2021_PARTS.find((p) => p.id === id)?.name ?? id;
 
+interface ReportRow {
+  name: string;
+  parts: string[];
+  partIds: KitPartId[];
+  pixels: number;
+  zoneId?: string;
+}
+
 export const ImportPsdModal: React.FC<ImportPsdModalProps> = ({ isOpen, onClose, onImported }) => {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [parsed, setParsed] = useState<ParsedPsd | null>(null);
@@ -36,7 +44,10 @@ export const ImportPsdModal: React.FC<ImportPsdModalProps> = ({ isOpen, onClose,
   const [busy, setBusy] = useState<'parse' | 'convert' | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [report, setReport] = useState<{ name: string; parts: string[]; pixels: number }[] | null>(null);
+  const [report, setReport] = useState<ReportRow[] | null>(null);
+  const [saved, setSaved] = useState<{ folder: string; template: Record<string, unknown> } | null>(null);
+  const [openRow, setOpenRow] = useState<number | null>(null);
+  const [savingParts, setSavingParts] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
   if (!isOpen) return null;
@@ -47,6 +58,8 @@ export const ImportPsdModal: React.FC<ImportPsdModalProps> = ({ isOpen, onClose,
     setName('');
     setError(null);
     setReport(null);
+    setSaved(null);
+    setOpenRow(null);
     setProgress(null);
   };
 
@@ -67,7 +80,9 @@ export const ImportPsdModal: React.FC<ImportPsdModalProps> = ({ isOpen, onClose,
       }
       setParsed(result);
       setName(file.name.replace(/\.psd$/i, ''));
-      setSelected(new Set(result.layers.slice(0, MAX_LAYERS).map((l) => l.key)));
+      // layers that only help the artist (mesh, stitch lines, shadows, guides...) start unchecked
+      const useful = result.layers.filter((l) => !l.junk);
+      setSelected(new Set((useful.length > 0 ? useful : result.layers).slice(0, MAX_LAYERS).map((l) => l.key)));
     } catch (e: any) {
       setError(e?.message || 'Gagal membaca PSD.');
     } finally {
@@ -90,7 +105,7 @@ export const ImportPsdModal: React.FC<ImportPsdModalProps> = ({ isOpen, onClose,
     try {
       const { folder } = await post({ action: 'init', name: name.trim() || 'template-psd' });
       const zones: Record<string, unknown>[] = [];
-      const rep: { name: string; parts: string[]; pixels: number }[] = [];
+      const rep: ReportRow[] = [];
       let idx = 0;
       for (const info of chosen) {
         // let the progress bar paint between heavy layers
@@ -99,25 +114,23 @@ export const ImportPsdModal: React.FC<ImportPsdModalProps> = ({ isOpen, onClose,
         if (out) {
           await post({ action: 'mask', folder, file: out.maskFile, dataUrl: out.maskDataUrl });
           zones.push(out.zone);
-          rep.push({ name: info.name, parts: out.parts.map(partName), pixels: out.pixels });
+          rep.push({ name: info.name, parts: out.parts.map(partName), partIds: out.parts, pixels: out.pixels, zoneId: String(out.zone.id) });
           idx++;
         } else {
-          rep.push({ name: `${info.name} (dilewati: kosong)`, parts: [], pixels: 0 });
+          rep.push({ name: `${info.name} (dilewati: kosong)`, parts: [], partIds: [], pixels: 0 });
         }
         setProgress((p) => (p ? { ...p, done: p.done + 1 } : p));
       }
       if (zones.length === 0) throw new Error('Semua layer kosong, tidak ada yang bisa dikonversi.');
       const finalName = name.trim() || 'Template PSD';
-      const res = await post({
-        action: 'finish',
-        folder,
-        template: {
-          id: `lib-${folder}`,
-          name: finalName,
-          description: `Diimpor dari ${parsed.fileName} (${zones.length} layer).`,
-          zones,
-        },
-      });
+      const template = {
+        id: `lib-${folder}`,
+        name: finalName,
+        description: `Diimpor dari ${parsed.fileName} (${zones.length} layer).`,
+        zones,
+      };
+      const res = await post({ action: 'finish', folder, template });
+      setSaved({ folder, template });
       setReport(rep);
       onImported(res.template as KitTemplate);
     } catch (e: any) {
@@ -126,6 +139,27 @@ export const ImportPsdModal: React.FC<ImportPsdModalProps> = ({ isOpen, onClose,
       setBusy(null);
     }
   };
+
+  /** Changes the parts a converted layer belongs to and saves the template again right away. */
+  const setRowParts = async (zoneId: string, parts: KitPartId[]) => {
+    if (!saved || parts.length === 0) return;
+    const zones = (saved.template.zones as Record<string, unknown>[]).map((z) => (z.id === zoneId ? withZoneParts(z, parts) : z));
+    const template = { ...saved.template, zones };
+    setSavingParts(true);
+    setError(null);
+    try {
+      const res = await post({ action: 'finish', folder: saved.folder, template });
+      setSaved({ ...saved, template });
+      setReport((r) => r && r.map((row) => (row.zoneId === zoneId ? { ...row, partIds: parts, parts: parts.map(partName) } : row)));
+      onImported(res.template as KitTemplate);
+    } catch (e: any) {
+      setError(e?.message || 'Gagal menyimpan perubahan bagian.');
+    } finally {
+      setSavingParts(false);
+    }
+  };
+
+  const junkCount = parsed ? parsed.layers.filter((l) => l.junk).length : 0;
 
   const toggle = (key: string) =>
     setSelected((prev) => {
@@ -162,7 +196,7 @@ export const ImportPsdModal: React.FC<ImportPsdModalProps> = ({ isOpen, onClose,
             <span>
               Fitur ini masih eksperimental: pemetaan bagian bisa meleset, konversi bisa lambat, dan sebagian efek tidak
               terbawa. Hasilnya aman dicoba karena disimpan sebagai template baru (tidak menimpa apa pun). Daftar masalah
-              yang diketahui ada di <code>docs/CATATAN-BUG.md</code>.
+              yang diketahui ada di <code>docs/en/KNOWN-ISSUES.md</code>.
             </span>
           </div>
           {!parsed && (
@@ -239,6 +273,13 @@ export const ImportPsdModal: React.FC<ImportPsdModalProps> = ({ isOpen, onClose,
                     Semua
                   </button>
                   <button
+                    onClick={() => setSelected(new Set(parsed.layers.filter((l) => !l.junk).map((l) => l.key)))}
+                    className="px-1.5 py-0.5 rounded border border-slate-700 hover:bg-slate-800 text-slate-300"
+                    title="Tanpa layer panduan, mesh, bayangan, jahitan, dan garis tipis"
+                  >
+                    Yang berguna
+                  </button>
+                  <button
                     onClick={() => setSelected(new Set(parsed.layers.filter((l) => !l.hidden).map((l) => l.key)))}
                     className="px-1.5 py-0.5 rounded border border-slate-700 hover:bg-slate-800 text-slate-300"
                   >
@@ -252,6 +293,12 @@ export const ImportPsdModal: React.FC<ImportPsdModalProps> = ({ isOpen, onClose,
                   </button>
                 </div>
               </div>
+
+              {junkCount > 0 && (
+                <p className="text-[10px] text-slate-500 leading-snug">
+                  {`${junkCount} layer yang kemungkinan hanya panduan (mesh, jahitan, bayangan, panduan, garis tipis) tidak dipilih otomatis. Klik Semua kalau mau memakainya.`}
+                </p>
+              )}
 
               <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-800 divide-y divide-slate-800/70">
                 {parsed.layers.map((l) => (
@@ -268,6 +315,11 @@ export const ImportPsdModal: React.FC<ImportPsdModalProps> = ({ isOpen, onClose,
                     <span className={`flex-1 truncate ${l.hidden ? 'text-slate-500' : 'text-slate-200'}`} title={l.name}>
                       {l.name}
                     </span>
+                    {l.junk && (
+                      <span className="text-[9px] px-1 py-px rounded bg-slate-800 text-slate-400 border border-slate-700 shrink-0" title="Kemungkinan tidak berguna sebagai zona">
+                        {l.junk}
+                      </span>
+                    )}
                     {l.hidden && <EyeOff className="w-3 h-3 text-slate-500 shrink-0" />}
                     <span className="text-[10px] font-mono text-slate-500 shrink-0">
                       {l.right - l.left}×{l.bottom - l.top}
@@ -319,20 +371,47 @@ export const ImportPsdModal: React.FC<ImportPsdModalProps> = ({ isOpen, onClose,
                 Template tersimpan dan sudah dipilih. {report.filter((r) => r.pixels > 0).length} layer dikonversi.
               </div>
               <div className="max-h-56 overflow-y-auto rounded-lg border border-slate-800 divide-y divide-slate-800/70 text-[11px]">
-                {report.map((r) => (
-                  <div key={r.name} className="px-2.5 py-1.5 flex gap-2">
-                    <span className="flex-1 truncate text-slate-300" title={r.name}>
-                      {r.name}
-                    </span>
-                    <span className="text-slate-500 truncate max-w-[45%]" title={r.parts.join(', ')}>
-                      {r.parts.join(', ') || '-'}
-                    </span>
+                {report.map((r, i) => (
+                  <div key={i}>
+                    <button
+                      type="button"
+                      disabled={!r.zoneId}
+                      onClick={() => setOpenRow(openRow === i ? null : i)}
+                      className="w-full px-2.5 py-1.5 flex gap-2 text-left hover:bg-slate-800/40 disabled:cursor-default disabled:hover:bg-transparent"
+                    >
+                      <span className="flex-1 truncate text-slate-300" title={r.name}>
+                        {r.name}
+                      </span>
+                      <span className="text-slate-500 truncate max-w-[45%]" title={r.parts.join(', ')}>
+                        {r.parts.join(', ') || '-'}
+                      </span>
+                    </button>
+                    {openRow === i && r.zoneId && (
+                      <div className="px-2.5 pb-2 flex flex-wrap gap-1">
+                        {PES_2021_PARTS.map((p) => {
+                          const on = r.partIds.includes(p.id);
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              disabled={savingParts || (on && r.partIds.length === 1)}
+                              onClick={() => setRowParts(r.zoneId!, on ? r.partIds.filter((x) => x !== p.id) : [...r.partIds, p.id])}
+                              className={`text-[10px] px-1.5 py-0.5 rounded border disabled:opacity-60 ${
+                                on ? 'bg-sky-600/30 border-sky-500 text-sky-100' : 'border-slate-700 text-slate-400 hover:bg-slate-800'
+                              }`}
+                            >
+                              {p.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
               <p className="text-[10px] text-slate-500 leading-snug">
-                Bagian ditentukan otomatis dari posisi layer. Kalau ada yang meleset, buka layernya di tab Template,
-                ubah daftar &quot;Menempel di bagian&quot;, lalu klik Simpan.
+                Bagian ditentukan otomatis dari posisi layer. Klik sebuah layer untuk mengubah bagiannya; perubahan
+                langsung disimpan ke template.
               </p>
             </div>
           )}

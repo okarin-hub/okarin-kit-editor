@@ -1,5 +1,6 @@
 import { FabricConfig, FabricTextureType, KitPartDefinition } from '@/types/kit';
 import { partPolygons, polygonsBox } from '@/utils/partShape';
+import { getCachedImage, preloadImage } from '@/utils/imageCache';
 
 /**
  * Creates procedural fabric texture pattern tile (Micro-mesh, Honeycomb, Twill, Ribbed)
@@ -127,8 +128,49 @@ export function createFabricPattern(ctx: CanvasRenderingContext2D, type: FabricT
 
 const patternCache = new Map<string, CanvasPattern>();
 
+/** Width in px of a library tile at scale 1 (texture space is 1024 px wide). */
+export const IMAGE_TILE_BASE = 64;
+
+/**
+ * Tiles a library image as a fabric texture. The image is drawn to a tile canvas at 2x its final size
+ * first, so large photos are not sampled with aliasing when they are shrunk to a fine weave.
+ */
+function imagePattern(ctx: CanvasRenderingContext2D, src: string, scale: number): CanvasPattern | null {
+  const img = getCachedImage(src);
+  if (!img) {
+    preloadImage(src); // redraws are triggered when it finishes loading
+    return null;
+  }
+  const key = `img:${src}@${scale}`;
+  const cached = patternCache.get(key);
+  if (cached) return cached;
+
+  const SS = 2;
+  const tileW = Math.max(4, IMAGE_TILE_BASE * scale);
+  const iw = img.naturalWidth || 100;
+  const ih = img.naturalHeight || 100;
+  const tile = document.createElement('canvas');
+  tile.width = Math.max(1, Math.round(tileW * SS));
+  tile.height = Math.max(1, Math.round(((tileW * ih) / iw) * SS));
+  const tctx = tile.getContext('2d');
+  if (!tctx) return null;
+  tctx.drawImage(img, 0, 0, tile.width, tile.height);
+  const pattern = ctx.createPattern(tile, 'repeat');
+  if (!pattern) return null;
+  pattern.setTransform(new DOMMatrix().scale(1 / SS));
+  if (patternCache.size > 80) patternCache.clear();
+  patternCache.set(key, pattern);
+  return pattern;
+}
+
 /** Cached fabric pattern (a CanvasPattern works on any 2D context). */
-function cachedPattern(ctx: CanvasRenderingContext2D, type: FabricTextureType, scale: number): CanvasPattern | null {
+function cachedPattern(
+  ctx: CanvasRenderingContext2D,
+  type: FabricTextureType,
+  scale: number,
+  image?: string
+): CanvasPattern | null {
+  if (type === 'custom-image') return image ? imagePattern(ctx, image, scale) : null;
   const key = `${type}@${scale}`;
   let p = patternCache.get(key);
   if (!p) {
@@ -150,7 +192,7 @@ export function drawFabricForPart(ctx: CanvasRenderingContext2D, part: KitPartDe
   if (layers.length === 0) return;
   const box = polygonsBox(partPolygons(part));
   layers.forEach((l) => {
-    const pattern = cachedPattern(ctx, l.type, l.scale || 1);
+    const pattern = cachedPattern(ctx, l.type, l.scale || 1, l.image);
     if (!pattern) return;
     ctx.save();
     ctx.globalAlpha = l.opacity || 0.22;
