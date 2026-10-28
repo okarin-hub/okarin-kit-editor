@@ -1,0 +1,39 @@
+{
+  "id": "example-side-panels",
+  "name": "Example - side panels and collar (copy, then edit)",
+  "description": "A small hand-written template. Copy this file to library/templates/, rename it and change the zones, then press Reload in the Layer tab.",
+  "zones": [
+    {
+      "id": "side-front",
+      "name": "Front side panel",
+      "part": "front",
+      "rects": [[345, 560, 60, 378], [620, 560, 60, 378]],
+      "defaultColor": "#1d4ed8"
+    },
+    {
+      "id": "side-back",
+      "name": "Back side panel",
+      "part": "back",
+      "rects": [[345, 0, 60, 452], [620, 0, 60, 452]],
+      "defaultColor": "#1d4ed8"
+    },
+    {
+      "id": "collar",
+      "name": "Collar",
+      "part": "front",
+      "polygons": [
+        [[443, 447], [581, 447], [581, 520], [545, 540], [545, 607], [480, 607], [480, 540], [443, 520]],
+        [[462, 455], [562, 455], [562, 500], [512, 543], [462, 500]]
+      ],
+      "defaultColor": "#facc15"
+    },
+    {
+      "id": "cuff-right",
+      "name": "Right sleeve cuff",
+      "part": "leftSleeve",
+      "rects": [[222, 333, 38, 272]],
+      "defaultColor": "#facc15"
+    }
+  ],
+  "seams": []
+}

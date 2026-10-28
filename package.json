@@ -1,0 +1,61 @@
+{
+  "name": "okarin-kit-editor",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "electron:dev": "electron .",
+    "pack:win": "node scripts/pack-win.cjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.117.3",
+    "@types/three": "^0.186.0",
+    "ag-psd": "^33.0.0",
+    "autoprefixer": "^10.6.1",
+    "clsx": "^2.1.1",
+    "konva": "^9.3.18",
+    "lucide-react": "^1.16.0",
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-konva": "19.0.10",
+    "tailwind-merge": "^3.0.0",
+    "three": "^0.186.1",
+    "use-image": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.0",
+    "electron": "^33.2.0",
+    "@electron/packager": "^18.3.6",
+    "@electron/asar": "^3.2.0"
+  },
+  "main": "electron/main.cjs",
+  "description": "Okarin Kit Editor - a web / desktop kit editor for PES 2021 (2D canvas, 3D preview, PNG / DDS / FTEX export)",
+  "author": "okarin-hub",
+  "license": "GPL-3.0-only",
+  "homepage": "https://github.com/okarin-hub/okarin-kit-editor",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/okarin-hub/okarin-kit-editor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/okarin-hub/okarin-kit-editor/issues"
+  },
+  "keywords": [
+    "pes-2021",
+    "kit-editor",
+    "football",
+    "texture",
+    "ftex",
+    "nextjs",
+    "electron"
+  ]
+}

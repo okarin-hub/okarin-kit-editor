@@ -1,0 +1,55 @@
+# dependencies & build
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# env
+.env
+.env.local
+.env*.local
+
+# heavy tools / archives (re-downloadable via scripts/download_blender.py)
+tools/
+*.zip
+*.rar
+
+# large source assets (over/near GitHub limits)
+public/model/pes_kit_model.glb
+public/templates/PES 2019 kit template.psd
+
+# python cache
+__pycache__/
+*.pyc
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+
+# packaged app
+release/
+.pack/
+
+# --- your own library: logos, patterns, fonts, templates are NEVER committed (trademarks / other people's artwork) ---
+# only the README files that explain the folders are tracked
+library/**
+!library/
+!library/README.txt
+!library/*/
+!library/*/README.txt
+
+# --- third-party / official assets that are not redistributed (keep them locally if you need them) ---
+public/templates/
+public/presets/
+public/model/CometKITpreviewer*/
+public/model/*.png
+docs/reference/
+docs/CATATAN-*.md
+scripts/archive/
+scripts/*.py
+scripts/psd_layers.txt
+*.psd
+*.blend
+*.blend1
