@@ -23,7 +23,7 @@
   men-zoom ke bagian itu.
 - **Preview 3D** – seret untuk memutar, scroll untuk zoom. Tombol mengganti kamera (depan, belakang, dada, bawah,
   penuh) dan panjang lengan (pendek / panjang).
-- **Panel kanan** – tab **Warna**, **Layer**, **Logo**, **Nama**.
+- **Panel kanan** – tab **Kain**, **Layer**, **Logo**, **Nama**.
 
 Teksturnya adalah tekstur kit PES 2021 (1024 × 1024). **Punggung baju disimpan terbalik** (ujung bawah di atas,
 leher di tengah) dan celana disimpan diputar 90°. Editor sudah menanganinya untukmu.
@@ -57,6 +57,8 @@ Import template dari PSD / PNG masih **eksperimental** (lihat [Masalah yang dike
 Baris dasar baju, celana, dan kaus kaki (selalu paling bawah) serta aksesori: kerah, ban kapten, kotak kredit.
 **Lis** (strip di manset, ujung bawah, atau karet kaus kaki) ditambahkan di bawah tiap bagian lewat *+ Tambah lis*;
 mata menyembunyikannya, warna dan lebar diatur di barisnya. *Tambah layer* membuat strip, panel, elips, dan segitiga.
+Klik nama bagian (atau tombol roda gigi) untuk membuka editornya di bawah baris: kode warna, palet, dan *Samakan*
+(depan ↔ belakang, kiri ↔ kanan). Klik bagian di canvas atau tombol fokusnya juga membuka tab Layer, bukan tab lain.
 
 ### Layer pola
 Tiap pola adalah layer sendiri: jenis (14 bawaan atau gambar dari `library/patterns`), warna, skala, ketebalan
@@ -82,10 +84,9 @@ benang, dan jahitan di tepi tiap bagian.
 
 `Backspace` menghapus titik terakhir, `Esc` membatalkan.
 
-## 5. Tab Warna
+## 5. Tab Kain
 
-Pilih bagian (klik di canvas atau pakai pintasan part) untuk mengubah warna dan lisnya. Tab ini juga berisi
-**layer tekstur kain** (micro-mesh, honeycomb, twill, ribbing, tiga jersey mesh): tiap layer punya ukuran,
+Tab ini berisi **layer tekstur kain** (micro-mesh, honeycomb, twill, ribbing, tiga jersey mesh): tiap layer punya ukuran,
 intensitas, dan bagian sendiri. Layer juga bisa memakai gambar tile milikmu dari `library/textures`. Kain digambar di
 atas warna, pola, dan zona, dan juga di atas desain impor.
 

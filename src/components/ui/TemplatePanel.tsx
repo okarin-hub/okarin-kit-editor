@@ -22,6 +22,7 @@ import {
   Layers,
   FileUp,
   ImagePlus,
+  ArrowRightLeft,
 } from 'lucide-react';
 import {
   BaseTexture,
@@ -41,6 +42,7 @@ import { PatternLayersPanel } from '@/components/ui/PatternLayersPanel';
 import { PanelSection } from '@/components/ui/PanelSection';
 import { AccentRow } from '@/components/ui/AccentLayersPanel';
 import { BUILTIN_TEMPLATES } from '@/constants/templates';
+import { COLOR_PALETTES } from '@/constants/presets';
 import { PES_2021_PARTS, DEFAULT_BACKGROUND_COLOR } from '@/constants/pes2021Parts';
 import { zoneParts } from '@/utils/zoneGeometry';
 
@@ -84,7 +86,20 @@ interface TemplatePanelProps {
   onUpdateSeams: (update: Partial<SeamConfig>) => void;
   onResetZones: () => void;
   onFocusPart: (partId: KitPartId) => void;
+  onSyncRelatedParts: (partId: KitPartId) => void;
 }
+
+/** Parts that have a pair to copy their colour and trims to. */
+const SYNC_LABEL: Partial<Record<KitPartId, string>> = {
+  front: 'Samakan Depan & Belakang',
+  back: 'Samakan Depan & Belakang',
+  leftSleeve: 'Samakan Kedua Lengan',
+  rightSleeve: 'Samakan Kedua Lengan',
+  leftShorts: 'Samakan Kedua Celana',
+  rightShorts: 'Samakan Kedua Celana',
+  leftSock: 'Samakan Kedua Kaus Kaki',
+  rightSock: 'Samakan Kedua Kaus Kaki',
+};
 
 const GROUP_LABEL: Record<KitCategory, string> = {
   shirt: 'Baju',
@@ -188,11 +203,14 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
   onUpdateSeams,
   onResetZones,
   onFocusPart,
+  onSyncRelatedParts,
 }) => {
   const [newPart, setNewPart] = useState<KitPartId | ''>('');
   const [saveName, setSaveName] = useState('');
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [lockRatio, setLockRatio] = useState(false);
+  // the part whose colour editor is open under its row (one at a time)
+  const [editPart, setEditPart] = useState<KitPartId | null>(null);
 
   const all: KitTemplate[] = [...BUILTIN_TEMPLATES, ...library.templates];
   const groups = (['shirt', 'shorts', 'socks', 'details'] as KitCategory[]).map((g) => ({
@@ -253,19 +271,63 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           />
           <button
             type="button"
-            onClick={() => onEditPart(id)}
+            onClick={() => {
+              onEditPart(id);
+              setEditPart(editPart === id ? null : id);
+            }}
             className="flex-1 min-w-0 text-left truncate hover:text-white"
-            title="Buka pengaturan warna dan pola bagian ini"
+            title="Buka warna dan pengaturan bagian ini"
           >
             {def.name}
           </button>
           <button type="button" onClick={() => onFocusPart(id)} className="text-slate-500 hover:text-sky-300" title="Fokus ke bagian ini di canvas">
             <Crosshair className="w-3.5 h-3.5" />
           </button>
-          <button type="button" onClick={() => onEditPart(id)} className="text-slate-500 hover:text-white" title="Pola dan pengaturan lain">
+          <button
+            type="button"
+            onClick={() => {
+              onEditPart(id);
+              setEditPart(editPart === id ? null : id);
+            }}
+            className={editPart === id ? 'text-sky-300' : 'text-slate-500 hover:text-white'}
+            title="Buka warna dan pengaturan bagian ini"
+          >
             <Settings2 className="w-3.5 h-3.5" />
           </button>
         </div>
+        {editPart === id && (
+          <div className="mt-1 ml-3 border-l border-slate-800 pl-2 space-y-1.5">
+            <input
+              type="text"
+              value={cfg.color}
+              onChange={(e) => onUpdatePartConfig(id, { color: e.target.value, visible: true })}
+              className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] font-mono uppercase text-slate-200 outline-none focus:border-sky-500"
+              title="Kode warna (hex)"
+            />
+            <div className="grid grid-cols-6 gap-1">
+              {COLOR_PALETTES.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => onUpdatePartConfig(id, { color: c, visible: true })}
+                  className={`aspect-square rounded border ${cfg.color.toLowerCase() === c.toLowerCase() ? 'border-white' : 'border-black/40 hover:border-slate-400'}`}
+                  style={{ backgroundColor: c }}
+                  title={c}
+                />
+              ))}
+            </div>
+            {SYNC_LABEL[id] && (
+              <button
+                type="button"
+                onClick={() => onSyncRelatedParts(id)}
+                className="w-full flex items-center justify-center gap-1.5 text-[11px] py-1 rounded border border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
+              >
+                <ArrowRightLeft className="w-3 h-3 text-rose-400" />
+                {SYNC_LABEL[id]}
+              </button>
+            )}
+          </div>
+        )}
         <AccentRow partId={id} config={cfg} onUpdatePartConfig={onUpdatePartConfig} />
         {designBase && cfg.overDesign && (
           <div className="mt-1 ml-3 border-l border-slate-800 pl-2 space-y-0.5">

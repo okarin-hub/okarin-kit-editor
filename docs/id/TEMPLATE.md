@@ -74,5 +74,4 @@ titik-titik. Jahitan di sepanjang tepi tiap potongan dan zona dibuat otomatis (n
 ## Tip: membaca koordinat
 
 Pakai **Tampilan → Overlay** untuk menggambar panduan template berlabel di atas canvas kalau kamu punya gambarnya
-(taruh di `public/templates/pes2021_template_labeled.png`; file ini tidak disertakan). Angka di *Info UV Map* pada tab
-Warna menunjukkan batas bagian yang dipilih.
+(taruh di `public/templates/pes2021_template_labeled.png`; file ini tidak disertakan).

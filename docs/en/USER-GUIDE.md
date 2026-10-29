@@ -22,7 +22,7 @@
 - **2D canvas** – scroll to zoom, drag to pan. Click a part to select it. The part shortcuts at the bottom zoom to a part.
 - **3D preview** – drag to rotate, scroll to zoom. Buttons switch the camera (front, back, chest, bottom, full) and
   the sleeve length (short / long).
-- **Side panel** – tabs **Colour**, **Layer**, **Logo**, **Name**.
+- **Side panel** – tabs **Fabric**, **Layer**, **Logo**, **Name**.
 
 The texture is the PES 2021 kit texture (1024 × 1024). The **back of the shirt is stored upside-down** (hem at the
 top, neck in the middle), and the shorts are stored rotated by 90°. The editor handles this for you.
@@ -56,6 +56,8 @@ Importing a template from PSD / PNG is **experimental** (see [Known issues](KNOW
 Base rows for shirt, shorts and socks (always the lowest layer) and the accessories: collar, captain's armband,
 credit box. **Trims** (the stripe at a cuff, hem or sock top) are added under each part with *+ Add trim*; the eye
 hides a trim, the colour and the width are set on the row. *Add layer* creates stripes, panels, ellipses and triangles.
+Click a part's name (or its gear button) to open its editor under the row: colour code, palette and *Match* (front ↔ back,
+left ↔ right). Clicking a part on the canvas or its focus button also opens the Layer tab, never another tab.
 
 ### Pattern layers
 Each pattern is its own layer: type (14 built-in or an image from `library/patterns`), colour, scale, line
@@ -81,10 +83,9 @@ stitching along the edge of every part.
 
 `Backspace` removes the last point, `Esc` cancels.
 
-## 5. Colour tab
+## 5. Fabric tab
 
-Select a part (click it on the canvas or use a part shortcut) to edit its colour and trim. The tab also holds the
-**fabric texture layers** (micro-mesh, honeycomb, twill, ribbing, three jersey meshes): each layer has its own size,
+The tab holds the **fabric texture layers** (micro-mesh, honeycomb, twill, ribbing, three jersey meshes): each layer has its own size,
 intensity and parts. A layer can also use your own tile image from `library/textures`. Fabric is drawn on top of
 colours, patterns and zones, and also over an imported design.
 

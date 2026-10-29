@@ -2,6 +2,12 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## Unreleased
+
+- **The Colour tab is now the Fabric tab** and only holds the fabric texture layers. A part's colour, palette and *Match* open in an editor under its row in the Layer tab (click the name or the gear); clicking a part on the canvas or its focus button stays in the Layer tab instead of jumping to another tab.
+- **Shorts number:** placed where the leg faces the front below the shirt hem and turned 90° so it reads upright (the leg is stored sideways in the texture, hem at x 0). Projects that still have the old default position are moved automatically. New *Shorts Number Size* slider.
+- **Back number:** the size slider goes up to 220 px (was 130) and the number can sit lower on the back (Y up to 400).
+
 ## 0.1.1 — fixes and library textures
 
 **New**

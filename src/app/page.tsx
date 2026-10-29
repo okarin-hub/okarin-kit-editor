@@ -36,7 +36,7 @@ import {
 } from '@/types/kit';
 import { KitProject, ExportSettings } from '@/types/project';
 import { DEFAULT_PART_CONFIG, DEFAULT_CREDIT_CONFIG, PRESET_KITS, KitPreset } from '@/constants/presets';
-import { PES_2021_PARTS, PART_MAP, CANVAS_TEXTURE_SIZE } from '@/constants/pes2021Parts';
+import { PES_2021_PARTS, PART_MAP, CANVAS_TEXTURE_SIZE, SHORTS_NUMBER_POS, migrateMarkings } from '@/constants/pes2021Parts';
 import { bakeZone, simplifyPath, zoneHitTest } from '@/utils/zoneGeometry';
 import DrawBar from '@/components/ui/DrawBar';
 import ImportPsdModal from '@/components/ui/ImportPsdModal';
@@ -65,7 +65,7 @@ import {
   DEFAULT_TEMPLATE_STATE,
   buildTemplateState,
 } from '@/constants/templates';
-import { Palette, Shield, Hash, Type, LayoutGrid } from 'lucide-react';
+import { Shirt, Shield, Hash, Type, LayoutGrid } from 'lucide-react';
 
 export default function Home() {
   const [partsConfig, setPartsConfig] = useState<
@@ -151,8 +151,8 @@ export default function Home() {
     shortsNumberSize: 42,
     nameY: 105,
     numberY: 195,
-    shortsNumberX: 120,
-    shortsNumberY: 760,
+    shortsNumberX: SHORTS_NUMBER_POS.x,
+    shortsNumberY: SHORTS_NUMBER_POS.y,
   });
 
   const [isExportingClean, setIsExportingClean] = useState<boolean>(false);
@@ -203,7 +203,7 @@ export default function Home() {
     if (autosaved) {
       if (autosaved.partsConfig) setPartsConfig({ ...DEFAULT_PART_CONFIG, ...autosaved.partsConfig });
       if (autosaved.graphicItems) setGraphicItems(autosaved.graphicItems);
-      if (autosaved.markings) setMarkings(autosaved.markings);
+      if (autosaved.markings) setMarkings(migrateMarkings(autosaved.markings));
     }
     const savedTpl = loadTemplateState();
     if (savedTpl) {
@@ -778,7 +778,7 @@ export default function Home() {
       activePartId: partId,
     }));
     setSelectedGraphicId(null);
-    setRightTab('properties');
+    setRightTab('template');
   }, []);
 
   const handleFocusPart = useCallback((partId: KitPartId) => {
@@ -791,7 +791,7 @@ export default function Home() {
       panY: 0,
     }));
     setSelectedGraphicId(null);
-    setRightTab('properties');
+    setRightTab('template');
   }, []);
 
   const handleViewChange = useCallback((patch: Partial<CanvasViewState>) => {
@@ -980,7 +980,7 @@ export default function Home() {
   const handleLoadProject = useCallback((project: KitProject) => {
     setPartsConfig({ ...DEFAULT_PART_CONFIG, ...project.partsConfig });
     setGraphicItems(project.graphicItems);
-    setMarkings(project.markings);
+    setMarkings(migrateMarkings(project.markings));
     if (project.baseTexture) {
       const loadedBase = project.baseTexture;
       preloadImage(loadedBase.src).then(() => setBaseTexture(loadedBase));
@@ -1265,8 +1265,8 @@ export default function Home() {
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }`}
             >
-              <Palette className="w-3.5 h-3.5" />
-              <span>Warna</span>
+              <Shirt className="w-3.5 h-3.5" />
+              <span>Kain</span>
             </button>
 
             <button
@@ -1322,10 +1322,6 @@ export default function Home() {
           <div className="flex-1 overflow-hidden">
             {rightTab === 'properties' && (
               <PropertiesPanel
-                activePartId={viewState.activePartId}
-                partsConfig={partsConfig}
-                onUpdatePartConfig={handleUpdatePartConfig}
-                onSyncRelatedParts={handleSyncRelatedParts}
                 fabricConfig={fabricConfig}
                 library={library}
                 onUpdateFabricConfig={setFabricConfig}
@@ -1369,6 +1365,7 @@ export default function Home() {
                 onUpdateSeams={handleUpdateSeams}
                 onResetZones={handleResetZones}
                 onFocusPart={handleFocusPart}
+                onSyncRelatedParts={handleSyncRelatedParts}
               />
             )}
 

@@ -303,3 +303,18 @@ export function isInsidePart(partId: KitPartId, x: number, y: number): boolean {
     (r) => x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height
   );
 }
+
+/**
+ * Shorts number on the texture-left leg (the player's right). The leg runs along the texture x axis with the
+ * hem at x 0, so the number is rotated 90° to read upright, and sits where the leg faces the front below the
+ * shirt hem (same spot as the logo anchor, measured on the 3D model's UV).
+ */
+export const SHORTS_NUMBER_POS = { x: 75, y: 875 };
+
+/** Old projects stored the shorts number at the first guess (120, 760), which ends up under the shirt hem. */
+export function migrateMarkings<T extends { shortsNumberX: number; shortsNumberY: number }>(m: T): T {
+  if (m && m.shortsNumberX === 120 && m.shortsNumberY === 760) {
+    return { ...m, shortsNumberX: SHORTS_NUMBER_POS.x, shortsNumberY: SHORTS_NUMBER_POS.y };
+  }
+  return m;
+}

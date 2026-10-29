@@ -8,6 +8,7 @@ import {
   TemplateBundle,
 } from '@/types/kit';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { SHORTS_NUMBER_POS } from '@/constants/pes2021Parts';
 
 const STORAGE_KEYS = {
   PROJECTS_LIST: 'pes_kit_creator_saved_projects',
@@ -160,8 +161,8 @@ export function parsePeskitFile(file: File): Promise<KitProject> {
             shortsNumberSize: 42,
             nameY: 105,
             numberY: 195,
-            shortsNumberX: 120,
-            shortsNumberY: 760,
+            shortsNumberX: SHORTS_NUMBER_POS.x,
+            shortsNumberY: SHORTS_NUMBER_POS.y,
           },
         };
 

@@ -74,5 +74,4 @@ points. Stitching along the edge of each piece and zone is generated automatical
 ## Tip: reading coordinates
 
 Use **View → Overlay** to draw a labelled template guide over the canvas if you have one (put the image at
-`public/templates/pes2021_template_labeled.png`; it is not shipped). The numbers in *Info UV Map* of the Colour tab
-give the bounds of the selected part.
+`public/templates/pes2021_template_labeled.png`; it is not shipped).

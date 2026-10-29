@@ -293,7 +293,8 @@ export function renderKitCanvas(
     }
     ctx.restore();
 
-    // Shorts Number (on the texture-left shorts piece)
+    // Shorts Number (on the texture-left shorts piece). The leg is stored sideways (hem at x 0), so the
+    // number is turned 90° to read upright on the leg.
     if (markings.shortsNumber) {
       ctx.save();
       ctx.beginPath();
@@ -301,6 +302,8 @@ export function renderKitCanvas(
       ctx.rect(sb.x, sb.y, sb.width, sb.height);
       ctx.clip();
 
+      ctx.translate(markings.shortsNumberX, markings.shortsNumberY);
+      ctx.rotate(Math.PI / 2);
       ctx.font = `bold ${markings.shortsNumberSize}px ${markings.fontFamily}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -308,19 +311,11 @@ export function renderKitCanvas(
       if (markings.numberStrokeWidth > 0) {
         ctx.strokeStyle = markings.numberStrokeColor;
         ctx.lineWidth = markings.numberStrokeWidth * 0.7;
-        ctx.strokeText(
-          markings.shortsNumber,
-          markings.shortsNumberX,
-          markings.shortsNumberY
-        );
+        ctx.strokeText(markings.shortsNumber, 0, 0);
       }
 
       ctx.fillStyle = markings.numberColor;
-      ctx.fillText(
-        markings.shortsNumber,
-        markings.shortsNumberX,
-        markings.shortsNumberY
-      );
+      ctx.fillText(markings.shortsNumber, 0, 0);
       ctx.restore();
     }
 

@@ -71,9 +71,9 @@ export const PlayerMarkingsLayer: React.FC<PlayerMarkingsLayerProps> = ({
         )}
       </Group>
 
-      {/* 3. Squad Number on the texture-left shorts piece */}
+      {/* 3. Squad Number on the texture-left shorts piece, turned 90° like the leg (hem at x 0) */}
       {markings.shortsNumber && (
-        <Group x={markings.shortsNumberX} y={markings.shortsNumberY} listening={false}>
+        <Group x={markings.shortsNumberX} y={markings.shortsNumberY} rotation={90} listening={false}>
           <KonvaText
             x={-markings.shortsNumberSize}
             y={-markings.shortsNumberSize / 2}

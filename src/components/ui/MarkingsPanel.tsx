@@ -256,10 +256,28 @@ export const MarkingsPanel: React.FC<MarkingsPanelProps> = ({
           <input
             type="range"
             min="50"
-            max="130"
+            max="220"
             value={markings.numberSize}
             onChange={(e) =>
               onUpdateMarkings({ numberSize: parseInt(e.target.value) })
+            }
+            className="w-full accent-sky-500 cursor-pointer"
+          />
+        </div>
+
+        {/* Shorts Number Size */}
+        <div className="space-y-1">
+          <div className="flex justify-between text-[11px] text-slate-400">
+            <span>Ukuran Nomor Celana</span>
+            <span className="font-mono">{markings.shortsNumberSize}px</span>
+          </div>
+          <input
+            type="range"
+            min="20"
+            max="90"
+            value={markings.shortsNumberSize}
+            onChange={(e) =>
+              onUpdateMarkings({ shortsNumberSize: parseInt(e.target.value) })
             }
             className="w-full accent-sky-500 cursor-pointer"
           />
@@ -310,7 +328,7 @@ export const MarkingsPanel: React.FC<MarkingsPanelProps> = ({
           <input
             type="range"
             min="160"
-            max="340"
+            max="400"
             value={markings.numberY}
             onChange={(e) =>
               onUpdateMarkings({ numberY: parseInt(e.target.value) })

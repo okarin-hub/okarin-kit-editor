@@ -29,7 +29,7 @@ const DOCS: { title: string; text: string }[] = [
   },
   {
     title: 'Tekstur kain',
-    text: 'Di tab Warna, tambahkan layer tekstur kain (pori-pori) per bagian dengan ukuran dan intensitas sendiri.',
+    text: 'Di tab Kain, tambahkan layer tekstur kain (bawaan atau dari library/textures) dengan ukuran, intensitas, dan bagian sendiri.',
   },
   {
     title: 'Export',

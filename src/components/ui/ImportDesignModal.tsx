@@ -286,7 +286,7 @@ export const ImportDesignModal: React.FC<ImportDesignModalProps> = ({
             <Layers className="w-3.5 h-3.5 shrink-0 mt-0.5" />
             <span>
               Gambar harus berformat template PES (punggung terbalik di atas, depan di bawah). Setelah diimpor kamu
-              tetap bisa menambah logo, nama dan nomor, melihat hasilnya di 3D, lalu export. Di mode Ganti Desain warna dasar bagian tidak dipakai, tetapi pola dan strip dari tab Warna tetap digambar di atas gambar (pilih pola Polos bila tidak diinginkan). Untuk membuka file proyek
+              tetap bisa menambah logo, nama dan nomor, melihat hasilnya di 3D, lalu export. Di mode Ganti Desain warna dasar bagian tidak dipakai, tetapi pola dan strip dari tab Layer tetap digambar di atas gambar (pilih pola Polos bila tidak diinginkan). Untuk membuka file proyek
               .peskit, pakai menu Proyek.
             </span>
           </div>
