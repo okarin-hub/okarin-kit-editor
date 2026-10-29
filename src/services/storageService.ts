@@ -16,6 +16,7 @@ const STORAGE_KEYS = {
   BASE_TEXTURE: 'pes_kit_creator_base_texture',
   PATTERN_MASK: 'pes_kit_creator_pattern_mask',
   TEMPLATE: 'pes_kit_creator_template',
+  KITSERVER_CONFIG: 'pes_kit_creator_kitserver_config',
 };
 
 // 1. Get list of saved projects metadata
@@ -200,6 +201,24 @@ export function loadAutosaveState(): {
     const raw = localStorage.getItem(STORAGE_KEYS.AUTOSAVE);
     if (!raw) return null;
     return JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+}
+
+export function saveKitConfigText(text: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEYS.KITSERVER_CONFIG, text);
+  } catch (e) {
+    // ignore quota errors
+  }
+}
+
+export function loadKitConfigText(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(STORAGE_KEYS.KITSERVER_CONFIG);
   } catch (e) {
     return null;
   }

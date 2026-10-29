@@ -121,6 +121,18 @@ parts with an opacity. You can switch between *Colour* and *Imported design* any
 Keep a copy of the file you replace in your game before testing a new one. DDS and 2048 px output has not been
 tested in the game yet.
 
+### Kitserver (config.txt) – experimental
+
+This only edits the config file: the 2D/3D preview does not follow its values yet.
+
+*File → Kitserver (config.txt)…* edits the `config.txt` that kserv.lua (Sider) reads for one kit. The form follows
+kserv's own menu and limits; *Edit as text* shows the file itself. *Import config.txt* loads an existing config and
+keeps its comments and any key the form does not show. File names are written without `.ftex`: kserv only uses files
+inside the kit's own folder, and an empty name or a missing file means the game's own file.
+
+*Save to kit folder…* asks for the kit folder (for example `content/kit-server/<team>/p1`) and writes `config.txt` and
+`<KitFile>.ftex` there. It asks before overwriting. The kit is not added to `order.ini` or `map.txt`; do that yourself.
+
 ## 9. Projects, autosave, languages
 
 - Your work is autosaved in the browser / app storage. *File → Save project…* keeps named projects or downloads a

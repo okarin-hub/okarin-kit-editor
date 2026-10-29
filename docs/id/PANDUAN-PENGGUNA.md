@@ -122,6 +122,19 @@ di atas bagian dengan opasitas. Kamu bisa berpindah antara *Warna* dan *Desain i
 
 Simpan salinan file yang kamu ganti di game sebelum mencoba yang baru. Output DDS dan 2048 px belum diuji di game.
 
+### Kitserver (config.txt) – eksperimental
+
+Fitur ini hanya mengatur file config: pratinjau 2D/3D belum mengikuti nilainya.
+
+*File → Kitserver (config.txt)…* mengedit `config.txt` yang dibaca kserv.lua (Sider) untuk satu kit. Form mengikuti
+menu dan batas nilai kserv; *Edit sebagai teks* menampilkan isi filenya langsung. *Impor config.txt* memuat config yang
+sudah ada dan menjaga komentar serta key yang tidak ada di form. Nama file ditulis tanpa `.ftex`: kserv hanya memakai
+file di folder kit itu sendiri, dan nama kosong atau file yang tidak ada berarti game memakai file bawaannya.
+
+*Simpan ke folder kit…* meminta folder kit (misalnya `content/kit-server/<tim>/p1`) lalu menulis `config.txt` dan
+`<KitFile>.ftex` ke sana, dengan konfirmasi sebelum menimpa. Kit tidak otomatis ditambahkan ke `order.ini` atau
+`map.txt`; tambahkan sendiri.
+
 ## 9. Proyek, autosave, bahasa
 
 - Pekerjaanmu disimpan otomatis di penyimpanan browser / aplikasi. *File → Simpan proyek…* menyimpan proyek

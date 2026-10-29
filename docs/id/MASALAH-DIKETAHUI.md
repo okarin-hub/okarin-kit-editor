@@ -74,3 +74,11 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 | 32 | P3 | PSD dari template PES 2019 punya tata letak berbeda dari tekstur 2021, sehingga banyak layer jatuh di bagian yang salah; perbaiki dari laporan setelah konversi. |
 | 33 | P3 | Impor PSD / PNG yang gagal di tengah meninggalkan folder kosong di `library/templates`; hapus manual. |
 | 34 | P3 | Pemisahan PNG per warna pada desain bermotif halftone atau dither masih bisa menghasilkan banyak potongan kecil. Naikkan toleransi warna. |
+
+## Kitserver (belum dirilis)
+
+| # | Pri | Masalah |
+|---|---|---|
+| 35 | P2 | Config kitserver dan *Simpan ke folder kit* baru diuji di browser, belum dengan kserv di dalam game atau dialog folder di aplikasi desktop. |
+| 36 | P3 | config.txt disimpan per browser/aplikasi, bukan di file proyek: membuka proyek lain tetap memakai config yang sekarang. |
+| 37 | P3 | **Eksperimental:** editor config.txt hanya menulis file. Nilainya (posisi nama/nomor, badge, model kerah dan baju) tidak tampil di pratinjau 2D/3D: posisi memakai satuan game yang masih perlu dikalibrasi dari screenshot di game, dan model kerah/baju adalah mesh game yang tidak dimiliki app. |

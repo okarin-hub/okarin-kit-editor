@@ -4,6 +4,7 @@
 
 ## Belum dirilis
 
+- **Editor config.txt kitserver (eksperimental)** (*File → Kitserver (config.txt)…*): semua pengaturan yang dibaca kserv.lua (model baju dan kerah, posisi nama dan nomor, nomor celana, warna kit, badge lengan, nama file tekstur) dengan batas nilai dari kserv 1.13; nilai di luar batas ditandai. *Impor config.txt* membuka config yang sudah ada dan menjaga komentar, urutan, dan key yang tidak dikenal; *Ambil warna dari kit* mengisi warna dari warna bagian kit. *Simpan ke folder kit…* menulis `config.txt` dan tekstur kit (FTEX DXT5 dengan mipmap, tanpa nama/nomor) ke folder kit yang kamu pilih, dengan konfirmasi sebelum menimpa file; browser tanpa pemilih folder mengunduh kedua file itu.
 - **Tab Warna kini menjadi tab Kain** dan hanya berisi layer tekstur kain. Warna, palet, dan *Samakan* sebuah bagian terbuka di editor di bawah barisnya di tab Layer (klik nama atau roda gigi); klik bagian di canvas atau tombol fokusnya tetap di tab Layer, tidak lagi pindah ke tab lain.
 - **Nomor celana:** ditaruh di sisi kaki yang menghadap depan di bawah hem baju dan diputar 90° supaya terbaca tegak (kaki celana disimpan miring di tekstur, hem di x 0). Proyek yang masih memakai posisi bawaan lama dipindahkan otomatis. Ada slider baru *Ukuran Nomor Celana*.
 - **Nomor punggung:** slider ukuran sampai 220 px (sebelumnya 130) dan nomor bisa ditaruh lebih ke bawah di punggung (Y sampai 400).

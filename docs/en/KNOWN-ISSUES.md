@@ -74,3 +74,11 @@ welcome (see [Contributing](CONTRIBUTING.md)).
 | 32 | P3 | A PSD from the PES 2019 template has a different layout from the 2021 texture, so many layers land on the wrong part; fix them from the report after converting. |
 | 33 | P3 | A PSD / PNG import that fails halfway leaves an empty folder in `library/templates`; delete it by hand. |
 | 34 | P3 | PNG split-by-colour on a design with a halftone or dither pattern can still produce many small pieces. Raise the colour tolerance. |
+
+## Kitserver (unreleased)
+
+| # | Pri | Issue |
+|---|---|---|
+| 35 | P2 | The kitserver config and *Save to kit folder* have only been tested in the browser, not with kserv in the game or in the desktop app's folder dialog. |
+| 36 | P3 | The config.txt is kept per browser/app, not in the project file: opening another project keeps the current config. |
+| 37 | P3 | **Experimental:** the config.txt editor only writes the file. Its values (name/number positions, badges, collar and shirt models) are not shown in the 2D/3D preview: the positions are game units that still need calibrating from in-game screenshots, and the collar/shirt models are game meshes the app does not have. |

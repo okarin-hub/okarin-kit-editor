@@ -1,7 +1,7 @@
 'use client';
 
 import { DEFAULT_FABRIC_CONFIG } from '@/components/ui/FabricLayersPanel';
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type Konva from 'konva';
 import Navbar from '@/components/ui/Navbar';
 import { ToolRail, ToolId } from '@/components/ui/ToolRail';
@@ -34,13 +34,15 @@ import {
   KitZoneDef,
   Pt,
 } from '@/types/kit';
-import { KitProject, ExportSettings } from '@/types/project';
+import { KitProject, ExportSettings, ExportTextureResolution, ExportDdsFormat } from '@/types/project';
 import { DEFAULT_PART_CONFIG, DEFAULT_CREDIT_CONFIG, PRESET_KITS, KitPreset } from '@/constants/presets';
 import { PES_2021_PARTS, PART_MAP, CANVAS_TEXTURE_SIZE, SHORTS_NUMBER_POS, migrateMarkings } from '@/constants/pes2021Parts';
 import { bakeZone, simplifyPath, zoneHitTest } from '@/utils/zoneGeometry';
 import DrawBar from '@/components/ui/DrawBar';
 import ImportPsdModal from '@/components/ui/ImportPsdModal';
 import ImportPngModal from '@/components/ui/ImportPngModal';
+import KitConfigModal from '@/components/ui/KitConfigModal';
+import { DEFAULT_KIT_CONFIG } from '@/utils/kitConfig';
 import {
   saveAutosaveState,
   loadAutosaveState,
@@ -52,6 +54,8 @@ import {
   loadTemplateState,
   getLocalProjectsList,
   downloadPeskitFile,
+  saveKitConfigText,
+  loadKitConfigText,
 } from '@/services/storageService';
 import { generateKitTexture, generateShowcaseCard, renderKitCanvas, preloadImage } from '@/utils/textureGenerator';
 import { encodeDDS } from '@/utils/ddsEncoder';
@@ -106,6 +110,8 @@ export default function Home() {
 
   // Modals state
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isKitConfigOpen, setIsKitConfigOpen] = useState(false);
+  const [kitConfigText, setKitConfigText] = useState<string>(DEFAULT_KIT_CONFIG);
   const [isProjectsModalOpen, setIsProjectsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [helpKind, setHelpKind] = useState<HelpKind | null>(null);
@@ -1011,6 +1017,39 @@ export default function Home() {
     setSavedCount(getLocalProjectsList().length);
   }, []);
 
+  // Kit texture as DDS, optionally wrapped as FTEX (shared by Export and the kitserver folder)
+  const buildGameTexture = useCallback(
+    async (resolution: ExportTextureResolution, includeMarkings: boolean, ddsFormat: ExportDdsFormat, mipmaps: boolean, ftex: boolean) => {
+      const canvas = renderKitCanvas(partsConfig, graphicItems, markings, includeMarkings, resolution, fabricConfig, activeBase, patternMask, tplBundle);
+      const ctx = canvas?.getContext('2d');
+      if (!canvas || !ctx) return null;
+      const dds = encodeDDS(ctx.getImageData(0, 0, canvas.width, canvas.height), ddsFormat, mipmaps);
+      return ftex ? await encodeFtex(dds) : dds;
+    },
+    [partsConfig, graphicItems, markings, fabricConfig, baseTexture, patternMask, tplBundle]
+  );
+
+  useEffect(() => {
+    const saved = loadKitConfigText();
+    if (saved) setKitConfigText(saved);
+  }, []);
+  useEffect(() => saveKitConfigText(kitConfigText), [kitConfigText]);
+
+  // config.txt colour keys taken from the kit's parts
+  const kitConfigColors = useMemo(() => {
+    const shirt1 = partsConfig.front.color;
+    const shirt2 = partsConfig.front.patternColor || partsConfig.leftSleeve.color;
+    return {
+      ShirtColor1: shirt1,
+      ShirtColor2: shirt2,
+      UndershirtColor: partsConfig.leftSleeve.color,
+      ShortsColor: partsConfig.leftShorts.color,
+      SocksColor: partsConfig.leftSock.color,
+      UniColor_Color1: shirt1,
+      UniColor_Color2: shirt2,
+    };
+  }, [partsConfig]);
+
   // Advanced Export Executor
   const handlePerformExport = useCallback(async (settings: ExportSettings) => {
     const download = (dataUrl: string, filename: string) => {
@@ -1061,34 +1100,21 @@ export default function Home() {
     }
 
     if (settings.fileFormat === 'dds' || settings.fileFormat === 'ftex') {
-      const canvas = renderKitCanvas(
-        partsConfig,
-        graphicItems,
-        markings,
-        settings.includeMarkings,
-        settings.resolution,
-        fabricConfig,
-        activeBase,
-        patternMask,
-        tplBundle
-      );
-      const ctx = canvas?.getContext('2d');
-      if (!canvas || !ctx) return;
-      const dds = encodeDDS(
-        ctx.getImageData(0, 0, canvas.width, canvas.height),
-        settings.ddsFormat,
-        settings.ddsMipmaps
-      );
-      let fileBytes: Uint8Array = dds;
-      if (settings.fileFormat === 'ftex') {
-        try {
-          fileBytes = await encodeFtex(dds);
-        } catch (err) {
-          console.error('FTEX export failed', err);
-          alert('Gagal membuat file FTEX. Coba format DXT1 atau DXT5.');
-          return;
-        }
+      let fileBytes: Uint8Array | null;
+      try {
+        fileBytes = await buildGameTexture(
+          settings.resolution,
+          settings.includeMarkings,
+          settings.ddsFormat,
+          settings.ddsMipmaps,
+          settings.fileFormat === 'ftex'
+        );
+      } catch (err) {
+        console.error('FTEX export failed', err);
+        alert('Gagal membuat file FTEX. Coba format DXT1 atau DXT5.');
+        return;
       }
+      if (!fileBytes) return;
       const url = URL.createObjectURL(new Blob([fileBytes as BlobPart], { type: 'application/octet-stream' }));
       download(url, `${settings.filename}.${settings.fileFormat}`);
       setTimeout(() => URL.revokeObjectURL(url), 10000);
@@ -1109,7 +1135,7 @@ export default function Home() {
     );
 
     if (dataUrl) download(dataUrl, `${settings.filename}.png`);
-  }, [partsConfig, graphicItems, markings, fabricConfig, baseTexture, patternMask, tplBundle]);
+  }, [partsConfig, graphicItems, markings, fabricConfig, baseTexture, patternMask, tplBundle, buildGameTexture]);
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0d1017]">
@@ -1119,6 +1145,7 @@ export default function Home() {
         viewState={viewState}
         onToggleView={(key) => setViewState((prev) => ({ ...prev, [key]: !prev[key] }))}
         onOpenExportModal={() => setIsExportModalOpen(true)}
+        onOpenKitConfig={() => setIsKitConfigOpen(true)}
         onOpenProjectsModal={() => setIsProjectsModalOpen(true)}
         onOpenImportModal={() => setIsImportModalOpen(true)}
         hasImportedDesign={!!baseTexture}
@@ -1400,6 +1427,15 @@ export default function Home() {
         onClose={() => setIsExportModalOpen(false)}
         onExport={handlePerformExport}
         defaultProjectName="pes2021_kit"
+      />
+
+      <KitConfigModal
+        isOpen={isKitConfigOpen}
+        onClose={() => setIsKitConfigOpen(false)}
+        configText={kitConfigText}
+        onChange={setKitConfigText}
+        kitColors={kitConfigColors}
+        buildKitFtex={(res) => buildGameTexture(res, false, 'dxt5', true, true)}
       />
 
       {/* PSD template import */}

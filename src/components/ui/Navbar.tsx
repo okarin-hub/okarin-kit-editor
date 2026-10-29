@@ -19,6 +19,7 @@ import {
   DownloadCloud,
   Heart,
   Info,
+  FileCog,
 } from 'lucide-react';
 import { PRESET_KITS, KitPreset } from '@/constants/presets';
 import { CanvasViewState } from '@/types/kit';
@@ -29,6 +30,7 @@ import type { HelpKind } from '@/components/ui/HelpDialogs';
 
 interface NavbarProps {
   onOpenExportModal: () => void;
+  onOpenKitConfig: () => void;
   onOpenProjectsModal: () => void;
   onOpenImportModal: () => void;
   hasImportedDesign: boolean;
@@ -48,6 +50,7 @@ interface NavbarProps {
 /** Application menu bar: File, Edit, View, Preset and Settings (with the language choice). */
 export const Navbar: React.FC<NavbarProps> = ({
   onOpenExportModal,
+  onOpenKitConfig,
   onOpenProjectsModal,
   onOpenImportModal,
   hasImportedDesign,
@@ -141,6 +144,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                 label="Export kit…"
                 title="Download tekstur kit PNG atau file proyek"
                 onClick={run(close, onOpenExportModal)}
+              />
+              <MenuItem
+                icon={<FileCog className="w-3.5 h-3.5" />}
+                label="Kitserver (config.txt)… (eksperimental)"
+                title="Atur config.txt kitserver dan simpan folder kit"
+                onClick={run(close, onOpenKitConfig)}
               />
             </>
           )}
