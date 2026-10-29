@@ -133,6 +133,14 @@ inside the kit's own folder, and an empty name or a missing file means the game'
 *Save to kit folder…* asks for the kit folder (for example `content/kit-server/<team>/p1`) and writes `config.txt` and
 `<KitFile>.ftex` there. It asks before overwriting. The kit is not added to `order.ini` or `map.txt`; do that yourself.
 
+### Fontset generator – experimental
+
+*File → Fontset generator…* makes the number and name font files kitserver reads. Pick a font, fill colour and
+outline for the numbers and for the name; the preview shows each texture with its character slots (blue) and the
+letter top and baseline (red). *Save to kit folder…* writes `<prefix>_back`, `_chest`, `_leg`, `_name` and `_name_ex`
+`.ftex` files and, with *Also write config.txt*, the config with those names filled in. The prefix defaults to the
+KitFile name.
+
 ## 9. Projects, autosave, languages
 
 - Your work is autosaved in the browser / app storage. *File → Save project…* keeps named projects or downloads a

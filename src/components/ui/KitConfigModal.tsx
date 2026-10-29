@@ -12,6 +12,7 @@ import {
   kitConfigToFile,
 } from '@/utils/kitConfig';
 import { ExportTextureResolution } from '@/types/project';
+import { downloadFile as download, saveFilesToFolder } from '@/utils/folderSave';
 
 interface KitConfigModalProps {
   isOpen: boolean;
@@ -23,17 +24,6 @@ interface KitConfigModalProps {
   /** the kit texture as FTEX (DXT5 + mipmaps), without names/numbers */
   buildKitFtex: (resolution: ExportTextureResolution) => Promise<Uint8Array | null>;
 }
-
-const download = (bytes: BlobPart, name: string) => {
-  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-};
 
 /** Editor for the kitserver config.txt of one kit, and saving the kit folder (config.txt + kit .ftex). */
 export const KitConfigModal: React.FC<KitConfigModalProps> = ({
@@ -76,34 +66,13 @@ export const KitConfigModal: React.FC<KitConfigModalProps> = ({
     try {
       const ftex = await buildKitFtex(resolution);
       if (!ftex) throw new Error('tekstur kit gagal dibuat');
-      const picker = (window as unknown as { showDirectoryPicker?: (o: object) => Promise<FileSystemDirectoryHandle> })
-        .showDirectoryPicker;
-      if (!picker) {
-        // browsers without the folder picker: hand over the two files
-        download(kitConfigToFile(configText), 'config.txt');
-        download(ftex as BlobPart, `${kitFile}.ftex`);
-        setStatus(`config.txt dan ${kitFile}.ftex diunduh. Taruh keduanya di folder kit (misalnya p1).`);
-        return;
-      }
-      const dir = await picker({ mode: 'readwrite', id: 'kitserver-kit' });
-      const exists = async (name: string) => dir.getFileHandle(name).then(() => true, () => false);
-      const names = ['config.txt', `${kitFile}.ftex`];
-      const existing = (await Promise.all(names.map(exists))).map((e, i) => (e ? names[i] : null)).filter(Boolean);
-      if (existing.length && !confirm(`Folder "${dir.name}" sudah berisi ${existing.join(' dan ')}. Timpa?`)) {
-        setStatus('Dibatalkan, tidak ada file yang ditulis.');
-        return;
-      }
-      const write = async (name: string, data: BlobPart) => {
-        const w = await (await dir.getFileHandle(name, { create: true })).createWritable();
-        await w.write(new Blob([data]));
-        await w.close();
-      };
-      await write('config.txt', kitConfigToFile(configText));
-      await write(`${kitFile}.ftex`, ftex as BlobPart);
-      setStatus(`Tersimpan di folder "${dir.name}": config.txt dan ${kitFile}.ftex.`);
+      const msg = await saveFilesToFolder([
+        { name: 'config.txt', data: kitConfigToFile(configText) },
+        { name: `${kitFile}.ftex`, data: ftex as BlobPart },
+      ]);
+      setStatus(msg);
     } catch (err) {
-      if ((err as Error)?.name === 'AbortError') setStatus(null);
-      else setStatus(`Gagal menyimpan: ${(err as Error)?.message || err}`);
+      setStatus(`Gagal menyimpan: ${(err as Error)?.message || err}`);
     } finally {
       setBusy(false);
     }

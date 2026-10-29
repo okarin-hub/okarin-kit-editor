@@ -82,3 +82,5 @@ welcome (see [Contributing](CONTRIBUTING.md)).
 | 35 | P2 | The kitserver config and *Save to kit folder* have only been tested in the browser, not with kserv in the game or in the desktop app's folder dialog. |
 | 36 | P3 | The config.txt is kept per browser/app, not in the project file: opening another project keeps the current config. |
 | 37 | P3 | **Experimental:** the config.txt editor only writes the file. Its values (name/number positions, badges, collar and shirt models) are not shown in the 2D/3D preview: the positions are game units that still need calibrating from in-game screenshots, and the collar/shirt models are game meshes the app does not have. |
+| 38 | P2 | **Experimental:** the fontset generator has not been tested in the game. The character slots come from modder templates (three fontsets agree to ±5 px), not from the game files; one slot of the `_ex` file (between Ę and Ğ) is empty in every sample and is left empty. |
+| 39 | P3 | A character missing from the chosen font is drawn with a fallback font; the check compares shapes and can miss a fallback that looks the same. Letters wider than their slot are squeezed sideways. |

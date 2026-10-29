@@ -82,3 +82,5 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 | 35 | P2 | Config kitserver dan *Simpan ke folder kit* baru diuji di browser, belum dengan kserv di dalam game atau dialog folder di aplikasi desktop. |
 | 36 | P3 | config.txt disimpan per browser/aplikasi, bukan di file proyek: membuka proyek lain tetap memakai config yang sekarang. |
 | 37 | P3 | **Eksperimental:** editor config.txt hanya menulis file. Nilainya (posisi nama/nomor, badge, model kerah dan baju) tidak tampil di pratinjau 2D/3D: posisi memakai satuan game yang masih perlu dikalibrasi dari screenshot di game, dan model kerah/baju adalah mesh game yang tidak dimiliki app. |
+| 38 | P2 | **Eksperimental:** generator fontset belum diuji di game. Slot karakter diambil dari template modder (tiga fontset cocok sampai ±5 px), bukan dari file game; satu slot di file `_ex` (antara Ę dan Ğ) kosong di semua sampel dan dibiarkan kosong. |
+| 39 | P3 | Karakter yang tidak ada di font yang dipilih digambar dengan font cadangan; pengecekannya membandingkan bentuk dan bisa terlewat kalau font cadangannya mirip. Huruf yang lebih lebar dari slotnya dipersempit ke samping. |

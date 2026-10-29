@@ -42,6 +42,7 @@ import DrawBar from '@/components/ui/DrawBar';
 import ImportPsdModal from '@/components/ui/ImportPsdModal';
 import ImportPngModal from '@/components/ui/ImportPngModal';
 import KitConfigModal from '@/components/ui/KitConfigModal';
+import FontsetModal from '@/components/ui/FontsetModal';
 import { DEFAULT_KIT_CONFIG } from '@/utils/kitConfig';
 import {
   saveAutosaveState,
@@ -111,6 +112,7 @@ export default function Home() {
   // Modals state
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isKitConfigOpen, setIsKitConfigOpen] = useState(false);
+  const [isFontsetOpen, setIsFontsetOpen] = useState(false);
   const [kitConfigText, setKitConfigText] = useState<string>(DEFAULT_KIT_CONFIG);
   const [isProjectsModalOpen, setIsProjectsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -1146,6 +1148,7 @@ export default function Home() {
         onToggleView={(key) => setViewState((prev) => ({ ...prev, [key]: !prev[key] }))}
         onOpenExportModal={() => setIsExportModalOpen(true)}
         onOpenKitConfig={() => setIsKitConfigOpen(true)}
+        onOpenFontset={() => setIsFontsetOpen(true)}
         onOpenProjectsModal={() => setIsProjectsModalOpen(true)}
         onOpenImportModal={() => setIsImportModalOpen(true)}
         hasImportedDesign={!!baseTexture}
@@ -1436,6 +1439,14 @@ export default function Home() {
         onChange={setKitConfigText}
         kitColors={kitConfigColors}
         buildKitFtex={(res) => buildGameTexture(res, false, 'dxt5', true, true)}
+      />
+
+      <FontsetModal
+        isOpen={isFontsetOpen}
+        onClose={() => setIsFontsetOpen(false)}
+        library={library}
+        configText={kitConfigText}
+        onConfigChange={setKitConfigText}
       />
 
       {/* PSD template import */}

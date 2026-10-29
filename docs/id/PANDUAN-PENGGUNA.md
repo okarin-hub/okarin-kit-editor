@@ -135,6 +135,13 @@ file di folder kit itu sendiri, dan nama kosong atau file yang tidak ada berarti
 `<KitFile>.ftex` ke sana, dengan konfirmasi sebelum menimpa. Kit tidak otomatis ditambahkan ke `order.ini` atau
 `map.txt`; tambahkan sendiri.
 
+### Generator fontset – eksperimental
+
+*File → Generator fontset…* membuat file font nomor dan nama yang dibaca kitserver. Pilih font, warna isi, dan outline
+untuk nomor dan untuk nama; pratinjau menampilkan setiap tekstur dengan slot karakter (biru) serta batas atas huruf dan
+garis dasar (merah). *Simpan ke folder kit…* menulis file `<awalan>_back`, `_chest`, `_leg`, `_name`, dan `_name_ex`
+`.ftex`, dan dengan *Tulis config.txt juga*, config yang sudah berisi nama-nama itu. Awalan bawaannya nama KitFile.
+
 ## 9. Proyek, autosave, bahasa
 
 - Pekerjaanmu disimpan otomatis di penyimpanan browser / aplikasi. *File → Simpan proyek…* menyimpan proyek

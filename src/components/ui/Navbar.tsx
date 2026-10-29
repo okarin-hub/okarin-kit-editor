@@ -20,6 +20,7 @@ import {
   Heart,
   Info,
   FileCog,
+  Type,
 } from 'lucide-react';
 import { PRESET_KITS, KitPreset } from '@/constants/presets';
 import { CanvasViewState } from '@/types/kit';
@@ -31,6 +32,7 @@ import type { HelpKind } from '@/components/ui/HelpDialogs';
 interface NavbarProps {
   onOpenExportModal: () => void;
   onOpenKitConfig: () => void;
+  onOpenFontset: () => void;
   onOpenProjectsModal: () => void;
   onOpenImportModal: () => void;
   hasImportedDesign: boolean;
@@ -51,6 +53,7 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   onOpenExportModal,
   onOpenKitConfig,
+  onOpenFontset,
   onOpenProjectsModal,
   onOpenImportModal,
   hasImportedDesign,
@@ -150,6 +153,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                 label="Kitserver (config.txt)… (eksperimental)"
                 title="Atur config.txt kitserver dan simpan folder kit"
                 onClick={run(close, onOpenKitConfig)}
+              />
+              <MenuItem
+                icon={<Type className="w-3.5 h-3.5" />}
+                label="Generator fontset… (eksperimental)"
+                title="Buat file font nomor dan nama untuk kitserver"
+                onClick={run(close, onOpenFontset)}
               />
             </>
           )}
