@@ -64,12 +64,14 @@ export const KitConfigModal: React.FC<KitConfigModalProps> = ({
     setBusy(true);
     setStatus('Membuat tekstur kit…');
     try {
-      const ftex = await buildKitFtex(resolution);
-      if (!ftex) throw new Error('tekstur kit gagal dibuat');
-      const msg = await saveFilesToFolder([
-        { name: 'config.txt', data: kitConfigToFile(configText) },
-        { name: `${kitFile}.ftex`, data: ftex as BlobPart },
-      ]);
+      const msg = await saveFilesToFolder(async () => {
+        const ftex = await buildKitFtex(resolution);
+        if (!ftex) throw new Error('tekstur kit gagal dibuat');
+        return [
+          { name: 'config.txt', data: kitConfigToFile(configText) },
+          { name: `${kitFile}.ftex`, data: ftex as BlobPart },
+        ];
+      });
       setStatus(msg);
     } catch (err) {
       setStatus(`Gagal menyimpan: ${(err as Error)?.message || err}`);
@@ -155,7 +157,7 @@ export const KitConfigModal: React.FC<KitConfigModalProps> = ({
                       <div key={f.key} className="grid grid-cols-[1fr_9rem] items-center gap-2" title={f.key}>
                         <span className={`text-[11px] truncate ${issue ? 'text-amber-300' : 'text-slate-400'}`}>
                           {f.label}
-                          {issue && <span className="text-[10px]"> ({issue})</span>}
+                          {issue && <span className="text-[10px]">{` (${issue})`}</span>}
                         </span>
                         {f.options ? (
                           <select value={v === '' && f.def !== undefined ? String(f.def) : v} onChange={(e) => set(f.key, e.target.value)} className={input}>

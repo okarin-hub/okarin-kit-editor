@@ -75,12 +75,14 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 | 33 | P3 | Impor PSD / PNG yang gagal di tengah meninggalkan folder kosong di `library/templates`; hapus manual. |
 | 34 | P3 | Pemisahan PNG per warna pada desain bermotif halftone atau dither masih bisa menghasilkan banyak potongan kecil. Naikkan toleransi warna. |
 
-## Kitserver (belum dirilis)
+## Kitserver dan fontset (ditambahkan di 0.2.0)
 
 | # | Pri | Masalah |
 |---|---|---|
-| 35 | P2 | Config kitserver dan *Simpan ke folder kit* baru diuji di browser, belum dengan kserv di dalam game atau dialog folder di aplikasi desktop. |
+| 35 | P3 | Config kitserver dan font FTEX sudah diuji dengan kserv di PES 2021, tetapi *Simpan ke folder kit* belum dicoba di dialog folder aplikasi desktop. |
 | 36 | P3 | config.txt disimpan per browser/aplikasi, bukan di file proyek: membuka proyek lain tetap memakai config yang sekarang. |
 | 37 | P3 | **Eksperimental:** editor config.txt hanya menulis file. Nilainya (posisi nama/nomor, badge, model kerah dan baju) tidak tampil di pratinjau 2D/3D: posisi memakai satuan game yang masih perlu dikalibrasi dari screenshot di game, dan model kerah/baju adalah mesh game yang tidak dimiliki app. |
-| 38 | P2 | **Eksperimental:** generator fontset belum diuji di game. Slot karakter diambil dari template modder (tiga fontset cocok sampai ±5 px), bukan dari file game; satu slot di file `_ex` (antara Ę dan Ğ) kosong di semua sampel dan dibiarkan kosong. |
+| 38 | P3 | **Eksperimental:** output FTEX generator fontset sudah diuji di PES 2021 (nomor dan nama tampil di game); output DDS-nya belum diuji. Slot karakter diambil dari template modder (tiga fontset cocok sampai ±5 px), bukan dari file game; satu slot di file `_ex` (antara Ę dan Ğ) kosong di semua sampel dan dibiarkan kosong. |
 | 39 | P3 | Karakter yang tidak ada di font yang dipilih digambar dengan font cadangan; pengecekannya membandingkan bentuk dan bisa terlewat kalau font cadangannya mirip. Huruf yang lebih lebar dari slotnya dipersempit ke samping. |
+| 40 | P3 | Import gambar font: huruf yang menempel dipisah di kolom paling tipis, yang bisa memotong sedikit salah satunya; pengenalan membandingkan bentuk dengan font umum dan mengandalkan urutan alfabet di gambar, jadi huruf yang sangat dekoratif atau gambar yang urutannya acak perlu dikoreksi lewat teks baris. Pada latar yang sangat ramai (garis neon, cahaya) pemisahan otomatis masih bisa mengambil potongan latar: pakai *Pilih huruf* di jendela import. Pola juga menutupi outline. Huruf yang diperbesar berkali-kali dari gambar kecil sudutnya sedikit membulat, dan garis yang lebih tipis dari sekitar satu piksel sumber bisa hilang. Huruf beraksen belum dirakit dari gambar (diambil dari font cadangan). |
+| 41 | P2 | **Huruf dari gambar belum mulus sepenuhnya.** Huruf yang diperbesar banyak dari gambar kecil, atau dipotong dari latar yang ramai, masih bisa terlihat sedikit kasar tepinya setelah dihaluskan. Pakai gambar terbesar dan terbersih yang kamu punya. |

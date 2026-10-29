@@ -75,12 +75,14 @@ welcome (see [Contributing](CONTRIBUTING.md)).
 | 33 | P3 | A PSD / PNG import that fails halfway leaves an empty folder in `library/templates`; delete it by hand. |
 | 34 | P3 | PNG split-by-colour on a design with a halftone or dither pattern can still produce many small pieces. Raise the colour tolerance. |
 
-## Kitserver (unreleased)
+## Kitserver and fontsets (added in 0.2.0)
 
 | # | Pri | Issue |
 |---|---|---|
-| 35 | P2 | The kitserver config and *Save to kit folder* have only been tested in the browser, not with kserv in the game or in the desktop app's folder dialog. |
+| 35 | P3 | The kitserver config and the FTEX fonts were tested with kserv in PES 2021, but *Save to kit folder* was not tried in the desktop app's own folder dialog. |
 | 36 | P3 | The config.txt is kept per browser/app, not in the project file: opening another project keeps the current config. |
 | 37 | P3 | **Experimental:** the config.txt editor only writes the file. Its values (name/number positions, badges, collar and shirt models) are not shown in the 2D/3D preview: the positions are game units that still need calibrating from in-game screenshots, and the collar/shirt models are game meshes the app does not have. |
-| 38 | P2 | **Experimental:** the fontset generator has not been tested in the game. The character slots come from modder templates (three fontsets agree to ±5 px), not from the game files; one slot of the `_ex` file (between Ę and Ğ) is empty in every sample and is left empty. |
+| 38 | P3 | **Experimental:** the fontset generator's FTEX output was tested in PES 2021 (numbers and name show in the game); its DDS output is not tested. The character slots come from modder templates (three fontsets agree to ±5 px), not from the game files; one slot of the `_ex` file (between Ę and Ğ) is empty in every sample and is left empty. |
 | 39 | P3 | A character missing from the chosen font is drawn with a fallback font; the check compares shapes and can miss a fallback that looks the same. Letters wider than their slot are squeezed sideways. |
+| 40 | P3 | Font sheet import: letters that touch are split at the thinnest column, which can cut a little off one of them; recognition compares shapes with common fonts and relies on the sheet being in alphabet order, so very decorative letters or a shuffled sheet need the row text corrected by hand. On a very busy background (neon lines, glow) the automatic cut can still pick up background pieces: use *Pick letters* in the import dialog. A pattern also covers the outline. Letters enlarged many times from a small picture get slightly rounded corners and lose strokes thinner than about one source pixel. Accented letters are not built from the sheet yet (they come from the fallback font). |
+| 41 | P2 | **Letters taken from a picture are not fully smooth yet.** Letters enlarged a lot from a small picture, or cut from a busy background, can still show slightly rough edges after the smoothing. Use the largest, cleanest picture you have. |

@@ -17,23 +17,27 @@ export const downloadFile = (data: BlobPart, name: string) => {
 };
 
 /**
- * Asks for a folder and writes `files` into it, confirming before any existing file is overwritten.
- * Returns a status line, or null when the user closed the folder dialog.
+ * Asks for a folder, then makes the files with `build` and writes them into it, confirming before any existing
+ * file is overwritten. The folder is asked first: the browser only opens the picker right after a click, and
+ * building textures can take longer than that. Returns a status line, or null when the folder dialog was closed.
  */
-export async function saveFilesToFolder(files: OutFile[], pickerId = 'kitserver-kit'): Promise<string | null> {
-  const names = files.map((f) => f.name).join(', ');
+export async function saveFilesToFolder(build: () => Promise<OutFile[]>, pickerId = 'kitserver-kit'): Promise<string | null> {
   const picker = (window as unknown as { showDirectoryPicker?: (o: object) => Promise<FileSystemDirectoryHandle> })
     .showDirectoryPicker;
-  if (!picker) {
+  let dir: FileSystemDirectoryHandle | null = null;
+  if (picker) {
+    try {
+      dir = await picker({ mode: 'readwrite', id: pickerId });
+    } catch (err) {
+      if ((err as Error)?.name === 'AbortError') return null;
+      throw err;
+    }
+  }
+  const files = await build();
+  const names = files.map((f) => f.name).join(', ');
+  if (!dir) {
     files.forEach((f) => downloadFile(f.data, f.name));
     return `Diunduh: ${names}. Taruh di folder kit (misalnya p1).`;
-  }
-  let dir: FileSystemDirectoryHandle;
-  try {
-    dir = await picker({ mode: 'readwrite', id: pickerId });
-  } catch (err) {
-    if ((err as Error)?.name === 'AbortError') return null;
-    throw err;
   }
   const exists = await Promise.all(files.map((f) => dir.getFileHandle(f.name).then(() => true, () => false)));
   const existing = files.filter((_, i) => exists[i]).map((f) => f.name);

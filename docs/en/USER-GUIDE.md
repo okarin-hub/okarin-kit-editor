@@ -141,6 +141,13 @@ letter top and baseline (red). *Save to kit folder…* writes `<prefix>_back`, `
 `.ftex` files and, with *Also write config.txt*, the config with those names filled in. The prefix defaults to the
 KitFile name.
 
+*Import font sheet…* takes a picture of the letters and/or digits instead of a font (PNG, JPG…). A dialog first
+shows the picture: drag a box around the part to use, tick *See the separation* to check the cut-out, and on a busy
+background pick the background and letter colours. Each character is recognised and the row
+is matched to the alphabet order; the row shows every piece with its reading (yellow = unsure or skipped). Fix a reading
+in the row's text: one character per piece, `_` to skip one. Characters the picture does not have
+(the full stop, accented letters) come from the font chosen below it. *Logo on the numbers* puts a badge on every digit.
+
 ## 9. Projects, autosave, languages
 
 - Your work is autosaved in the browser / app storage. *File → Save project…* keeps named projects or downloads a

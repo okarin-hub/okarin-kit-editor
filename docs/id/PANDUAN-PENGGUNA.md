@@ -142,6 +142,13 @@ untuk nomor dan untuk nama; pratinjau menampilkan setiap tekstur dengan slot kar
 garis dasar (merah). *Simpan ke folder kit…* menulis file `<awalan>_back`, `_chest`, `_leg`, `_name`, dan `_name_ex`
 `.ftex`, dan dengan *Tulis config.txt juga*, config yang sudah berisi nama-nama itu. Awalan bawaannya nama KitFile.
 
+*Import gambar font…* memakai gambar huruf dan/atau angka sebagai pengganti font (PNG, JPG…). Jendela import
+menampilkan gambarnya dulu: tarik kotak di bagian yang dipakai, centang *Lihat hasil pemisahan* untuk mengecek
+potongannya, dan pada latar yang ramai pilih warna latar dan warna huruf. Setiap karakter dikenali dan barisnya
+dicocokkan dengan urutan alfabet; baris menampilkan setiap potongan dengan hasil bacaannya (kuning = kurang yakin atau
+dilewati). Koreksi lewat teks baris: satu karakter per potongan, `_` untuk melewati. Karakter yang tidak ada di gambar
+(titik, huruf beraksen) diambil dari font yang dipilih di bawahnya. *Logo di nomor* menaruh badge di setiap angka.
+
 ## 9. Proyek, autosave, bahasa
 
 - Pekerjaanmu disimpan otomatis di penyimpanan browser / aplikasi. *File → Simpan proyek…* menyimpan proyek

@@ -2,13 +2,58 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
-## Belum dirilis
+## 0.2.0 — kitserver: config.txt, fontset, dan tab Layer yang lebih ringkas
 
-- **Generator fontset (eksperimental)** (*File → Generator fontset…*): membuat tekstur font nomor dan nama kitserver dari font apa pun (bawaan, `library/fonts`, atau yang terpasang di PC) dengan warna isi dan outline. Nomor punggung 4096×512, nomor dada dan celana 2048×256, font nama 2048×512, dan file `_ex` berisi huruf beraksen 2048×1024. Setiap karakter ditaruh di slot tetap yang diukur dari template modder, dengan skala dan garis dasar yang sama; aksen yang lebih tinggi dari ruang di atas huruf dipadatkan, tidak dipotong. Karakter yang tidak ada di font ditampilkan. *Simpan ke folder kit…* menulis file `.ftex` dan mengisi namanya ke config.txt.
+Font nomor dan nama dari generator fontset sudah diuji di PES 2021 dalam format FTEX dan tampil di game. Output
+DDS dari generator belum diuji di game.
+
+**Semua yang bisa dilakukan editor di 0.2.0**
+- **Canvas dan 3D:** canvas 2D dan pratinjau 3D dengan satu renderer yang sama untuk 2D, 3D, dan export; bentuk
+  potongan asli, tekstur 3D tanpa sambungan, lengan sampai bahu atau tanpa bahu; navigasi bebas dan pintasan bagian;
+  tampilan split.
+- **Bagian dan warna:** tab Layer berisi setiap bagian dengan editor warnanya (kode warna, palet, *Samakan* depan ↔
+  belakang / kiri ↔ kanan) dan lisnya; warna latar; warna bagian atau desain impor sebagai dasar.
+- **Pola dan kain:** layer pola (jenis, warna, skala, ketebalan, opasitas, geser, rotasi, cermin / simetri, bagian,
+  urutan) dan layer tekstur kain di tab Kain (mesh bawaan atau tile sendiri dari `library/textures`).
+- **Layer dan alat:** garis jahitan (titik atau bebas), bentuk bebas / titik, zona template, penghapus pola.
+- **Logo, nama, dan nomor:** logo dari `library/logos`, unggah, atau cari logo klub, dengan outline, gradasi, ganti
+  warna, preset, dan *Auto Align* untuk dada, punggung, lengan, celana, dan kaus kaki; nama pemain, nomor punggung,
+  dan nomor celana.
+- **Template:** template sendiri dari PSD atau PNG yang dipisah per warna (eksperimental), disimpan di
+  `library/templates`.
+- **Import dan export:** import desain jadi (PNG / JPG / WebP / DDS); export PNG, DDS, FTEX (sudah diuji di
+  PES 2021), file proyek, dan kartu showcase di 1024 / 2048 px.
+- **Kitserver (baru):** editor config.txt dan generator fontset untuk font nomor dan nama (di bawah).
+- **Antarmuka:** menu bar, rel alat, panel yang bisa dilipat; English, Bahasa Indonesia, Português, Español; bantuan,
+  pintasan, cek pembaruan.
+- **Build Windows** dengan Electron; folder library di samping exe awalnya kosong.
+
+**Baru**
+- **Generator fontset (eksperimental)** (*File → Generator fontset…*): membuat tekstur font nomor dan nama kitserver dari font apa pun (bawaan, `library/fonts`, atau yang terpasang di PC) dengan warna isi dan outline. Nomor punggung 4096×512, nomor dada dan celana 2048×256, font nama 2048×512, dan file `_ex` berisi huruf beraksen 2048×1024. Setiap karakter ditaruh di slot tetap yang diukur dari template modder, dengan skala dan garis dasar yang sama; aksen yang lebih tinggi dari ruang di atas huruf dipadatkan, tidak dipotong. Karakter yang tidak ada di font ditampilkan. *Simpan ke folder kit…* menulis file `.ftex` (atau DDS / PNG untuk diedit di aplikasi lain) dan mengisi namanya ke config.txt.
+  - **Dari gambar font:** import gambar huruf dan/atau angka — PNG, JPG, atau gambar apa pun. Sebelum dibaca, jendela import menampilkan gambarnya: tarik kotak untuk mengambil area yang diinginkan saja, dan lihat hasil pemisahan huruf dari latar (latar polos dikenali sendiri; untuk latar gradasi atau ramai pilih warna latar dan warna huruf lalu atur toleransi; bintik noise JPG dibuang). Dengan *Pilih huruf* tepi huruf tetap halus (setiap piksel tepi dibaca sebagai campuran warna huruf dan latar, tanpa sisa warna latar), dan huruf dari gambar kecil diperbesar dengan mulus tanpa tangga piksel. Baris dan karakter dicari otomatis (huruf yang menempel dipisah) dan setiap karakter **dikenali**: bentuknya dibandingkan dengan A–Z / 0–9 dari font umum lalu barisnya disejajarkan dengan urutan alfabet, sehingga huruf ganda dilewati dan huruf yang hilang dilaporkan tanpa menggeser sisanya. Setiap baris menampilkan karakternya dengan hasil bacaan di bawahnya (yang kurang yakin berwarna kuning) dan bisa dikoreksi; karakter yang tidak ada di gambar diambil dari font yang dipilih dengan warna gambar. Bisa ganti warna dan outline.
+  - **Logo di nomor:** badge klub atau liga (dari `library/logos` atau file) di setiap angka, dengan ukuran, posisi, opasitas, geser per angka (untuk angka yang tengahnya tidak simetris seperti 4 atau 7), dan opsi dipotong mengikuti bentuk angka; untuk nomor punggung, dada, dan/atau celana.
+  - **Pola di dalam huruf:** tile dari `library/patterns` di atas nomor dan/atau nama, diwarnai ulang atau dengan warna aslinya, dengan ukuran dan opasitas.
 - **Editor config.txt kitserver (eksperimental)** (*File → Kitserver (config.txt)…*): semua pengaturan yang dibaca kserv.lua (model baju dan kerah, posisi nama dan nomor, nomor celana, warna kit, badge lengan, nama file tekstur) dengan batas nilai dari kserv 1.13; nilai di luar batas ditandai. *Impor config.txt* membuka config yang sudah ada dan menjaga komentar, urutan, dan key yang tidak dikenal; *Ambil warna dari kit* mengisi warna dari warna bagian kit. *Simpan ke folder kit…* menulis `config.txt` dan tekstur kit (FTEX DXT5 dengan mipmap, tanpa nama/nomor) ke folder kit yang kamu pilih, dengan konfirmasi sebelum menimpa file; browser tanpa pemilih folder mengunduh kedua file itu.
 - **Tab Warna kini menjadi tab Kain** dan hanya berisi layer tekstur kain. Warna, palet, dan *Samakan* sebuah bagian terbuka di editor di bawah barisnya di tab Layer (klik nama atau roda gigi); klik bagian di canvas atau tombol fokusnya tetap di tab Layer, tidak lagi pindah ke tab lain.
 - **Nomor celana:** ditaruh di sisi kaki yang menghadap depan di bawah hem baju dan diputar 90° supaya terbaca tegak (kaki celana disimpan miring di tekstur, hem di x 0). Proyek yang masih memakai posisi bawaan lama dipindahkan otomatis. Ada slider baru *Ukuran Nomor Celana*.
 - **Nomor punggung:** slider ukuran sampai 220 px (sebelumnya 130) dan nomor bisa ditaruh lebih ke bawah di punggung (Y sampai 400).
+
+**Diperbaiki**
+- **Menyimpan font atau folder kit gagal** dengan *Must be handling a user gesture to show a file picker* saat
+  pembuatan tekstur lebih lama dari beberapa detik (laptop lambat atau panas). Sekarang folder ditanyakan dulu, baru
+  file dibuat.
+- **Import gambar font berlatar ramai** (garis neon, cahaya) menggabungkan satu baris menjadi satu potongan dan angka
+  besar hilang. Sekarang bentuk dicari satu per satu, garis latar dibuang berdasarkan bentuknya, angka besar di samping
+  huruf kecil tetap diambil, dan baris sejenis dibaca bersama sehingga huruf yang tidak biasa di akhir baris tidak
+  lagi tertukar dengan huruf pertama baris berikutnya.
+- **Huruf outline (berongga)** terbuang sebagai latar dan **huruf dua warna** kehilangan warna keduanya di mode
+  otomatis.
+- **Huruf bergerigi dari gambar:** huruf yang diperbesar dari gambar kecil dan tepi hasil *Pilih huruf* lebih halus
+  (belum mulus sepenuhnya, lihat masalah 41).
+- **Pratinjau fontset ikut ter-scroll** bersama pengaturan; sekarang pengaturan dan pratinjau di-scroll terpisah.
+- **Tombol fokus dan klik bagian** pindah ke tab lain, tidak tetap di tab Layer.
+- **Nomor celana** memakai posisi tebakan lama yang tertutup hem baju.
+- Peringatan nilai di editor config.txt tidak diterjemahkan.
 
 ## 0.1.1 — perbaikan dan tekstur dari pustaka
 
