@@ -79,7 +79,6 @@ welcome (see [Contributing](CONTRIBUTING.md)).
 
 | # | Pri | Issue |
 |---|---|---|
-| 35 | P3 | The kitserver config and the FTEX fonts were tested with kserv in PES 2021, but *Save to kit folder* was not tried in the desktop app's own folder dialog. |
 | 36 | P3 | The config.txt is kept per browser/app, not in the project file: opening another project keeps the current config. |
 | 37 | P3 | **Experimental:** the config.txt editor only writes the file. Its values (name/number positions, badges, collar and shirt models) are not shown in the 2D/3D preview: the positions are game units that still need calibrating from in-game screenshots, and the collar/shirt models are game meshes the app does not have. |
 | 38 | P3 | **Experimental:** the fontset generator's FTEX output was tested in PES 2021 (numbers and name show in the game); its DDS output is not tested. The character slots come from modder templates (three fontsets agree to ±5 px), not from the game files; one slot of the `_ex` file (between Ę and Ğ) is empty in every sample and is left empty. |

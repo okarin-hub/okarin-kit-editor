@@ -79,7 +79,6 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 
 | # | Pri | Masalah |
 |---|---|---|
-| 35 | P3 | Config kitserver dan font FTEX sudah diuji dengan kserv di PES 2021, tetapi *Simpan ke folder kit* belum dicoba di dialog folder aplikasi desktop. |
 | 36 | P3 | config.txt disimpan per browser/aplikasi, bukan di file proyek: membuka proyek lain tetap memakai config yang sekarang. |
 | 37 | P3 | **Eksperimental:** editor config.txt hanya menulis file. Nilainya (posisi nama/nomor, badge, model kerah dan baju) tidak tampil di pratinjau 2D/3D: posisi memakai satuan game yang masih perlu dikalibrasi dari screenshot di game, dan model kerah/baju adalah mesh game yang tidak dimiliki app. |
 | 38 | P3 | **Eksperimental:** output FTEX generator fontset sudah diuji di PES 2021 (nomor dan nama tampil di game); output DDS-nya belum diuji. Slot karakter diambil dari template modder (tiga fontset cocok sampai ±5 px), bukan dari file game; satu slot di file `_ex` (antara Ę dan Ğ) kosong di semua sampel dan dibiarkan kosong. |
