@@ -5,6 +5,7 @@
  */
 import { FontsetLayout } from '@/constants/fontsetSlots';
 import { isTintableTile, tintedTile } from '@/utils/patternRenderer';
+import { traceCoverage } from '@/utils/glyphTrace';
 
 export interface FontsetStyle {
   fontFamily: string;
@@ -330,15 +331,19 @@ export function analyzeFontSheet(image: HTMLImageElement | HTMLCanvasElement): S
     const baseline = median(main.map((b) => b.bottom));
     const capTop = median(main.map((b) => b.top));
     const glyphs = boxes.map((b) => {
+      // keep the faint anti-aliased edge (pixels too faint to belong to any shape) and a 1 px margin around the box:
+      // without them the 50 % edge the tracer follows shifts back and forth and straight sides look wavy
+      const x0 = Math.max(0, b.x0 - 1), x1 = Math.min(w, b.x1 + 1);
+      const t0 = Math.max(0, b.top - 1), t1 = Math.min(h, b.bottom + 1);
       const g = document.createElement('canvas');
-      g.width = b.x1 - b.x0;
-      g.height = b.bottom - b.top;
+      g.width = x1 - x0;
+      g.height = t1 - t0;
       const out = new ImageData(g.width, g.height);
-      for (let y = b.top; y < b.bottom; y++) {
-        for (let x = b.x0; x < b.x1; x++) {
-          if (!b.has(x, y)) continue;
+      for (let y = t0; y < t1; y++) {
+        for (let x = x0; x < x1; x++) {
+          if (!b.has(x, y) && label[y * w + x] >= 0) continue;
           const si = (y * w + x) * 4;
-          const di = ((y - b.top) * g.width + (x - b.x0)) * 4;
+          const di = ((y - t0) * g.width + (x - x0)) * 4;
           out.data[di] = d[si];
           out.data[di + 1] = d[si + 1];
           out.data[di + 2] = d[si + 2];
@@ -346,7 +351,7 @@ export function analyzeFontSheet(image: HTMLImageElement | HTMLCanvasElement): S
         }
       }
       g.getContext('2d')!.putImageData(out, 0, 0);
-      return { canvas: g, base: baseline - b.top, capH: Math.max(1, baseline - capTop) };
+      return { canvas: g, base: baseline - t0, capH: Math.max(1, baseline - capTop) };
     });
     return { glyphs };
   });
@@ -373,53 +378,66 @@ export function sheetInkColor(rows: SheetRow[]): string | null {
   return `#${hex(r)}${hex(g)}${hex(b)}`.toUpperCase();
 }
 
-const smoothCache = new WeakMap<SheetGlyph, { k: number; out: SheetGlyph }>();
+interface TracedGlyph {
+  path: Path2D;
+  /** average colour of the solid pixels */
+  fill: string;
+}
 
-/**
- * Enlarges a sheet letter by `k` without staircase edges: the enlarged letter is blurred by about half a source
- * pixel and its edge cut again with a narrow soft ramp, which turns the pixel steps into smooth curves (and closes
- * pinholes left by JPG compression).
- */
-function smoothUpscale(sg: SheetGlyph, k: number): SheetGlyph {
-  const hit = smoothCache.get(sg);
-  if (hit && Math.abs(hit.k - k) < 0.01) return hit.out;
-  const r = k * 0.5;
-  const pad = Math.ceil(r * 2) + 1;
-  const w = Math.round(sg.canvas.width * k);
-  const h = Math.round(sg.canvas.height * k);
-  const c = document.createElement('canvas');
-  c.width = w + 2 * pad;
-  c.height = h + 2 * pad;
-  const ctx = c.getContext('2d', { willReadFrequently: true })!;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.filter = `blur(${r}px)`;
-  ctx.drawImage(sg.canvas, pad, pad, w, h);
-  ctx.filter = 'none';
-  const img = ctx.getImageData(0, 0, c.width, c.height);
-  const d = img.data;
-  // the blurred edge spans about 2r px; cut it back to ~1.5 px of anti-aliasing
-  const steep = Math.max(1, (2 * r) / 1.5);
-  let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
-  for (let i = 0, p = 0; i < d.length; i += 4, p++) {
-    const a = Math.max(0, Math.min(1, (d[i + 3] / 255 - 0.5) * steep + 0.5));
-    d[i + 3] = a * 255;
-    if (a > 0) {
-      const x = p % c.width, y = (p - x) / c.width;
-      if (x < x0) x0 = x;
-      if (x > x1) x1 = x;
-      if (y < y0) y0 = y;
-      if (y > y1) y1 = y;
+const traceCache = new WeakMap<SheetGlyph, TracedGlyph | null>();
+
+/** The outline of a sheet letter as vector curves (see glyphTrace), traced once per letter. */
+function traceGlyph(sg: SheetGlyph): TracedGlyph | null {
+  if (traceCache.has(sg)) return traceCache.get(sg)!;
+  const { width: w, height: h } = sg.canvas;
+  const src = sg.canvas.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, w, h).data;
+  const alpha = new Float32Array(w * h);
+  let r = 0, g = 0, b = 0, n = 0;
+  for (let p = 0, i = 0; p < w * h; p++, i += 4) {
+    alpha[p] = src[i + 3] / 255;
+    if (src[i + 3] > 200) {
+      r += src[i];
+      g += src[i + 1];
+      b += src[i + 2];
+      n++;
     }
   }
-  if (x1 < 0) return sg;
-  ctx.putImageData(img, 0, 0);
-  const out = document.createElement('canvas');
-  out.width = x1 - x0 + 1;
-  out.height = y1 - y0 + 1;
-  out.getContext('2d')!.drawImage(c, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
-  const res = { canvas: out, base: sg.base * k + pad - y0, capH: sg.capH * k };
-  smoothCache.set(sg, { k, out: res });
+  const d = traceCoverage(alpha, w, h);
+  const res = d
+    ? { path: new Path2D(d), fill: n ? `rgb(${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)})` : '#000' }
+    : null;
+  traceCache.set(sg, res);
   return res;
+}
+
+const vectorCache = new WeakMap<SheetGlyph, { k: number; out: SheetGlyph }>();
+
+/**
+ * Enlarges a sheet letter by `k` with sharp edges: its traced outline is filled at the new size, then the picture
+ * itself is drawn over it and kept only inside the outline, so the edge is a clean curve and the colours (stripes,
+ * two-colour letters) stay the picture's own.
+ */
+function vectorUpscale(sg: SheetGlyph, k: number): SheetGlyph {
+  const hit = vectorCache.get(sg);
+  if (hit && Math.abs(hit.k - k) < 0.01) return hit.out;
+  const tr = traceGlyph(sg);
+  if (!tr) return sg;
+  const pad = 2;
+  const c = document.createElement('canvas');
+  c.width = Math.ceil(sg.canvas.width * k) + 2 * pad;
+  c.height = Math.ceil(sg.canvas.height * k) + 2 * pad;
+  const ctx = c.getContext('2d')!;
+  // path is in source pixels
+  ctx.setTransform(k, 0, 0, k, pad, pad);
+  ctx.fillStyle = tr.fill;
+  ctx.fill(tr.path, 'evenodd');
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = 'source-atop';
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(sg.canvas, pad, pad, sg.canvas.width * k, sg.canvas.height * k);
+  const out = { canvas: c, base: sg.base * k + pad, capH: sg.capH * k };
+  vectorCache.set(sg, { k, out });
+  return out;
 }
 
 /** Glyphs from a font sheet: `recolor` paints them in the fill colour, else they keep the sheet's colours. */
@@ -439,7 +457,7 @@ export function sheetGlyphSource(map: Map<string, SheetGlyph>, style: FontsetSty
     const raw = map.get(ch);
     if (!raw) return null;
     const k = (targetH - 2 * outline) / raw.capH;
-    const sg = k > 1.2 ? smoothUpscale(raw, k) : raw;
+    const sg = k > 1.2 ? vectorUpscale(raw, k) : raw;
     const oSrc = outline / ((targetH - 2 * outline) / sg.capH);
     const m = Math.ceil(oSrc) + 1;
     const c = document.createElement('canvas');

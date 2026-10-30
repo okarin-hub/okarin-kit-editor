@@ -2,6 +2,11 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## Unreleased
+
+- **Sharp letters from a font sheet picture.** Letters that have to be enlarged (a small picture, or the big back number) are traced into vector outlines and drawn at the slot size, instead of enlarging the pixels. The outline is read from the anti-aliased edge with sub-pixel accuracy; corners in any direction keep the picture's own shape: sharp corners are where the straight edges meet, slightly rounded ones get a matching round, straight edges are exactly straight and nearly upright / level ones exactly upright / level, and curves are smooth. The picture's own colours stay inside the outline (two-colour letters and stripes are kept).
+- **3D preview: tilt the view.** Hold the middle mouse button (wheel button) and drag up / down to look at the kit from above or below; the view buttons bring the camera back level. Left drag still rotates, the wheel still zooms.
+
 ## 0.2.0 — kitserver: config.txt, fontsets and a simpler Layer tab
 
 Number and name fonts made with the fontset generator were tested in PES 2021 as FTEX and show in the game. DDS

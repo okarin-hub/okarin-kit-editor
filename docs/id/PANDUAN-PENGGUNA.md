@@ -21,7 +21,8 @@
   pola. Satu alat aktif sekali waktu; klik alat yang aktif lagi untuk kembali ke *pilih*.
 - **Canvas 2D** – scroll untuk zoom, seret untuk geser. Klik bagian untuk memilihnya. Pintasan part di bawah
   men-zoom ke bagian itu.
-- **Preview 3D** – seret untuk memutar, scroll untuk zoom. Tombol mengganti kamera (depan, belakang, dada, bawah,
+- **Preview 3D** – seret untuk memutar, tahan tombol tengah mouse (tombol scroll) lalu geser ke atas / bawah untuk
+  melihat dari atas atau bawah, scroll untuk zoom. Tombol mengganti kamera (depan, belakang, dada, bawah,
   penuh) dan panjang lengan (pendek / panjang).
 - **Panel kanan** – tab **Kain**, **Layer**, **Logo**, **Nama**.
 

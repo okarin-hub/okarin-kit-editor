@@ -943,4 +943,5 @@ export const DICTIONARY: [string, string, string, string][] = [
   ["(maks {1})", "(max {1})", "(máx {1})", "(máx {1})"],
   ["Format", "Format", "Formato", "Formato"],
   ["FTEX (kitserver)", "FTEX (kitserver)", "FTEX (kitserver)", "FTEX (kitserver)"],
+  ["Seret: putar • Tombol tengah: miringkan • Scroll: zoom", "Drag: rotate • Middle button: tilt • Scroll: zoom", "Arraste: girar • Botão do meio: inclinar • Scroll: zoom", "Arrastra: girar • Botón central: inclinar • Rueda: zoom"],
 ];

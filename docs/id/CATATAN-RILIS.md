@@ -2,6 +2,11 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## Belum dirilis
+
+- **Huruf tajam dari gambar font.** Huruf yang perlu diperbesar (gambar kecil, atau nomor punggung yang besar) di-trace menjadi garis tepi vektor lalu digambar di ukuran slot, bukan memperbesar pikselnya. Garis tepi dibaca dari tepi anti-alias dengan ketelitian sub-piksel; sudut ke arah mana pun mengikuti bentuk aslinya: sudut tajam di titik pertemuan sisi-sisi lurus, sudut yang sedikit membulat mendapat lengkung yang sama, sisi lurus benar-benar lurus dan yang hampir tegak / datar dibuat tegak / datar sempurna, dan lengkungan mulus. Warna asli gambar tetap ada di dalam garis tepi (huruf dua warna dan garis-garis tetap terjaga).
+- **Preview 3D: miringkan tampilan.** Tahan tombol tengah mouse (tombol scroll) lalu geser ke atas / bawah untuk melihat kit dari atas atau dari bawah; tombol tampilan mengembalikan kamera ke posisi datar. Seret kiri tetap memutar, scroll tetap zoom.
+
 ## 0.2.0 — kitserver: config.txt, fontset, dan tab Layer yang lebih ringkas
 
 Font nomor dan nama dari generator fontset sudah diuji di PES 2021 dalam format FTEX dan tampil di game. Output

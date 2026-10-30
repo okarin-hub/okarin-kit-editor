@@ -20,7 +20,8 @@
 - **Tool rail (left)** – select / move, freehand shape, point shape, stitch line by points, stitch line freehand,
   pattern eraser. One tool is active at a time; click the active tool again to go back to *select*.
 - **2D canvas** – scroll to zoom, drag to pan. Click a part to select it. The part shortcuts at the bottom zoom to a part.
-- **3D preview** – drag to rotate, scroll to zoom. Buttons switch the camera (front, back, chest, bottom, full) and
+- **3D preview** – drag to rotate, hold the middle mouse button (wheel button) and drag up / down to look from
+  above or below, scroll to zoom. Buttons switch the camera (front, back, chest, bottom, full) and
   the sleeve length (short / long).
 - **Side panel** – tabs **Fabric**, **Layer**, **Logo**, **Name**.
 

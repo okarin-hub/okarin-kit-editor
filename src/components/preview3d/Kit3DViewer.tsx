@@ -151,9 +151,11 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
     controls.minDistance = 0.8;
     controls.target.set(0, 0.1, 0);
 
-    // Lock polar angle so model does NOT flip or tilt upside down
+    // Lock polar angle so model does NOT flip or tilt upside down (the middle-button drag below moves this band)
     controls.minPolarAngle = Math.PI * 0.48;
     controls.maxPolarAngle = Math.PI * 0.52;
+    // the middle button tilts the view instead of zooming (the wheel still zooms)
+    controls.mouseButtons = { ...controls.mouseButtons, MIDDLE: null };
 
     controls.autoRotate = autoRotate;
     controls.autoRotateSpeed = 2.0;
@@ -163,14 +165,39 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
     let isPointerDown = false;
     let startY = 0;
 
+    // Middle-button (wheel button) drag: tilt the camera to look from above or below
+    let isTilting = false;
+    let tiltY = 0;
+    const setTilt = (polar: number) => {
+      const t = THREE.MathUtils.clamp(polar, Math.PI * 0.15, Math.PI * 0.85);
+      controls.minPolarAngle = t - Math.PI * 0.02;
+      controls.maxPolarAngle = t + Math.PI * 0.02;
+      controls.update();
+    };
+
     const onPointerDown = (e: PointerEvent) => {
       if (e.button === 0) { // Left click
         isPointerDown = true;
         startY = e.clientY;
+      } else if (e.button === 1) {
+        isTilting = true;
+        tiltY = e.clientY;
+        e.preventDefault();
       }
+    };
+    // no browser auto-scroll on a middle click over the 3D view
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.button === 1) e.preventDefault();
     };
 
     const onPointerMove = (e: PointerEvent) => {
+      if (isTilting) {
+        const dy = e.clientY - tiltY;
+        tiltY = e.clientY;
+        // dragging down looks from higher up
+        setTilt((controls.minPolarAngle + controls.maxPolarAngle) / 2 - dy * 0.006);
+        return;
+      }
       if (!isPointerDown) return;
       const deltaY = e.clientY - startY;
       startY = e.clientY;
@@ -189,6 +216,7 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
 
     const onPointerUp = () => {
       isPointerDown = false;
+      isTilting = false;
     };
 
     const domElem = renderer.domElement;
@@ -261,6 +289,7 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
     window.addEventListener('pointerup', onZonePointerUp);
 
     domElem.addEventListener('pointerdown', onPointerDown);
+    domElem.addEventListener('mousedown', onMouseDown);
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
 
@@ -399,6 +428,7 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
       window.removeEventListener('pointermove', onZonePointerMove);
       window.removeEventListener('pointerup', onZonePointerUp);
       domElem.removeEventListener('pointerdown', onPointerDown);
+      domElem.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
       if (renderer.domElement && container.contains(renderer.domElement)) {
@@ -434,6 +464,8 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
     const camera = cameraRef.current;
     const controls = controlsRef.current;
     if (!camera || !controls) return;
+    controls.minPolarAngle = Math.PI * 0.48;
+    controls.maxPolarAngle = Math.PI * 0.52;
 
     if (view === 'front') {
       camera.position.set(0, 0.2, 2.2);
@@ -548,7 +580,7 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
       {/* Bottom hint (short, hidden on small windows) */}
       <div className="absolute bottom-2 right-3 pointer-events-none z-10 hidden 2xl:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/70 backdrop-blur-md border border-slate-800/80 text-[10px] text-slate-400 whitespace-nowrap">
         <ArrowUpDown className="w-3 h-3 text-sky-400" />
-        <span>Seret: putar &bull; Scroll: zoom</span>
+        <span>Seret: putar &bull; Tombol tengah: miringkan &bull; Scroll: zoom</span>
       </div>
     </div>
   );
