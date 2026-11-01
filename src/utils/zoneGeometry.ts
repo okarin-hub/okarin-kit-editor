@@ -220,13 +220,14 @@ export function transformPoint(p: Pt, box: ZoneBox, zs: Partial<TemplateZoneStat
  * height or width, so the copies of a diagonal strip stay parallel to it.
  */
 export function repeatOffsets(zone: KitZoneDef, zs: Partial<TemplateZoneState>): Pt[] {
-  const n = Math.max(1, Math.round(zs.repeat ?? 1));
+  // clamped here too: a project file from elsewhere could hold any number
+  const n = clamp(Math.round(Number(zs.repeat) || 1), 1, 12);
   if (n === 1) return [[0, 0]];
   const box = zoneBox(zone);
   const w = box.w * (zs.sx ?? 1);
   const h = box.h * (zs.sy ?? 1);
   const dir = zs.repeatDir ?? (w >= h ? 'y' : 'x');
-  const step = (dir === 'y' ? h : w) + (zs.repeatGap ?? 12);
+  const step = (dir === 'y' ? h : w) + clamp(Number(zs.repeatGap ?? 12) || 0, 0, 1024);
   const a = rad(zs.rot ?? 0);
   const [ux, uy] = dir === 'y' ? [-Math.sin(a), Math.cos(a)] : [Math.cos(a), Math.sin(a)];
   return Array.from({ length: n }, (_, i) => [ux * step * i, uy * step * i] as Pt);
