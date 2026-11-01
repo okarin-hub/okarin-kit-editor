@@ -427,7 +427,7 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
   const savePng = () => render(view).toBlob((b) => b && downloadFile(b, `${fileName(view)}.png`), 'image/png');
 
   const input = 'bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-200 outline-none focus:border-sky-500';
-  const h4 = 'text-[11px] font-bold uppercase tracking-wider text-slate-300 border-b border-slate-800 pb-1';
+  const h4 = 'text-xs font-semibold text-slate-200 border-b border-slate-800 pb-1';
   const slider = (label: string, value: number, min: number, max: number, step: number, on: (v: number) => void) => (
     <label className="flex items-center justify-between gap-2 text-[11px] text-slate-400">
       <span>{`${label} ${value}`}</span>
@@ -684,7 +684,7 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
                     title={ch === '_' ? 'dilewati' : ch}
                   >
                     <img src={src} alt="" className="h-5 w-auto" />
-                    <span className={`text-[9px] font-mono leading-none pb-0.5 ${ch === '_' ? 'text-rose-700' : 'text-slate-900'}`}>{ch}</span>
+                    <span className={`text-[10px] font-mono leading-none pb-0.5 ${ch === '_' ? 'text-rose-700' : 'text-slate-900'}`}>{ch}</span>
                   </div>
                 );
               })}
@@ -711,7 +711,7 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none">
       <div className="bg-[#121622] border border-slate-800 rounded-2xl w-full max-w-6xl max-h-[92vh] shadow-2xl overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#0f131c]">
           <div className="flex items-center gap-2.5">
@@ -721,7 +721,7 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 Generator Fontset
-                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
                   Eksperimental
                 </span>
               </h3>

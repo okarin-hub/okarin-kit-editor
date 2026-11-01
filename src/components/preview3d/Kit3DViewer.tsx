@@ -521,7 +521,7 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
               title={title}
               className={`h-6 px-2 rounded-md text-[11px] font-bold whitespace-nowrap transition-all ${
                 cameraView === view
-                  ? 'bg-rose-600 text-white shadow-sm'
+                  ? 'bg-sky-500/25 text-sky-100'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
               }`}
             >
@@ -536,7 +536,7 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
             onClick={() => setAutoRotate(!autoRotate)}
             className={`h-6 px-1.5 rounded-md text-xs transition-all flex items-center gap-1.5 ${
               autoRotate
-                ? 'bg-rose-600 text-white font-bold'
+                ? 'bg-sky-500/25 text-sky-100 font-bold'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
             title="Putar otomatis (turntable 360°)"
@@ -569,7 +569,7 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
               title={`${title} (lengan panjang dibuat otomatis dan memakai area lengan panjang di template)`}
               className={`h-6 px-2 rounded-md text-[11px] font-bold whitespace-nowrap transition-all ${
                 sleeveMode === mode
-                  ? 'bg-sky-600 text-white shadow-sm'
+                  ? 'bg-sky-500/25 text-sky-100'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
               }`}
             >

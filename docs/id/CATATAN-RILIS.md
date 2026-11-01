@@ -2,19 +2,55 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
-## Belum dirilis
+## 0.3.0 — editor lebih rapi: pola dan objek di grup layer
 
-- **Zona celana di template bawaan berada seperempat kaki di atas hem.** Zona itu memakai koordinat model 3D (hem di x 81), bukan koordinat game (hem di x 0): lis, panel samping, dan garis celana di template Klasik, Polo, Raglan, Yoke, Tiga garis, dan Panel samping kini mulai dari hem. Template yang sudah kamu edit tetap memakai zonanya sendiri sampai kamu mengambil pembaruannya (lihat di bawah).
-- **Pola dari foto jersey (eksperimental)** (*File → Pola dari foto jersey…*): ambil foto produk sebuah baju (depan, dan belakang kalau ada) dan dapatkan pola badannya sebagai layer warna yang bisa diedit. Area badan dicari otomatis dan bisa digambar ulang; warna pola dicari dengan pencahayaan dinetralkan, dan kalau warna pola berbeda rona hanya rona yang dipakai sehingga bayangan, lipatan, dan kerutan diabaikan; setiap area yang dibatasi tepi tajam mendapat satu warna (lipatan yang melintasi garis pola ikut warna garis itu); area warna digambar sebagai bentuk vektor yang bersih; logo, sponsor, nomor, dan nama dibuang dan areanya diisi dengan meneruskan pola sepanjang arah utamanya. Bagian belakang dibaca dengan warna dari depan. Hasilnya dibuka di import PNG "pisah per warna". Lengan diberi warna utama.
-- **Tidak ada lagi yang hilang saat reload atau di file proyek:** layer tekstur kain (tab Kain) tersimpan di autosave dan di proyek / file `.peskit`, dan sebuah proyek juga menyimpan config.txt kitserver serta pengaturan generator fontset (font, warna, outline, format, pola, logo beserta geser per angka). Gambar font yang diimpor dan logo yang diambil dari file di komputer tidak ikut tersimpan (impor ulang saja).
+Tab Layer disusun ulang: pola dan objek bentuk ada di grup baju, celana, kaus kaki, dan aksesoris dan dipindah
+antargrup dengan diseret; penjelasan pindah ke ikon **?** dan *Bantuan → Panduan*. Juga baru: objek kembar, panel
+samping untuk pengaturan layer, dialog Pengaturan, pintasan keyboard, dan pola dari foto jersey (eksperimental).
+
+**Semua yang bisa dilakukan editor di 0.3.0**
+- **Canvas dan 3D:** canvas 2D dan pratinjau 3D dengan satu renderer yang sama untuk 2D, 3D, dan export; bentuk
+  potongan asli, tekstur 3D tanpa sambungan, lengan sampai bahu atau tanpa bahu; navigasi bebas, daftar bagian untuk
+  zoom ke satu bagian, kemiringan 3D; tampilan split.
+- **Tab Layer:** grup baju, celana, kaus kaki, dan aksesoris, masing-masing berisi layer template, **pola** (jenis,
+  warna, skala, ketebalan, opasitas, geser, rotasi, cermin / simetri, bagian grup, urutan) dan **objek** (strip,
+  panel, elips, segitiga, dengan kembar); seret antargrup, cari, layer bantuan PSD di daftar sendiri; warna bagian
+  dengan kode warna, palet, dan *Samakan*; lis; warna latar; warna bagian atau desain impor sebagai dasar. Pengaturan
+  terbuka di bawah baris atau di panel samping yang bisa diubah ukurannya.
+- **Kain:** layer tekstur kain di tab Kain (mesh bawaan atau tile sendiri dari `library/textures`).
+- **Alat:** garis jahitan (titik atau bebas), bentuk bebas / titik, penghapus pola.
+- **Logo, nama, dan nomor:** logo dari `library/logos`, unggah, atau cari logo klub, dengan outline, gradasi, ganti
+  warna, preset, dan *Auto Align*; nama pemain, nomor punggung, dan nomor celana.
+- **Template:** template bawaan (dengan pemberitahuan pembaruan untuk salinan yang diedit) dan template sendiri dari
+  PSD atau PNG yang dipisah per warna (eksperimental), disimpan di `library/templates`.
+- **Import dan export:** import desain jadi (PNG / JPG / WebP / DDS); export PNG, DDS, FTEX (sudah diuji di
+  PES 2021), file proyek, dan kartu showcase di 1024 / 2048 px.
+- **Menu Alat (eksperimental):** pola dari foto jersey, generator fontset untuk font nomor dan nama kitserver, editor
+  config.txt kitserver.
+- **Antarmuka:** menu bar, rel alat, pintasan keyboard, panel yang bisa dilipat; Pengaturan (bahasa: English, Bahasa
+  Indonesia, Português, Español; pengaturan layer); panduan, daftar pintasan, cek pembaruan.
+- **Build Windows** dengan Electron; folder library di sebelah exe awalnya kosong.
+
+**Baru**
+- **Pengaturan dan panel samping untuk layer.** *Edit → Pengaturan…* (`Ctrl+,`) berisi bahasa dan pengaturan layer: terbuka di bawah baris (seperti sebelumnya) atau di panel samping di kiri daftar layer, jadi daftarnya tetap pendek; ukuran panel samping bisa diubah dari tepi kiri dan bawahnya (diingat). Gandakan dan hapus pindah ke baris layer di samping fokus, dan *Reset* ke atas pengaturan layer, jadi tidak perlu scroll ke bawah.
+- **Objek di samping pola.** Tiap grup di tab Layer juga punya **+ Objek** (strip, panel, elips, segitiga), menggantikan baris *Tambah layer di*. Objek bisa diseret ke grup lain seperti pola (posisi dan ukurannya menyesuaikan bagian baru; `Ctrl` menyalin). Pengaturan baru *Kembar*: satu objek digambar 2, 3, atau lebih kali berjajar, dengan jumlah, jarak, dan arah, tanpa menambah layer; template yang disimpan menyimpan salinannya sebagai bentuk biasa.
+- **Pola di grup layer.** Kartu *Layer Pola* terpisah dihapus: tiap grup di tab Layer (Baju, Celana, Kaus kaki, Aksesoris) punya **+ Pola** dan menampilkan polanya paling atas. Seret baris pola ke grup lain untuk memindahkannya, tahan `Ctrl` saat melepas untuk menyalinnya; kotak centang bagian diganti tombol untuk bagian di grup itu.
+- **Editor lebih rapi.** Tab Layer mengelompokkan layer per baju, celana, kaus kaki, dan aksesoris (grup besar mulai tertutup), mengumpulkan layer bantuan PSD (mesh, panduan, jahitan, bayangan, latar) di daftar tertutup sendiri, dan menambah kolom cari saat layernya banyak; tombol baris muncul saat hover. Penjelasan dipindah dari paragraf yang selalu tampil ke ikon **?** di samping tiap judul dan ke *Bantuan → Panduan*. Satu warna aksen: biru untuk yang aktif atau terpilih, merah hanya untuk aksi utama (Export), kuning hanya untuk eksperimental / peringatan; teks abu lebih kontras dan tidak ada teks di bawah 10 px. Menu bar kini *File · Edit · Tampilan · Alat · Bantuan*: preset warna ada di *Edit*, alat eksperimental (pola dari foto, generator fontset, config.txt kitserver) di *Alat*, bahasa di *Edit → Pengaturan*. Strip bagian di bawah canvas diganti daftar bagian di toolbar.
+- **Pintasan keyboard:** `V` `B` `P` `S` `J` `E` memilih alat, `1` / `2` / `3` mengganti 2D / Split / 3D, `Ctrl+S` membuka proyek, `Ctrl+E` export, `?` daftar pintasan. *Kit baru* bertanya dulu sebelum mengganti kit. Fokus keyboard selalu terlihat, dialog diumumkan sebagai dialog, dan tombol ikon punya nama untuk pembaca layar.
+- **Pola dari foto jersey (eksperimental)** (*Alat → Pola dari foto jersey…*): ambil foto produk sebuah baju (depan, dan belakang kalau ada) dan dapatkan pola badannya sebagai layer warna yang bisa diedit. Area badan dicari otomatis dan bisa digambar ulang; warna pola dicari dengan pencahayaan dinetralkan, dan kalau warna pola berbeda rona hanya rona yang dipakai sehingga bayangan, lipatan, dan kerutan diabaikan; setiap area yang dibatasi tepi tajam mendapat satu warna (lipatan yang melintasi garis pola ikut warna garis itu); area warna digambar sebagai bentuk vektor yang bersih; logo, sponsor, nomor, dan nama dibuang dan areanya diisi dengan meneruskan pola sepanjang arah utamanya. Bagian belakang dibaca dengan warna dari depan. Hasilnya dibuka di import PNG "pisah per warna". Lengan diberi warna utama.
 - **Huruf tajam dari gambar font.** Huruf yang perlu diperbesar (gambar kecil, atau nomor punggung yang besar) di-trace menjadi garis tepi vektor lalu digambar di ukuran slot, bukan memperbesar pikselnya. Garis tepi dibaca dari tepi anti-alias dengan ketelitian sub-piksel; sudut ke arah mana pun mengikuti bentuk aslinya: sudut tajam di titik pertemuan sisi-sisi lurus, sudut yang sedikit membulat mendapat lengkung yang sama, sisi lurus benar-benar lurus dan yang hampir tegak / datar dibuat tegak / datar sempurna, dan lengkungan mulus. Warna asli gambar tetap ada di dalam garis tepi (huruf dua warna dan garis-garis tetap terjaga).
 - **Import PNG: gambar yang tidak persegi** kini bisa diregangkan (seperti sebelumnya), dipaskan utuh (sisanya kosong), atau dipotong ke persegi (bagian tengah dipakai), di import "pisah per warna" maupun "1 file = 1 layer".
 - **File template lebih kecil:** mask dari template hasil import PSD / PNG disimpan hanya seluas area yang ditutupinya beserta posisinya, bukan gambar penuh 1024 × 1024 per mask. Template yang disimpan sebelumnya tetap berfungsi.
-- **Tidak ada lagi peringatan konsol** soal tipe bayangan lembut three.js yang sudah dihapus dan soal jumlah layer Konva yang terlalu banyak (canvas 2D kini memakai 5 layer).
 - **Layer berbayang tetap berbayang:** layer PSD / PNG abu-abu atau berbayang yang diwarnai dengan warna zona kini mempertahankan terang-gelapnya (bagian paling terang tepat berwarna zona), bukan jadi satu warna rata. Import ulang templatenya untuk mendapatkannya; layer yang diimpor sebelumnya tetap rata.
 - **Template bawaan yang sudah diedit diberi tahu soal pembaruan:** saat template bawaan yang kamu ubah punya definisi lebih baru, panel Template memberi tahu. *Pakai versi baru* mengambil zona bawaan yang baru dan mempertahankan warna serta layer dan jahitan yang kamu tambahkan sendiri (perubahan bentuk pada zona bawaan hilang); *Abaikan* menyembunyikan pemberitahuan sampai pembaruan berikutnya.
 - **Import PSD / PNG sedikit lebih cepat:** tiap layer hanya diproses di dalam kotaknya sendiri, mask diunggah 4 sekaligus, dan halaman diberi waktu menggambar ulang hanya tiap 0,1 detik (PSD PES 2019, 115 layer: sekitar 27 → 23 detik di browser uji). Hasilnya sama seperti sebelumnya.
 - **Preview 3D: miringkan tampilan.** Tahan tombol tengah mouse (tombol scroll) lalu geser ke atas / bawah untuk melihat kit dari atas atau dari bawah; tombol tampilan mengembalikan kamera ke posisi datar. Seret kiri tetap memutar, scroll tetap zoom.
+
+**Diperbaiki**
+- **Tampilan Split setelah 3D:** kembali dari 3D ke Split tidak lagi membuat preview 3D tetap lebar penuh dan mendorong canvas 2D keluar layar.
+- **Zona celana di template bawaan berada seperempat kaki di atas hem.** Zona itu memakai koordinat model 3D (hem di x 81), bukan koordinat game (hem di x 0): lis, panel samping, dan garis celana di template Klasik, Polo, Raglan, Yoke, Tiga garis, dan Panel samping kini mulai dari hem. Template yang sudah kamu edit tetap memakai zonanya sendiri sampai kamu mengambil pembaruannya (lihat di bawah).
+- **Tidak ada lagi yang hilang saat reload atau di file proyek:** layer tekstur kain (tab Kain) tersimpan di autosave dan di proyek / file `.peskit`, dan sebuah proyek juga menyimpan config.txt kitserver serta pengaturan generator fontset (font, warna, outline, format, pola, logo beserta geser per angka). Gambar font yang diimpor dan logo yang diambil dari file di komputer tidak ikut tersimpan (impor ulang saja).
+- **Tidak ada lagi peringatan konsol** soal tipe bayangan lembut three.js yang sudah dihapus dan soal jumlah layer Konva yang terlalu banyak (canvas 2D kini memakai 5 layer).
 
 ## 0.2.0 — kitserver: config.txt, fontset, dan tab Layer yang lebih ringkas
 

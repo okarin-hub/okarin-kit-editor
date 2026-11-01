@@ -254,7 +254,6 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
   }, [drawActive, drawTool, onDrawCancel, onDrawFinish, onDrawPts]);
   const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const patternLayerRef = useRef<Konva.Layer | null>(null);
-  const cursorLayerRef = useRef<Konva.Layer | null>(null);
   const cursorRef = useRef<Konva.Circle | null>(null);
   const lastCommittedMask = useRef<string | null>(null);
   const strokeRef = useRef<{ x: number; y: number } | null>(null);
@@ -326,7 +325,7 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
     if (!pos) return;
     if (cursorRef.current) {
       cursorRef.current.position(pos);
-      cursorLayerRef.current?.batchDraw();
+      cursorRef.current?.getLayer()?.batchDraw();
     }
     if (strokeRef.current) {
       paintSegment(strokeRef.current, pos);
@@ -778,21 +777,21 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
             />
           </Group>
         )}
+          {/* Original PES template overlay (toggleable) */}
+          {viewState.showOriginalTemplate && templateImg && (
+            <Group id="template-overlay-group" opacity={viewState.templateOpacity}>
+              <KonvaImage
+                image={templateImg}
+                x={0}
+                y={0}
+                width={CANVAS_TEXTURE_SIZE}
+                height={CANVAS_TEXTURE_SIZE}
+                listening={false}
+              />
+            </Group>
+          )}
         </Layer>
 
-        {/* Layer 2: Original Template Overlay (Toggleable) */}
-        {viewState.showOriginalTemplate && templateImg && (
-          <Layer id="template-overlay-layer" opacity={viewState.templateOpacity}>
-            <KonvaImage
-              image={templateImg}
-              x={0}
-              y={0}
-              width={CANVAS_TEXTURE_SIZE}
-              height={CANVAS_TEXTURE_SIZE}
-              listening={false}
-            />
-          </Layer>
-        )}
 
         {/* Layer 3: Graphics, Badges, and Logos Layer */}
         <Layer id="graphics-layer" listening={!locked}>
@@ -845,7 +844,7 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
 
         {/* Layer 5: Seams, Wireframe, & Part Outlines */}
         {!isExportingClean && (
-          <Layer id="wireframe-guide-layer">
+          <Layer id="wireframe-guide-layer">{/* also holds the zone editor, drawing, point editing and brush cursor */}
             {PES_2021_PARTS.map((part) => {
               const isHovered = hoveredPartId === part.id;
               const isSelected = viewState.activePartId === part.id;
@@ -934,11 +933,9 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
                 </Group>
               );
             })}
-          </Layer>
-        )}
         {/* Template zone editor: drag to move, corner handles to resize, top handle to rotate */}
         {selectedZone && selectedZoneState && zBox && !isExportingClean && !locked && !editPoints && (
-          <Layer id="zone-edit-layer">
+          <Group id="zone-edit-group">
             <Rect
               ref={zoneRectRef}
               x={zBox.cx + (selectedZoneState.dx ?? 0)}
@@ -984,12 +981,12 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
               rotateAnchorOffset={24}
               boundBoxFunc={(oldBox, newBox) => (Math.abs(newBox.width) < 6 || Math.abs(newBox.height) < 6 ? oldBox : newBox)}
             />
-          </Layer>
+          </Group>
         )}
 
         {/* New layer being drawn */}
         {drawActive && (
-          <Layer id="draw-layer" listening={false}>
+          <Group id="draw-group" listening={false}>
             {drawPts.length > 1 && (
               <Line
                 points={drawPts.flat()}
@@ -1016,12 +1013,12 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
                   strokeScaleEnabled={false}
                 />
               ))}
-          </Layer>
+          </Group>
         )}
 
         {/* Point editing of the selected layer: drag points, click a "+" to add, right-click to remove */}
         {editPoints && selectedZone?.polygons && !locked && !isExportingClean && (
-          <Layer id="zone-points-layer">
+          <Group id="zone-points-group">
             {selectedZone.polygons.map((poly, pi) => {
               const zoomK = Math.max(0.3, targetTransform.zoom * viewState.zoom);
               return (
@@ -1081,12 +1078,12 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
                 </React.Fragment>
               );
             })}
-          </Layer>
+          </Group>
         )}
 
         {/* Brush cursor */}
         {brushActive && brush && (
-          <Layer ref={cursorLayerRef} listening={false}>
+          <Group listening={false}>
             <Circle
               ref={cursorRef}
               x={-1000}
@@ -1097,6 +1094,8 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
               dash={[6, 4]}
               listening={false}
             />
+          </Group>
+        )}
           </Layer>
         )}
       </Stage>

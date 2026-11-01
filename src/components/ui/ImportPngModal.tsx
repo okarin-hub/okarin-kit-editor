@@ -266,7 +266,7 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none">
       <div className="bg-[#121622] border border-slate-800 rounded-2xl w-full max-w-xl max-h-[90vh] shadow-2xl overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-[#0f131c]">
           <div className="flex items-center gap-2.5">
@@ -276,7 +276,7 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 Import template dari PNG
-                <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">Eksperimental</span>
+                <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">Eksperimental</span>
               </h3>
               <p className="text-[11px] text-slate-400">PNG tidak punya layer, jadi dipisah per file atau per warna</p>
             </div>

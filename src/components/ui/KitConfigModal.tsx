@@ -83,7 +83,7 @@ export const KitConfigModal: React.FC<KitConfigModalProps> = ({
   const input = 'w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-200 outline-none focus:border-sky-500';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none">
       <div className="bg-[#121622] border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#0f131c]">
           <div className="flex items-center gap-2.5">
@@ -93,7 +93,7 @@ export const KitConfigModal: React.FC<KitConfigModalProps> = ({
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 Kitserver: config.txt
-                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
                   Eksperimental
                 </span>
               </h3>
@@ -149,7 +149,7 @@ export const KitConfigModal: React.FC<KitConfigModalProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
               {KIT_CONFIG_GROUPS.map(([group, title]) => (
                 <section key={group} className="space-y-1.5">
-                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-300 border-b border-slate-800 pb-1">{title}</h4>
+                  <h4 className="text-xs font-semibold text-slate-200 border-b border-slate-800 pb-1">{title}</h4>
                   {KIT_CONFIG_FIELDS.filter((f) => f.group === group).map((f) => {
                     const v = values[f.key] ?? '';
                     const issue = kitConfigIssue(f, values[f.key]);

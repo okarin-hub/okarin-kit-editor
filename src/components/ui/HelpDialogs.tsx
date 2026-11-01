@@ -1,35 +1,54 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { X, ExternalLink, RefreshCw, BookOpen, Keyboard, Info, Heart, DownloadCloud } from 'lucide-react';
+import { X, ExternalLink, RefreshCw, BookOpen, Keyboard, Info, Heart, DownloadCloud, Settings } from 'lucide-react';
 import { APP_VERSION, PROJECT_URL, UpdateResult, checkForUpdate } from '@/lib/updateCheck';
+import { LANGUAGES, Lang } from '@/i18n/engine';
+import { useI18n } from '@/i18n/I18nProvider';
+import { LayerEditorMode, useLayerEditorMode } from '@/hooks/useLayerEditorMode';
 
-export type HelpKind = 'docs' | 'shortcuts' | 'update' | 'credits' | 'about';
+export type HelpKind = 'docs' | 'shortcuts' | 'update' | 'credits' | 'about' | 'settings';
 
 const DOCS: { title: string; text: string }[] = [
   {
     title: 'Mulai cepat',
-    text: 'Pilih preset dari menu Preset, atur warna tiap bagian di tab Layer, lalu tambahkan pola, lis, dan logo. Hasilnya terlihat langsung di canvas 2D dan model 3D.',
+    text: "Pilih preset dari menu Preset, atur warna tiap bagian di tab Layer, lalu tambahkan pola, lis, dan logo. Hasilnya terlihat langsung di canvas 2D dan model 3D. Ikon ? di samping judul panel menjelaskan pengaturan itu.",
   },
   {
     title: 'Dasar kit',
-    text: 'Dasar kit bisa dari warna tiap bagian, atau dari desain yang kamu import (File, Import desain). Warna bagian bisa ditumpuk di atas desain impor dengan ikon mata. Bentuk lengan bisa sampai pundak (mengikuti template PES) atau tanpa pundak.',
+    text: "Dasar kit bisa dari warna tiap bagian, atau dari desain yang kamu import (File, Import desain). Warna bagian bisa ditumpuk di atas desain impor dengan ikon mata. Bentuk lengan Sampai pundak mengikuti template PES (lengan menyambung ke area leher); Tanpa pundak memakai lengan yang lebih pendek dan berhenti di lubang lengan.",
+  },
+  {
+    title: 'Daftar layer',
+    text: "Layer dikelompokkan per Baju, Celana, Kaus kaki, dan Aksesoris; klik nama grup untuk membuka atau menutupnya. Layer bantuan dari PSD (mesh, panduan, jahitan, bayangan, latar) dikumpulkan di \"Layer bantuan PSD\". Kolom cari muncul saat layernya banyak. Klik nama layer untuk membuka pengaturannya; layer yang dipilih tampil di canvas 2D dengan kotak biru: seret untuk menggeser, tarik sudut untuk mengubah ukuran, dan tarik pegangan atas untuk memutar.",
+  },
+  {
+    title: 'Layer di banyak bagian',
+    text: "Satu layer bisa menempel di beberapa bagian sekaligus. Bentuk yang sama digambar di semua bagian terpilih dan dipotong mengikuti tiap bagian, jadi geser atau lebarkan layer agar menyilang, misalnya strip melintasi depan, belakang, dan lengan.",
   },
   {
     title: 'Pola',
-    text: 'Tiap pola adalah layer sendiri dengan ukuran, rotasi, posisi, cermin, dan bagian yang memakainya. Matikan Berulang untuk menampilkan pola hanya sekali.',
+    text: "Pola ada di grup tab Layer: klik + Pola di grup Baju, Celana, Kaus kaki, atau Aksesoris untuk menambah. Seret baris pola ke grup lain untuk memindahkannya; tahan Ctrl saat melepas untuk menyalinnya. Pola digambar di atas warna dasar dan di bawah layer template; pola yang lebih atas tampil lebih depan. Tiap pola punya ukuran, rotasi, posisi, cermin, dan bagian grup yang ditutupinya. Simetris menggambar pola di satu sisi lalu mencerminkannya ke sisi lawan (cocok untuk diagonal dan sash). Matikan Berulang untuk menampilkan pola hanya sekali.",
   },
   {
     title: 'Alat gambar',
-    text: 'Bar alat di kiri canvas berisi pilih dan geser, gambar bentuk bebas atau titik, garis jahit titik (bisa melengkung) atau bebas, dan kuas hapus pola. Scroll untuk zoom dan seret untuk menggeser canvas.',
+    text: "Bar alat di kiri canvas berisi pilih dan geser, gambar bentuk bebas atau titik, garis jahit titik (bisa melengkung) atau bebas, dan kuas hapus pola. Scroll untuk zoom dan seret untuk menggeser canvas.",
+  },
+  {
+    title: 'Garis jahitan',
+    text: "Canvas bersih secara bawaan: garis jahit hanya yang kamu gambar sendiri dan tepi layer. Nyalakan \"Jahitan di tepi tiap bagian\" di panel Garis Jahitan bila ingin garis di sekeliling setiap potongan.",
   },
   {
     title: 'Logo dan teks',
-    text: 'Di tab Logo kamu bisa upload logo, mencari logo klub dari football-logos.cc, lalu mengatur ukuran, posisi, warna, gradasi, dan outline. Logo milikmu disimpan di folder library/logos.',
+    text: "Di tab Logo kamu bisa upload logo, mencari logo klub dari football-logos.cc, lalu mengatur ukuran, posisi, warna, gradasi, dan outline. Logo milikmu disimpan di folder library/logos.",
+  },
+  {
+    title: 'Nama dan nomor',
+    text: "PES membaca nama dan nomor dari font internal game, terpisah dari tekstur kit. Di tab Nama keduanya hanya pratinjau penempatan dan tidak ikut export PNG kecuali kamu menyalakannya. Font untuk game dibuat lewat generator fontset.",
   },
   {
     title: 'Tekstur kain',
-    text: 'Di tab Kain, tambahkan layer tekstur kain (bawaan atau dari library/textures) dengan ukuran, intensitas, dan bagian sendiri.',
+    text: "Di tab Kain, tambahkan layer tekstur kain (bawaan atau dari library/textures). Tiap layer punya tekstur, ukuran, intensitas, dan bagian sendiri, dan tampil di canvas 2D, model 3D, dan hasil export.",
   },
   {
     title: 'Export',
@@ -46,6 +65,9 @@ const DOCS: { title: string; text: string }[] = [
 ];
 
 const SHORTCUTS: { keys: string; text: string }[] = [
+  { keys: 'Ctrl + S', text: 'Buka / simpan proyek' },
+  { keys: 'Ctrl + E', text: 'Export kit' },
+  { keys: 'Ctrl + ,', text: 'Pengaturan (bahasa, pengaturan layer)' },
   { keys: 'Ctrl + Z', text: 'Undo' },
   { keys: 'Ctrl + Y', text: 'Redo' },
   { keys: 'Scroll', text: 'Zoom canvas 2D' },
@@ -55,6 +77,12 @@ const SHORTCUTS: { keys: string; text: string }[] = [
   { keys: 'Backspace', text: 'Hapus titik terakhir' },
   { keys: 'Panah / Shift + Panah', text: 'Geser logo terpilih 1 px / 10 px' },
   { keys: 'Delete', text: 'Hapus logo terpilih' },
+  { keys: 'V', text: 'Alat pilih dan geser' },
+  { keys: 'B / P', text: 'Gambar bentuk bebas / titik' },
+  { keys: 'S / J', text: 'Garis jahit titik / bebas' },
+  { keys: 'E', text: 'Kuas hapus pola' },
+  { keys: '1 / 2 / 3', text: 'Tampilan 2D / Split / 3D' },
+  { keys: '?', text: 'Daftar pintasan ini' },
 ];
 
 const CREDITS: { name: string; text: string }[] = [
@@ -77,7 +105,7 @@ const Shell: React.FC<{ title: string; icon: React.ReactNode; onClose: () => voi
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onMouseDown={onClose}>
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onMouseDown={onClose}>
       <div
         className="w-full max-w-xl max-h-[85vh] flex flex-col rounded-2xl border border-slate-700 bg-[#121622] shadow-2xl"
         onMouseDown={(e) => e.stopPropagation()}
@@ -92,6 +120,46 @@ const Shell: React.FC<{ title: string; icon: React.ReactNode; onClose: () => voi
         <div className="flex-1 overflow-y-auto px-5 py-4 text-xs text-slate-300 space-y-3">{children}</div>
       </div>
     </div>
+  );
+};
+
+const OPTION = (active: boolean) =>
+  `rounded-lg border px-3 py-2 text-left transition-colors ${
+    active ? 'border-sky-500 bg-sky-500/15 text-sky-100' : 'border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-800'
+  }`;
+
+const LAYER_EDITOR: { id: LayerEditorMode; label: string; hint: string }[] = [
+  { id: 'inline', label: 'Di bawah baris', hint: 'Pengaturan layer terbuka di dalam daftar, tepat di bawah barisnya.' },
+  { id: 'side', label: 'Panel samping', hint: 'Pengaturan layer muncul di panel di kiri daftar layer, jadi daftarnya tidak memanjang.' },
+];
+
+const SettingsBody: React.FC = () => {
+  const { lang, setLang } = useI18n();
+  const [mode, setMode] = useLayerEditorMode();
+  return (
+    <>
+      <section className="space-y-1.5">
+        <h3 className="font-semibold text-slate-100">Bahasa</h3>
+        <div className="grid grid-cols-2 gap-1.5" data-no-i18n>
+          {LANGUAGES.map((l) => (
+            <button key={l.code} type="button" aria-pressed={lang === l.code} onClick={() => setLang(l.code as Lang)} className={OPTION(lang === l.code)}>
+              {l.label}
+            </button>
+          ))}
+        </div>
+      </section>
+      <section className="space-y-1.5 pt-2">
+        <h3 className="font-semibold text-slate-100">Pengaturan layer</h3>
+        <div className="grid grid-cols-2 gap-1.5">
+          {LAYER_EDITOR.map((o) => (
+            <button key={o.id} type="button" aria-pressed={mode === o.id} onClick={() => setMode(o.id)} className={OPTION(mode === o.id)}>
+              <span className="block font-semibold">{o.label}</span>
+              <span className="block mt-0.5 text-[11px] leading-snug text-slate-400">{o.hint}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+    </>
   );
 };
 
@@ -183,13 +251,13 @@ const UpdateBody: React.FC = () => {
   );
 };
 
-/** Help dialogs: documentation, keyboard shortcuts, update check, credits and about. */
+/** Help dialogs: documentation, keyboard shortcuts, settings, update check, credits and about. */
 export const HelpDialog: React.FC<{ kind: HelpKind | null; onClose: () => void }> = ({ kind, onClose }) => {
   if (!kind) return null;
 
   if (kind === 'docs') {
     return (
-      <Shell title="Dokumentasi" icon={<BookOpen className="w-4 h-4" />} onClose={onClose}>
+      <Shell title="Panduan" icon={<BookOpen className="w-4 h-4" />} onClose={onClose}>
         {DOCS.map((d) => (
           <div key={d.title} className="space-y-0.5">
             <h3 className="font-semibold text-slate-100">{d.title}</h3>
@@ -219,6 +287,14 @@ export const HelpDialog: React.FC<{ kind: HelpKind | null; onClose: () => void }
             </div>
           ))}
         </div>
+      </Shell>
+    );
+  }
+
+  if (kind === 'settings') {
+    return (
+      <Shell title="Pengaturan" icon={<Settings className="w-4 h-4" />} onClose={onClose}>
+        <SettingsBody />
       </Shell>
     );
   }

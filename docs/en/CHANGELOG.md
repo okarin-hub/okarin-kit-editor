@@ -2,19 +2,56 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
-## Unreleased
+## 0.3.0 — a tidier editor: patterns and objects in the layer groups
 
-- **Shorts zones of the built-in templates sat a quarter up the leg.** They used the 3D model's coordinates (hem at x 81) instead of the game's (hem at x 0): the shorts trims, side panels and stripes of the Classic, Polo, Raglan, Yoke, Three stripes and Side panels templates now start at the hem. Templates you already edited keep their own zones until you take the update (see below).
-- **Pattern from a jersey photo (experimental)** (*File → Pattern from a jersey photo…*): take a product photo of a shirt (front, and the back if you have one) and get its body pattern as colour layers you can edit. The body area is found by itself and can be redrawn; the pattern colours are found with the lighting taken out, and when the pattern colours differ in hue only hue is used, so shading, folds and creases are ignored; each area bounded by sharp edges takes one colour (a fold across a stripe goes with the stripe); the colour areas are drawn as clean vector shapes; logos, sponsors, numbers and names are left out and their area is filled by continuing the pattern along its main direction. The back is read with the front's colours. The result opens in the PNG "split by colour" import. Sleeves get the main colour.
-- **Nothing is lost on a reload or in a project file any more:** the fabric texture layers (Fabric tab) are kept in the autosave and in saved projects / `.peskit` files, and a project also holds its kitserver config.txt and the fontset generator settings (fonts, colours, outline, format, pattern, logo with its per-digit shifts). The imported font sheet picture and a logo picked from a file on the computer are not kept (import them again).
+The Layer tab is reorganised: patterns and shape objects live in the shirt, shorts, socks and accessories groups and
+are moved between them by dragging; explanations moved into **?** tips and *Help → Guide*. Also new: repeated
+objects, a side panel for layer settings, a Settings dialog, keyboard shortcuts and the experimental pattern from a
+jersey photo.
+
+**Everything the editor does in 0.3.0**
+- **Canvas and 3D:** 2D canvas and 3D preview with one shared renderer for 2D, 3D and export; real piece shapes,
+  seam-free 3D texture, sleeve to the shoulder or without; free navigation, a part list to zoom onto a part, 3D tilt;
+  split view.
+- **Layer tab:** groups for shirt, shorts, socks and accessories, each with its template layers, **patterns** (type,
+  colour, scale, thickness, opacity, offset, rotation, mirror / symmetry, parts of the group, order) and **objects**
+  (stripe, panel, ellipse, triangle, with repeat); drag between groups, search, PSD helper layers in their own list;
+  part colours with colour code, palette and *Match*; trims; background colour; part colours or an imported design as
+  the base. Settings open under the row or in a resizable side panel.
+- **Fabric:** fabric texture layers in the Fabric tab (built-in meshes or your own tiles from `library/textures`).
+- **Tools:** stitch lines (points or freehand), freehand / point shapes, pattern eraser.
+- **Logos, names and numbers:** logos from `library/logos`, upload or club-logo search, with outline, gradient,
+  colour override, presets and *Auto Align*; player name, back number and shorts number.
+- **Templates:** built-in templates (with an update notice for edited copies) and your own from a PSD or a PNG split
+  by colour (experimental), kept in `library/templates`.
+- **Import and export:** import a finished design (PNG / JPG / WebP / DDS); export PNG, DDS, FTEX (tested in
+  PES 2021), project files and a showcase card at 1024 / 2048 px.
+- **Tools menu (experimental):** pattern from a jersey photo, fontset generator for kitserver number and name fonts,
+  kitserver config.txt editor.
+- **Interface:** menu bar, tool rail, keyboard shortcuts, collapsible panels; Settings (language: English, Bahasa
+  Indonesia, Português, Español; layer settings); guide, shortcut list, update check.
+- **Windows build** with Electron; the library folder next to the exe starts empty.
+
+**New**
+- **Settings and a side panel for layers.** *Edit → Settings…* (`Ctrl+,`) holds the language and the layer settings: open under the row (as before) or in a side panel left of the layer list, so the list stays short; the side panel can be resized from its left and bottom edges (remembered). Duplicate and delete moved onto the layer row next to focus, and *Reset* to the top of the layer's settings, so there is no need to scroll down for them.
+- **Objects next to patterns.** Each group of the Layer tab also has **+ Object** (stripe, panel, ellipse, triangle), replacing the *Add layer on* row. Objects can be dragged to another group like patterns (they are placed and resized onto the new part; `Ctrl` copies). New *Repeat* setting: one object drawn 2, 3 or more times in a row, with count, gap and direction, without extra layers; saved templates get the copies as real shapes.
+- **Patterns in the layer groups.** The separate *Pattern layers* card is gone: each group of the Layer tab (Shirt, Shorts, Socks, Accessories) has **+ Pattern** and lists its patterns at the top. Drag a pattern row onto another group to move it, hold `Ctrl` when you drop it to copy it; the part checkboxes became buttons for the parts of the group.
+- **A tidier editor.** The Layer tab groups layers by shirt, shorts, socks and accessories (big groups start closed), gathers PSD helper layers (mesh, guides, stitches, shadows, background) in their own closed list, and adds a search field when there are many layers; row buttons show on hover. Explanations moved from always-visible paragraphs into a **?** next to each heading and into *Help → Guide*. One accent colour: blue for what is active or selected, red only for the main action (Export), amber only for experimental / warnings; muted text has more contrast and nothing is smaller than 10 px. The menu bar is *File · Edit · View · Tools · Help*: colour presets are in *Edit*, the experimental tools (pattern from a photo, fontset generator, kitserver config.txt) in *Tools*, the language in *Edit → Settings*. The part strip under the canvas is replaced by a part list in the toolbar.
+- **Keyboard shortcuts:** `V` `B` `P` `S` `J` `E` pick a tool, `1` / `2` / `3` switch 2D / Split / 3D, `Ctrl+S` opens the projects, `Ctrl+E` the export, `?` the shortcut list. *New kit* asks before replacing the kit. Keyboard focus is always visible, dialogs are announced as dialogs, and icon buttons have names for screen readers.
+- **Pattern from a jersey photo (experimental)** (*Tools → Pattern from a jersey photo…*): take a product photo of a shirt (front, and the back if you have one) and get its body pattern as colour layers you can edit. The body area is found by itself and can be redrawn; the pattern colours are found with the lighting taken out, and when the pattern colours differ in hue only hue is used, so shading, folds and creases are ignored; each area bounded by sharp edges takes one colour (a fold across a stripe goes with the stripe); the colour areas are drawn as clean vector shapes; logos, sponsors, numbers and names are left out and their area is filled by continuing the pattern along its main direction. The back is read with the front's colours. The result opens in the PNG "split by colour" import. Sleeves get the main colour.
 - **Sharp letters from a font sheet picture.** Letters that have to be enlarged (a small picture, or the big back number) are traced into vector outlines and drawn at the slot size, instead of enlarging the pixels. The outline is read from the anti-aliased edge with sub-pixel accuracy; corners in any direction keep the picture's own shape: sharp corners are where the straight edges meet, slightly rounded ones get a matching round, straight edges are exactly straight and nearly upright / level ones exactly upright / level, and curves are smooth. The picture's own colours stay inside the outline (two-colour letters and stripes are kept).
 - **PNG import: a picture that is not square** can now be stretched (as before), fitted whole (the rest stays empty) or cropped to the square (the middle is kept), in both the "split by colour" and the "1 file = 1 layer" import.
 - **Smaller template files:** the masks of imported PSD / PNG templates are saved as only the area they cover, with their position, instead of a full 1024 × 1024 picture each. Templates saved before keep working.
-- **No more console warnings** about the removed three.js soft shadow type and about too many Konva layers (the 2D canvas now uses 5 layers).
 - **Shaded layers keep their shading:** a grey or shaded PSD / PNG layer that is recoloured with the zone colour now keeps its light and dark (the lightest part gets exactly the zone colour) instead of becoming one flat colour. Import the template again to get it; layers imported before stay flat.
 - **Edited built-in templates are told about updates:** when a built-in template you changed gets a newer definition, the Template panel says so. *Use the new version* takes the new built-in zones and keeps your colours and the layers and seams you added yourself (shape changes to built-in zones are lost); *Ignore* hides the notice until the next update.
 - **PSD / PNG import a little faster:** each layer is processed only inside its own box, masks are uploaded 4 at a time, and the page is given time to redraw only every 0.1 s (the PES 2019 PSD, 115 layers: about 27 → 23 s in the test browser). The result is the same as before.
 - **3D preview: tilt the view.** Hold the middle mouse button (wheel button) and drag up / down to look at the kit from above or below; the view buttons bring the camera back level. Left drag still rotates, the wheel still zooms.
+
+**Fixed**
+- **Split view after 3D:** switching back from 3D to Split no longer leaves the 3D view full width with the 2D canvas pushed off screen.
+- **Shorts zones of the built-in templates sat a quarter up the leg.** They used the 3D model's coordinates (hem at x 81) instead of the game's (hem at x 0): the shorts trims, side panels and stripes of the Classic, Polo, Raglan, Yoke, Three stripes and Side panels templates now start at the hem. Templates you already edited keep their own zones until you take the update (see below).
+- **Nothing is lost on a reload or in a project file any more:** the fabric texture layers (Fabric tab) are kept in the autosave and in saved projects / `.peskit` files, and a project also holds its kitserver config.txt and the fontset generator settings (fonts, colours, outline, format, pattern, logo with its per-digit shifts). The imported font sheet picture and a logo picked from a file on the computer are not kept (import them again).
+- **No more console warnings** about the removed three.js soft shadow type and about too many Konva layers (the 2D canvas now uses 5 layers).
 
 ## 0.2.0 — kitserver: config.txt, fontsets and a simpler Layer tab
 

@@ -1,43 +1,54 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-  ArrowDown,
-  ArrowUp,
-  ChevronDown,
-  ChevronRight,
-  Copy,
-  Eye,
-  EyeOff,
-  FlipHorizontal2,
-  FlipVertical2,
-  FolderOpen,
-  Plus,
-  RefreshCw,
-  Sparkles,
-  Trash2,
-} from 'lucide-react';
-import { KitPartId, PatternLayer } from '@/types/kit';
-import { PanelSection } from '@/components/ui/PanelSection';
+import { FlipHorizontal2, FlipVertical2, FolderOpen, RefreshCw } from 'lucide-react';
+import { KitCategory, KitPartId, PatternLayer } from '@/types/kit';
+import { InfoTip } from '@/components/ui/InfoTip';
 import { PATTERN_LABEL, PATTERN_OPTIONS, REPEATING_PATTERNS, THICKNESS_PATTERNS } from '@/constants/patterns';
 import { AssetLibrary } from '@/hooks/useAssetLibrary';
 import { getCachedImage, preloadImage } from '@/utils/imageCache';
 import { isTintableTile } from '@/utils/patternRenderer';
 
-const PART_GROUPS: { label: string; parts: { id: KitPartId; label: string }[] }[] = [
-  { label: 'Baju', parts: [{ id: 'front', label: 'Depan' }, { id: 'back', label: 'Belakang' }, { id: 'collar', label: 'Kerah' }] },
-  { label: 'Lengan', parts: [{ id: 'leftSleeve', label: 'Kanan' }, { id: 'rightSleeve', label: 'Kiri' }] },
-  { label: 'Celana', parts: [{ id: 'leftShorts', label: 'Kanan' }, { id: 'rightShorts', label: 'Kiri' }] },
-  { label: 'Kaus kaki', parts: [{ id: 'leftSock', label: 'Kanan' }, { id: 'rightSock', label: 'Kiri' }] },
-];
+/** The parts a pattern can sit on, per layer group (the groups of the Layer list). */
+export const PATTERN_GROUP_PARTS: Record<KitCategory, { id: KitPartId; label: string }[]> = {
+  shirt: [
+    { id: 'front', label: 'Depan' },
+    { id: 'back', label: 'Belakang' },
+    { id: 'leftSleeve', label: 'Lengan kanan' },
+    { id: 'rightSleeve', label: 'Lengan kiri' },
+  ],
+  shorts: [{ id: 'leftShorts', label: 'Kanan' }, { id: 'rightShorts', label: 'Kiri' }],
+  socks: [{ id: 'leftSock', label: 'Kanan' }, { id: 'rightSock', label: 'Kiri' }],
+  details: [{ id: 'collar', label: 'Kerah' }],
+};
 
-const SHIRT_PARTS: KitPartId[] = ['front', 'back'];
+export const groupPartIds = (g: KitCategory): KitPartId[] => PATTERN_GROUP_PARTS[g].map((p) => p.id);
 
-interface PatternLayersPanelProps {
-  layers: PatternLayer[];
+/** A new pattern layer (vertical stripes) on the given parts. */
+export const newPatternLayer = (parts: KitPartId[]): PatternLayer => ({
+  id: `pattern-${Date.now().toString(36)}`,
+  name: PATTERN_LABEL['vertical-stripes'],
+  pattern: 'vertical-stripes',
+  patternColor: '#ffffff',
+  patternScale: 30,
+  patternOpacity: 1,
+  patternThickness: 0.5,
+  patternRotation: 0,
+  patternOffsetX: 0,
+  patternOffsetY: 0,
+  visible: true,
+  parts,
+  backFlip: true,
+});
+
+interface PatternLayerEditorProps {
+  layer: PatternLayer;
+  /** The Layer-list group the editor is open in: its parts can be switched on and off. */
+  group: KitCategory;
   library: AssetLibrary;
-  activePartId: KitPartId | 'all';
-  onChange: (layers: PatternLayer[]) => void;
+  onUpdate: (patch: Partial<PatternLayer>) => void;
+  /** In the side panel: no indent / guide line. */
+  bare?: boolean;
 }
 
 /** Slider with a label and a live value. */
@@ -65,147 +76,24 @@ const Slider: React.FC<{
       step={step}
       value={value}
       onChange={(e) => onChange(parseFloat(e.target.value))}
-      className="w-full accent-amber-500 cursor-pointer"
+      className="w-full accent-sky-500 cursor-pointer"
     />
   </div>
 );
 
-/** Pattern layers: any number of patterns drawn over the base colour, each with its own settings and parts. */
-export const PatternLayersPanel: React.FC<PatternLayersPanelProps> = ({ layers, library, activePartId, onChange }) => {
-  const [openId, setOpenId] = useState<string | null>(null);
-
-  const update = (id: string, patch: Partial<PatternLayer>) =>
-    onChange(layers.map((l) => (l.id === id ? { ...l, ...patch } : l)));
-
-  const addLayer = () => {
-    const id = `pattern-${Date.now().toString(36)}`;
-    const defaultParts: KitPartId[] =
-      activePartId !== 'all' ? [activePartId] : SHIRT_PARTS;
-    onChange([
-      ...layers,
-      {
-        id,
-        name: PATTERN_LABEL['vertical-stripes'],
-        pattern: 'vertical-stripes',
-        patternColor: '#ffffff',
-        patternScale: 30,
-        patternOpacity: 1,
-        patternThickness: 0.5,
-        patternRotation: 0,
-        patternOffsetX: 0,
-        patternOffsetY: 0,
-        visible: true,
-        parts: defaultParts,
-        backFlip: true,
-      },
-    ]);
-    setOpenId(id);
-  };
-
-  const duplicate = (l: PatternLayer) => {
-    const id = `pattern-${Date.now().toString(36)}`;
-    const i = layers.findIndex((x) => x.id === l.id);
-    const next = [...layers];
-    next.splice(i + 1, 0, { ...l, id, name: `${l.name ?? 'Pola'} (salinan)` });
-    onChange(next);
-    setOpenId(id);
-  };
-
-  const remove = (id: string) => {
-    onChange(layers.filter((l) => l.id !== id));
-    if (openId === id) setOpenId(null);
-  };
-
-  // layers[0] is the bottom one; the list shows the top layer first, so "up" moves later in the array
-  const move = (id: string, dir: 'up' | 'down') => {
-    const i = layers.findIndex((l) => l.id === id);
-    const j = dir === 'up' ? i + 1 : i - 1;
-    if (i < 0 || j < 0 || j >= layers.length) return;
-    const next = [...layers];
-    [next[i], next[j]] = [next[j], next[i]];
-    onChange(next);
-  };
-
-  const togglePart = (l: PatternLayer, part: KitPartId) =>
-    update(l.id, { parts: l.parts.includes(part) ? l.parts.filter((p) => p !== part) : [...l.parts, part] });
-
-  const toggleGroup = (l: PatternLayer, ids: KitPartId[]) => {
-    const all = ids.every((i) => l.parts.includes(i));
-    update(l.id, { parts: all ? l.parts.filter((p) => !ids.includes(p)) : Array.from(new Set([...l.parts, ...ids])) });
-  };
-
-  const shown = [...layers].reverse();
+/** The settings of one pattern layer, opened under its row in the Layer list. */
+export const PatternLayerEditor: React.FC<PatternLayerEditorProps> = ({ layer: l, group, library, onUpdate, bare }) => {
+  const update = (_id: string, patch: Partial<PatternLayer>) => onUpdate(patch);
+  const isLib = l.pattern === 'custom-image';
+  const img = isLib && l.patternImage ? getCachedImage(l.patternImage) : undefined;
+  const tintAuto = img && l.patternImage ? isTintableTile(l.patternImage, img) : true;
+  const groupParts = PATTERN_GROUP_PARTS[group];
+  const onHere = groupParts.filter((p) => l.parts.includes(p.id));
+  const togglePart = (part: KitPartId) =>
+    onUpdate({ parts: l.parts.includes(part) ? l.parts.filter((p) => p !== part) : [...l.parts, part] });
 
   return (
-    <PanelSection
-      id="patterns"
-      title="Layer Pola"
-      icon={<Sparkles className="w-3.5 h-3.5 text-amber-400" />}
-      badge={layers.length}
-      action={
-        <button
-          type="button"
-          onClick={addLayer}
-          className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-amber-700/60 bg-amber-900/20 text-amber-100 hover:bg-amber-800/30"
-        >
-          <Plus className="w-3 h-3" />
-          Tambah pola
-        </button>
-      }
-    >
-      <p className="text-[10px] text-slate-500 leading-snug">
-        Pola digambar di atas warna dasar. Layer paling atas di daftar tampil paling depan. Tiap layer punya ukuran,
-        posisi, rotasi, dan bagian sendiri.
-      </p>
-
-      {layers.length === 0 && (
-        <p className="text-[11px] text-slate-500 text-center py-2">Belum ada pola. Klik Tambah pola.</p>
-      )}
-
-      {shown.map((l) => {
-        const open = openId === l.id;
-        const isLib = l.pattern === 'custom-image';
-        const img = isLib && l.patternImage ? getCachedImage(l.patternImage) : undefined;
-        const tintAuto = img && l.patternImage ? isTintableTile(l.patternImage, img) : true;
-        const topIndex = layers.length - 1;
-        const idx = layers.findIndex((x) => x.id === l.id);
-        return (
-          <div key={l.id} className="rounded-lg border border-slate-800 bg-slate-900/40">
-            <div className="flex items-center gap-1.5 px-2 py-1.5">
-              <button
-                type="button"
-                onClick={() => update(l.id, { visible: !l.visible })}
-                className="text-slate-400 hover:text-white"
-                title="Tampilkan / sembunyikan"
-              >
-                {l.visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-              </button>
-              <button type="button" onClick={() => setOpenId(open ? null : l.id)} className="flex-1 min-w-0 flex items-center gap-2 text-left">
-                <span className="w-4 h-4 rounded border border-slate-600 shrink-0" style={{ backgroundColor: l.patternColor }} />
-                <span className="min-w-0">
-                  <span className="block truncate text-[11px] font-semibold text-slate-200">
-                    {l.name ?? PATTERN_LABEL[l.pattern] ?? 'Pola'}
-                  </span>
-                  <span className="block text-[10px] text-slate-500">{l.parts.length} bagian</span>
-                </span>
-                {open ? <ChevronDown className="w-3.5 h-3.5 ml-auto text-slate-500" /> : <ChevronRight className="w-3.5 h-3.5 ml-auto text-slate-500" />}
-              </button>
-              <button type="button" disabled={idx === topIndex} onClick={() => move(l.id, 'up')} className="text-slate-500 hover:text-white disabled:opacity-30" title="Naikkan (lebih depan)">
-                <ArrowUp className="w-3.5 h-3.5" />
-              </button>
-              <button type="button" disabled={idx === 0} onClick={() => move(l.id, 'down')} className="text-slate-500 hover:text-white disabled:opacity-30" title="Turunkan">
-                <ArrowDown className="w-3.5 h-3.5" />
-              </button>
-              <button type="button" onClick={() => duplicate(l)} className="text-slate-500 hover:text-white" title="Gandakan">
-                <Copy className="w-3.5 h-3.5" />
-              </button>
-              <button type="button" onClick={() => remove(l.id)} className="text-slate-500 hover:text-rose-400" title="Hapus layer">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {open && (
-              <div className="px-2.5 pb-3 pt-2.5 space-y-3 border-t border-slate-800">
+              <div className={bare ? 'p-3 space-y-3' : 'mt-1 ml-3 border-l border-slate-800 pl-2 pb-2 pt-1.5 space-y-3'}>
                 {/* Pattern type */}
                 <select
                   value={l.pattern}
@@ -215,7 +103,8 @@ export const PatternLayersPanel: React.FC<PatternLayersPanelProps> = ({ layers, 
                       name: PATTERN_LABEL[e.target.value] ?? l.name,
                     })
                   }
-                  className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-2 text-xs text-slate-200 focus:border-amber-500 outline-none"
+                  aria-label="Jenis pola"
+                  className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-2 text-xs text-slate-200 focus:border-sky-500 outline-none"
                 >
                   {PATTERN_OPTIONS.map((opt) => (
                     <option key={opt.id} value={opt.id}>
@@ -229,7 +118,7 @@ export const PatternLayersPanel: React.FC<PatternLayersPanelProps> = ({ layers, 
                 <div className="space-y-1.5 bg-slate-900/40 border border-slate-800 rounded-lg p-2">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-semibold text-slate-300 flex items-center gap-1.5">
-                      <FolderOpen className="w-3.5 h-3.5 text-amber-400" />
+                      <FolderOpen className="w-3.5 h-3.5 text-slate-400" />
                       Pola dari Pustaka ({library.patterns.length})
                     </span>
                     <button
@@ -266,7 +155,7 @@ export const PatternLayersPanel: React.FC<PatternLayersPanelProps> = ({ layers, 
                               });
                             }}
                             className={`aspect-square rounded-md border p-1 flex items-center justify-center overflow-hidden transition-all ${
-                              active ? 'border-amber-400 bg-amber-500/10' : 'border-slate-700 bg-slate-800 hover:border-slate-500'
+                              active ? 'border-sky-400 bg-sky-500/10' : 'border-slate-700 bg-slate-800 hover:border-slate-500'
                             }`}
                           >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -284,7 +173,7 @@ export const PatternLayersPanel: React.FC<PatternLayersPanelProps> = ({ layers, 
                       type="checkbox"
                       checked={l.patternTint ?? tintAuto}
                       onChange={(e) => update(l.id, { patternTint: e.target.checked })}
-                      className="mt-0.5 accent-amber-500"
+                      className="mt-0.5 accent-sky-500"
                     />
                     <span>
                       Warnai dengan Warna Pola
@@ -318,7 +207,7 @@ export const PatternLayersPanel: React.FC<PatternLayersPanelProps> = ({ layers, 
                       type="checkbox"
                       checked={l.patternRepeat !== false}
                       onChange={(e) => update(l.id, { patternRepeat: e.target.checked })}
-                      className="mt-0.5 accent-amber-500"
+                      className="mt-0.5 accent-sky-500"
                     />
                     <span>
                       Berulang (Kontinu)
@@ -367,7 +256,7 @@ export const PatternLayersPanel: React.FC<PatternLayersPanelProps> = ({ layers, 
                         onClick={() => update(l.id, { patternRotation: deg })}
                         className={`text-[10px] py-1 rounded border transition-colors ${
                           (l.patternRotation ?? 0) === deg
-                            ? 'bg-amber-500/20 border-amber-500 text-amber-200'
+                            ? 'bg-sky-500/20 border-sky-500 text-sky-100'
                             : 'bg-slate-800/70 border-slate-700/60 text-slate-300 hover:bg-slate-700'
                         }`}
                       >
@@ -379,7 +268,10 @@ export const PatternLayersPanel: React.FC<PatternLayersPanelProps> = ({ layers, 
 
                 {/* Mirror / symmetry */}
                 <div className="space-y-1.5 pt-2 border-t border-slate-800/80">
-                  <span className="text-[11px] font-semibold text-slate-300">Cermin</span>
+                  <span className="flex items-center gap-1 text-[11px] font-semibold text-slate-300">
+                    Cermin
+                    <InfoTip text="Simetris: pola digambar di satu sisi lalu dicerminkan ke sisi lawannya (cocok untuk diagonal dan sash). Balik: pola dibalik di tempat." />
+                  </span>
                   <div className="grid grid-cols-2 gap-1.5">
                     {(
                       [
@@ -397,7 +289,7 @@ export const PatternLayersPanel: React.FC<PatternLayersPanelProps> = ({ layers, 
                           onClick={() => update(l.id, { [key]: !active })}
                           className={`flex items-center justify-center gap-1 text-[10px] font-medium py-1.5 px-1.5 rounded-lg border transition-colors ${
                             active
-                              ? 'bg-amber-500/20 border-amber-500 text-amber-200'
+                              ? 'bg-sky-500/20 border-sky-500 text-sky-100'
                               : 'bg-slate-800/70 border-slate-700/60 text-slate-300 hover:bg-slate-700'
                           }`}
                         >
@@ -407,65 +299,55 @@ export const PatternLayersPanel: React.FC<PatternLayersPanelProps> = ({ layers, 
                       );
                     })}
                   </div>
-                  <p className="text-[10px] text-slate-500 leading-snug">
-                    Simetris: pola digambar di satu sisi lalu dicerminkan ke sisi lawannya (cocok untuk diagonal dan sash).
-                  </p>
                 </div>
 
-                {/* Parts */}
-                <div className="space-y-1.5 pt-2 border-t border-slate-800/80">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Dipakai di bagian</div>
-                  {PART_GROUPS.map((g) => {
-                    const ids = g.parts.map((p) => p.id);
-                    const all = ids.every((i) => l.parts.includes(i));
-                    const some = ids.some((i) => l.parts.includes(i));
-                    return (
-                      <div key={g.label} className="flex items-start gap-2 text-[11px] text-slate-300">
-                        <label className="flex items-center gap-1.5 w-20 cursor-pointer font-medium shrink-0">
-                          <input
-                            type="checkbox"
-                            checked={all}
-                            ref={(el) => {
-                              if (el) el.indeterminate = some && !all;
-                            }}
-                            onChange={() => toggleGroup(l, ids)}
-                            className="accent-amber-500"
-                          />
-                          {g.label}
-                        </label>
-                        <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-                          {g.parts.map((p) => (
-                            <label key={p.id} className="flex items-center gap-1 cursor-pointer text-slate-400">
-                              <input type="checkbox" checked={l.parts.includes(p.id)} onChange={() => togglePart(l, p.id)} className="accent-amber-500" />
+                {/* Parts of this group (the group itself is chosen by dragging the row) */}
+                {(groupParts.length > 1 || group === 'shirt') && (
+                  <div className="space-y-1.5 pt-2 border-t border-slate-800/80">
+                    <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-300">
+                      Bagian
+                      <InfoTip text="Seret baris pola ke grup lain (Baju, Celana, Kaus kaki, Aksesoris) untuk memindahkannya. Tahan Ctrl saat melepas untuk menyalinnya." />
+                    </div>
+                    {groupParts.length > 1 && (
+                      <div className="flex flex-wrap gap-1">
+                        {groupParts.map((p) => {
+                          const on = l.parts.includes(p.id);
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              aria-pressed={on}
+                              // the last part of the group stays on: removing the pattern from a group is the trash button
+                              disabled={on && onHere.length === 1}
+                              onClick={() => togglePart(p.id)}
+                              className={`text-[11px] px-2 py-0.5 rounded-md border transition-colors disabled:cursor-not-allowed ${
+                                on
+                                  ? 'bg-sky-500/20 border-sky-500 text-sky-100'
+                                  : 'bg-slate-800/70 border-slate-700/60 text-slate-400 hover:bg-slate-700'
+                              }`}
+                            >
                               {p.label}
-                            </label>
-                          ))}
-                        </div>
+                            </button>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
-                  <label className="flex items-start gap-2 text-[11px] text-slate-300 cursor-pointer pt-1">
-                    <input
-                      type="checkbox"
-                      checked={!!l.backFlip}
-                      onChange={(e) => update(l.id, { backFlip: e.target.checked })}
-                      className="mt-0.5 accent-amber-500"
-                    />
-                    <span>
-                      Putar 180° di punggung
-                      <span className="block text-[10px] text-slate-500">
-                        Punggung di template PES terbalik. Nyalakan agar pola di punggung tampak sama dengan depan saat dipakai.
-                      </span>
-                    </span>
-                  </label>
-                </div>
+                    )}
+                    {group === 'shirt' && (
+                      <label className="flex items-center gap-2 text-[11px] text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!l.backFlip}
+                          onChange={(e) => update(l.id, { backFlip: e.target.checked })}
+                          className="accent-sky-500"
+                        />
+                        Putar 180° di punggung
+                        <InfoTip text="Punggung di template PES terbalik. Nyalakan agar pola di punggung tampak sama dengan depan saat dipakai." />
+                      </label>
+                    )}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        );
-      })}
-    </PanelSection>
   );
 };
 
-export default PatternLayersPanel;
+export default PatternLayerEditor;

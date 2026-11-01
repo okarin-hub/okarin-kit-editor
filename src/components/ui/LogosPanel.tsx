@@ -329,7 +329,7 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
         />
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 active:scale-98 text-white font-semibold text-xs shadow-md shadow-rose-950/60 transition-all border border-rose-400/30"
+          className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition-colors"
           title="Upload logo dari komputermu"
         >
           <Upload className="w-3.5 h-3.5" />
@@ -398,7 +398,7 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
 
           <button
             onClick={handleAddCustomText}
-            className="w-full py-1.5 bg-sky-600 hover:bg-sky-500 text-white font-semibold rounded-lg text-xs mt-1 transition-colors"
+            className="w-full py-1.5 font-semibold rounded-lg text-xs mt-1 transition-colors border border-slate-700 bg-slate-800/70 text-slate-100 hover:bg-slate-700"
           >
             Tambahkan ke Kit
           </button>
@@ -408,7 +408,7 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
       {/* Logos from the library/logos folder */}
       <div className="space-y-2.5 pt-2 border-t border-slate-800">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-200">
             <FolderOpen className="w-3.5 h-3.5 text-sky-400" />
             <span>Logo Saya</span>
           </div>
@@ -429,7 +429,7 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
         <button
           type="button"
           onClick={() => setShowFootballLogos(true)}
-          className="w-full flex items-center justify-center gap-2 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-500 active:scale-[0.99] rounded-lg py-2 transition-all"
+          className="w-full flex items-center justify-center gap-2 text-xs font-semibold rounded-lg py-2 transition-colors border border-slate-700 bg-slate-800/70 text-slate-100 hover:bg-slate-700"
           title="Cari logo klub, liga, atau turnamen dari football-logos.cc"
         >
           <Search className="w-3.5 h-3.5" />
@@ -458,7 +458,7 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
                     onClick={() => setLibraryCategory(cat)}
                     className={`px-2.5 py-1 rounded-md whitespace-nowrap transition-all ${
                       libraryCategory === cat
-                        ? 'bg-sky-600 text-white font-semibold shadow-sm'
+                        ? 'bg-sky-500/25 text-sky-100 font-semibold'
                         : 'bg-slate-900/60 text-slate-400 hover:text-white hover:bg-slate-800'
                     }`}
                   >
@@ -485,7 +485,7 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
                       {logo.name}
                     </span>
                     {logo.category && (
-                      <span className="text-[9px] text-slate-500 capitalize truncate">{logo.category}</span>
+                      <span className="text-[10px] text-slate-500 capitalize truncate">{logo.category}</span>
                     )}
                   </div>
                 </button>
@@ -497,7 +497,7 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
 
       {/* 3. Added Graphics Layer Management */}
       <div className="space-y-2 pt-2 border-t border-slate-800">
-        <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-400">
+        <div className="flex items-center justify-between text-xs font-semibold text-slate-200">
           <div className="flex items-center gap-1.5">
             <Layers className="w-3.5 h-3.5 text-sky-400" />
             <span>Manajemen Layer ({graphicItems.length})</span>
@@ -875,9 +875,9 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
           </div>
         </div>
       ) : (
-        <div className="p-3 bg-slate-900/30 rounded-lg border border-slate-800/60 text-center text-xs text-slate-500">
-          💡 Klik salah satu logo langsung pada kanvas untuk menggeser, memutar, atau mengubah ukuran dengan handel transform.
-        </div>
+        <p className="px-1 text-[11px] text-slate-400">
+          Pilih logo di canvas untuk menggeser, memutar, atau mengubah ukurannya.
+        </p>
       )}
       <FootballLogosModal
         isOpen={showFootballLogos}

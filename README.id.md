@@ -21,8 +21,9 @@ Folder `library` di sebelah exe awalnya **kosong**: tambahkan logo, pola, font, 
 ## Fitur
 
 - Canvas 2D (Konva) dan preview 3D (Three.js) berdampingan, dengan renderer yang sama untuk keduanya dan untuk export.
-- Warna bagian, **layer pola** (boleh banyak per kit, masing-masing dengan ukuran, rotasi, geser, cermin, bagian),
-  layer tekstur kain, lis, kerah, ban kapten, dan kotak kredit.
+- Grup layer baju, celana, kaus kaki, dan aksesoris: warna bagian, **pola** (boleh banyak per kit, masing-masing
+  dengan ukuran, rotasi, geser, cermin, bagian) dan **objek** (strip, panel, elips, segitiga, bisa dikembarkan) yang
+  bisa diseret antargrup; layer tekstur kain, lis, kerah, ban kapten, dan kotak kredit.
 - **Pilihan layer dasar:** warna bagian, atau desain kit jadi yang di-import (warna bisa ditumpuk di atasnya).
 - Bentuk lengan: sampai pundak (template PES) atau tanpa pundak.
 - Logo dan teks dengan kunci rasio, posisi X/Y, ganti warna, gradasi, dan outline. Pustaka logo milikmu sendiri.
@@ -30,7 +31,8 @@ Folder `library` di sebelah exe awalnya **kosong**: tambahkan logo, pola, font, 
 - Nama dan nomor pemain, nomor celana.
 - Export: **PNG**, **DDS** (DXT1 / DXT5 / BGRA, mipmap), **FTEX** (ditulis langsung, sudah diuji di PES 2021),
   file proyek `.peskit`, kartu showcase. 1024 atau 2048 px.
-- Bahasa: English, Bahasa Indonesia, Português, Español. Undo / redo, autosave, proyek tersimpan.
+- Alat eksperimental: pola dari foto jersey, generator fontset dan editor config.txt kitserver.
+- Bahasa: English, Bahasa Indonesia, Português, Español. Pintasan keyboard, undo / redo, autosave, proyek tersimpan.
 
 ## Menjalankan dari source
 

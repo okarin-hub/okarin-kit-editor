@@ -79,3 +79,11 @@ welcome (see [Contributing](CONTRIBUTING.md)).
 | 40 | P3 | Font sheet import: letters that touch are split at the thinnest column, which can cut a little off one of them; recognition compares shapes with common fonts and relies on the sheet being in alphabet order, so very decorative letters or a shuffled sheet need the row text corrected by hand. On a very busy background (neon lines, glow) the automatic cut can still pick up background pieces: use *Pick letters* in the import dialog. A pattern also covers the outline. Accented letters are not built from the sheet yet (they come from the fallback font). |
 | 41 | P3 | Letters from a font sheet picture are traced into vector outlines when they are enlarged, so their edges are sharp, but a wobble or a dent that is in the picture itself stays, and very small letters (under about 40 px) can lose their finest details. Use the largest, cleanest picture you have. |
 | 42 | P2 | **Pattern from a jersey photo is on hold and still needs refinement.** It works on a product mockup (tested with one kit, front and back) but is an approximation: perspective, the body's curve and folds bend straight lines; with two pattern colours of the same hue (light / dark blue) some shading still shows; the pattern behind a big logo or number is continued along its main direction, so it can break where the pattern turns; the automatic body box leaves out the sides (redraw it to take more). Still to do: sleeves from the photo (they only get the main colour), recognising regular patterns (stripes, hoops, chevrons…) and rebuilding them with the pattern layers, more test photos. A thin pattern colour under the threshold (default 8 %) is treated as a logo. |
+
+## Layer tab (added in 0.3.0)
+
+| # | Pri | Issue |
+|---|---|---|
+| 43 | P3 | Moving a pattern or object to another group and resizing the side panel need a mouse; with the keyboard the arrow buttons only change the order inside a group. |
+| 44 | P3 | Patterns are listed at the top of their group but are always drawn under the template layers of that group, so the list order between patterns and template layers is not the drawing order. |
+| 45 | P3 | All copies of a repeated object have the same size. Editing the points of a rotated repeated object straightens the repeat direction (it then follows the texture axes). |

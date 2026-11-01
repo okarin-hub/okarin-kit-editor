@@ -125,7 +125,7 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
   const slot = (title: string, shot: Shot | null, set: (s: Shot | null) => void, input: React.RefObject<HTMLInputElement | null>, optional: boolean) => (
     <section className="space-y-2 min-w-0">
       <div className="flex items-center justify-between">
-        <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-300">{title}</h4>
+        <h4 className="text-xs font-semibold text-slate-200">{title}</h4>
         {shot && (
           <button type="button" onClick={() => set(null)} className="p-1 rounded text-slate-400 hover:bg-slate-800" title="Hapus foto">
             <Trash2 className="w-3.5 h-3.5" />
@@ -161,7 +161,7 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none">
       <div className="bg-[#121622] border border-slate-800 rounded-2xl w-full max-w-6xl max-h-[92vh] shadow-2xl overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#0f131c]">
           <div className="flex items-center gap-2.5">
@@ -171,7 +171,7 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 Pola dari foto jersey
-                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
                   Eksperimental
                 </span>
               </h3>
@@ -187,7 +187,7 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
           {slot('Depan', front, setFront, frontInput, false)}
           {slot('Belakang', back, setBack, backInput, true)}
           <section className="space-y-2 min-w-0">
-            <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-300">Hasil</h4>
+            <h4 className="text-xs font-semibold text-slate-200">Hasil</h4>
             <div
               className="rounded-lg border border-slate-800 overflow-hidden"
               style={{ backgroundImage: 'repeating-conic-gradient(#64748b 0% 25%, #475569 0% 50%)', backgroundSize: '16px 16px' }}

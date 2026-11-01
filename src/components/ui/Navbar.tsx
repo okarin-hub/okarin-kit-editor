@@ -3,11 +3,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Download,
-  RotateCcw,
   Undo2,
   Redo2,
   FolderOpen,
-  Save,
   ImageDown,
   FilePlus2,
   Grid,
@@ -22,11 +20,10 @@ import {
   FileCog,
   Type,
   Shirt,
+  Settings,
 } from 'lucide-react';
 import { PRESET_KITS, KitPreset } from '@/constants/presets';
 import { CanvasViewState } from '@/types/kit';
-import { LANGUAGES, Lang } from '@/i18n/engine';
-import { useI18n } from '@/i18n/I18nProvider';
 import { MenuHeading, MenuItem, MenuSeparator, TopMenu } from '@/components/ui/Menus';
 import type { HelpKind } from '@/components/ui/HelpDialogs';
 
@@ -51,7 +48,7 @@ interface NavbarProps {
   onOpenHelp: (kind: HelpKind) => void;
 }
 
-/** Application menu bar: File, Edit, View, Preset and Settings (with the language choice). */
+/** Application menu bar: File, Edit (with the colour presets and the settings), View, Tools and Help. */
 export const Navbar: React.FC<NavbarProps> = ({
   onOpenExportModal,
   onOpenKitConfig,
@@ -72,7 +69,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   onToggleView,
   onOpenHelp,
 }) => {
-  const { lang, setLang } = useI18n();
   const [openId, setOpenId] = useState<string | null>(null);
   const barRef = useRef<HTMLDivElement | null>(null);
 
@@ -102,41 +98,28 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="relative z-40 h-12 border-b border-slate-800 bg-[#121620] px-3 flex items-center gap-3 select-none">
       {/* Brand */}
       <div className="flex items-center gap-2 shrink-0">
-        <div className="flex items-center gap-1.5 bg-rose-600/20 border border-rose-500/40 text-rose-400 px-2 py-0.5 rounded-md">
-          <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-          <span className="font-black text-[11px] tracking-wider uppercase">PES 2021</span>
-        </div>
+        <span className="rounded-md border border-slate-700 px-1.5 py-0.5 text-[11px] font-bold tracking-wide text-slate-300">PES 2021</span>
         <h1 className="text-sm font-bold text-white">Okarin Kit Editor</h1>
       </div>
 
       {/* Menu bar */}
       <div ref={barRef} className="flex items-center gap-0.5">
-        <TopMenu id="file" label="File" openId={openId} setOpenId={setOpenId}>
+        <TopMenu id="file" label="File" openId={openId} setOpenId={setOpenId} width="w-60">
           {(close) => (
             <>
               <MenuItem
                 icon={<FilePlus2 className="w-3.5 h-3.5" />}
                 label="Kit baru"
-                title="Reset ke pengaturan default"
+                title="Mulai dari awal (pengaturan default)"
                 onClick={run(close, onReset)}
               />
               <MenuItem
                 icon={<FolderOpen className="w-3.5 h-3.5" />}
-                label="Buka proyek…"
-                title="Buka atau simpan proyek kit"
+                label="Buka / simpan proyek…"
+                shortcut="Ctrl+S"
+                title={savedCount > 0 ? `${savedCount} proyek tersimpan di browser` : 'Simpan kit ke browser atau ke file .peskit'}
                 onClick={run(close, onOpenProjectsModal)}
               />
-              <MenuItem
-                icon={<Save className="w-3.5 h-3.5" />}
-                label="Simpan proyek…"
-                title="Buka atau simpan proyek kit"
-                onClick={run(close, onOpenProjectsModal)}
-              />
-              {savedCount > 0 && (
-                <div className="px-2 pb-1 text-[10px] text-slate-500">
-                  {savedCount} tersimpan di browser
-                </div>
-              )}
               <MenuSeparator />
               <MenuItem
                 icon={<ImageDown className="w-3.5 h-3.5" />}
@@ -146,34 +129,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={run(close, onOpenImportModal)}
               />
               <MenuItem
-                icon={<Shirt className="w-3.5 h-3.5" />}
-                label="Pola dari foto jersey… (eksperimental)"
-                title="Ambil pola badan baju dari foto jersey (tanpa logo) dan jadikan layer warna"
-                onClick={run(close, onOpenPhotoPattern)}
-              />
-              <MenuItem
                 icon={<Download className="w-3.5 h-3.5" />}
                 label="Export kit…"
-                title="Download tekstur kit PNG atau file proyek"
+                shortcut="Ctrl+E"
+                title="Download tekstur kit PNG / DDS / FTEX atau file proyek"
                 onClick={run(close, onOpenExportModal)}
-              />
-              <MenuItem
-                icon={<FileCog className="w-3.5 h-3.5" />}
-                label="Kitserver (config.txt)… (eksperimental)"
-                title="Atur config.txt kitserver dan simpan folder kit"
-                onClick={run(close, onOpenKitConfig)}
-              />
-              <MenuItem
-                icon={<Type className="w-3.5 h-3.5" />}
-                label="Generator fontset… (eksperimental)"
-                title="Buat file font nomor dan nama untuk kitserver"
-                onClick={run(close, onOpenFontset)}
               />
             </>
           )}
         </TopMenu>
 
-        <TopMenu id="edit" label="Edit" openId={openId} setOpenId={setOpenId} width="w-52">
+        <TopMenu id="edit" label="Edit" openId={openId} setOpenId={setOpenId} width="w-60">
           {(close) => (
             <>
               <MenuItem
@@ -190,49 +156,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                 disabled={!canRedo}
                 onClick={run(close, onRedo)}
               />
+              <MenuItem
+                icon={<Settings className="w-3.5 h-3.5" />}
+                label="Pengaturan…"
+                shortcut="Ctrl+,"
+                title="Bahasa dan cara membuka pengaturan layer"
+                onClick={run(close, () => onOpenHelp('settings'))}
+              />
               <MenuSeparator />
-              <MenuItem
-                icon={<RotateCcw className="w-3.5 h-3.5" />}
-                label="Reset"
-                title="Reset ke pengaturan default"
-                onClick={run(close, onReset)}
-              />
-            </>
-          )}
-        </TopMenu>
-
-        <TopMenu id="view" label="Tampilan" openId={openId} setOpenId={setOpenId} width="w-56">
-          {() => (
-            <>
-              <MenuHeading>Garis bantu dan label di canvas 2D</MenuHeading>
-              <MenuItem
-                icon={<Grid className="w-3.5 h-3.5" />}
-                label="Wireframe"
-                title="Garis jahitan template PES 2021"
-                checked={viewState.showWireframe}
-                onClick={() => onToggleView('showWireframe')}
-              />
-              <MenuItem
-                icon={<Tag className="w-3.5 h-3.5" />}
-                label="Label"
-                title="Label nama bagian"
-                checked={viewState.showPartLabels}
-                onClick={() => onToggleView('showPartLabels')}
-              />
-              <MenuItem
-                icon={viewState.showOriginalTemplate ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                label="Overlay"
-                title="Overlay template PES berlabel"
-                checked={viewState.showOriginalTemplate}
-                onClick={() => onToggleView('showOriginalTemplate')}
-              />
-            </>
-          )}
-        </TopMenu>
-
-        <TopMenu id="preset" label="Preset" openId={openId} setOpenId={setOpenId} width="w-60">
-          {(close) => (
-            <>
+              <MenuHeading>Terapkan preset warna</MenuHeading>
               {PRESET_KITS.map((preset) => (
                 <MenuItem
                   key={preset.id}
@@ -251,20 +183,59 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </TopMenu>
 
-        <TopMenu id="settings" label="Pengaturan" openId={openId} setOpenId={setOpenId} width="w-52">
+        <TopMenu id="view" label="Tampilan" openId={openId} setOpenId={setOpenId} width="w-60">
           {() => (
             <>
-              <MenuHeading>Bahasa</MenuHeading>
-              <div data-no-i18n>
-                {LANGUAGES.map((l) => (
-                  <MenuItem
-                    key={l.code}
-                    label={l.label}
-                    checked={lang === l.code}
-                    onClick={() => setLang(l.code as Lang)}
-                  />
-                ))}
-              </div>
+              <MenuHeading>Garis bantu dan label di canvas 2D</MenuHeading>
+              <MenuItem
+                icon={<Grid className="w-3.5 h-3.5" />}
+                label="Garis bagian"
+                title="Garis tepi tiap bagian template PES 2021"
+                checked={viewState.showWireframe}
+                onClick={() => onToggleView('showWireframe')}
+              />
+              <MenuItem
+                icon={<Tag className="w-3.5 h-3.5" />}
+                label="Label bagian"
+                title="Nama tiap bagian di canvas"
+                checked={viewState.showPartLabels}
+                onClick={() => onToggleView('showPartLabels')}
+              />
+              <MenuItem
+                icon={viewState.showOriginalTemplate ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                label="Template PES asli"
+                title="Tampilkan template PES berlabel di atas kit (transparan)"
+                checked={viewState.showOriginalTemplate}
+                onClick={() => onToggleView('showOriginalTemplate')}
+              />
+            </>
+          )}
+        </TopMenu>
+
+        <TopMenu id="tools" label="Alat" openId={openId} setOpenId={setOpenId} width="w-64">
+          {(close) => (
+            <>
+              <MenuItem
+                icon={<Shirt className="w-3.5 h-3.5" />}
+                label="Pola dari foto jersey…"
+                badge="Eksp."
+                title="Ambil pola badan baju dari foto jersey (tanpa logo) dan jadikan layer warna"
+                onClick={run(close, onOpenPhotoPattern)}
+              />
+              <MenuItem
+                icon={<Type className="w-3.5 h-3.5" />}
+                label="Generator fontset…"
+                badge="Eksp."
+                title="Buat file font nomor dan nama untuk kitserver"
+                onClick={run(close, onOpenFontset)}
+              />
+              <MenuItem
+                icon={<FileCog className="w-3.5 h-3.5" />}
+                label="Kitserver config.txt…"
+                badge="Eksp."
+                title="Atur config.txt kitserver dan simpan folder kit"
+                onClick={run(close, onOpenKitConfig)}
+              />
             </>
           )}
         </TopMenu>
@@ -274,12 +245,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             <>
               <MenuItem
                 icon={<BookOpen className="w-3.5 h-3.5" />}
-                label="Dokumentasi"
+                label="Panduan"
                 onClick={run(close, () => onOpenHelp('docs'))}
               />
               <MenuItem
                 icon={<Keyboard className="w-3.5 h-3.5" />}
                 label="Pintasan keyboard"
+                shortcut="?"
                 onClick={run(close, () => onOpenHelp('shortcuts'))}
               />
               <MenuSeparator />
@@ -288,7 +260,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 label="Cek pembaruan…"
                 onClick={run(close, () => onOpenHelp('update'))}
               />
-              <MenuSeparator />
               <MenuItem
                 icon={<Heart className="w-3.5 h-3.5" />}
                 label="Kredit"
@@ -317,8 +288,8 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Primary action */}
       <button
         onClick={onOpenExportModal}
-        className="flex items-center gap-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 active:scale-95 px-3.5 py-1.5 rounded-lg shadow-md shadow-rose-950 transition-all"
-        title="Download tekstur kit PNG atau file proyek"
+        className="flex items-center gap-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 active:scale-95 px-3.5 py-1.5 rounded-lg transition-colors"
+        title="Download tekstur kit PNG / DDS / FTEX atau file proyek (Ctrl+E)"
       >
         <Download className="w-4 h-4" />
         <span>Export Kit</span>

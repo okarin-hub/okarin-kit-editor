@@ -54,7 +54,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none animate-in fade-in duration-200">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none animate-in fade-in duration-200">
       <div className="bg-[#121622] border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col">
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#0f131c]">
@@ -90,7 +90,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 onClick={() => setExportType('game-texture')}
                 className={`flex flex-col items-center text-center p-3 rounded-xl border transition-all ${
                   exportType === 'game-texture'
-                    ? 'bg-rose-950/40 border-rose-500 text-white shadow-md shadow-rose-950/50'
+                    ? 'bg-sky-500/15 border-sky-500 text-white'
                     : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:bg-slate-800/80 hover:text-slate-200'
                 }`}
               >
@@ -105,7 +105,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 onClick={() => setExportType('project-file')}
                 className={`flex flex-col items-center text-center p-3 rounded-xl border transition-all ${
                   exportType === 'project-file'
-                    ? 'bg-rose-950/40 border-rose-500 text-white shadow-md shadow-rose-950/50'
+                    ? 'bg-sky-500/15 border-sky-500 text-white'
                     : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:bg-slate-800/80 hover:text-slate-200'
                 }`}
               >
@@ -120,7 +120,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 onClick={() => setExportType('showcase-card')}
                 className={`flex flex-col items-center text-center p-3 rounded-xl border transition-all ${
                   exportType === 'showcase-card'
-                    ? 'bg-rose-950/40 border-rose-500 text-white shadow-md shadow-rose-950/50'
+                    ? 'bg-sky-500/15 border-sky-500 text-white'
                     : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:bg-slate-800/80 hover:text-slate-200'
                 }`}
               >
@@ -167,7 +167,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   >
                     <div className="font-bold flex items-center gap-1">
                       2048 × 2048 px
-                      <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">HD</span>
+                      <span className="text-[10px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">HD</span>
                     </div>
                     <div className="text-[10px] text-slate-400 mt-0.5">Ultra HD (Mod Sider/EvoWeb)</div>
                   </button>
@@ -245,7 +245,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                       Sertakan Nama & Nomor Punggung di Tekstur
                     </span>
                     <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">
-                      💡 <em>Rekomendasi PES 2021:</em> Biarkan tidak tercentang agar file tekstur tetap bersih, karena game PES secara resmi menerapkan font nomor/nama dari sistem font internal game.
+                      Saran: biarkan mati. PES memakai font nomor/nama internal game, jadi tekstur sebaiknya bersih.
                     </p>
                   </div>
                 </label>
@@ -290,7 +290,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
           <button
             onClick={handleConfirmExport}
-            className="flex items-center gap-2 px-5 py-2 rounded-lg text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 active:scale-95 shadow-lg shadow-rose-950 transition-all"
+            className="flex items-center gap-2 px-5 py-2 rounded-lg text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 active:scale-95 transition-colors"
           >
             <Download className="w-4 h-4" />
             <span>Download Sekarang</span>

@@ -37,7 +37,7 @@ export const TopMenu: React.FC<{
 };
 
 export const MenuHeading: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="px-2 pt-1.5 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">{children}</div>
+  <div className="px-2 pt-1.5 pb-0.5 text-[11px] font-semibold text-slate-400">{children}</div>
 );
 
 export const MenuSeparator: React.FC = () => <div className="my-1 h-px bg-slate-700/70" />;
@@ -46,11 +46,13 @@ export const MenuItem: React.FC<{
   label: string;
   icon?: React.ReactNode;
   shortcut?: string;
+  /** Small tag after the label, e.g. "Eksp." for experimental tools. */
+  badge?: string;
   title?: string;
   checked?: boolean;
   disabled?: boolean;
   onClick: () => void;
-}> = ({ label, icon, shortcut, title, checked, disabled, onClick }) => (
+}> = ({ label, icon, shortcut, badge, title, checked, disabled, onClick }) => (
   <button
     type="button"
     onClick={onClick}
@@ -60,7 +62,10 @@ export const MenuItem: React.FC<{
   >
     <span className="w-4 flex justify-center text-slate-400 shrink-0">{icon}</span>
     <span className="flex-1 min-w-0 truncate">{label}</span>
-    {shortcut && <span className="text-[10px] text-slate-500 font-mono shrink-0">{shortcut}</span>}
+    {badge && (
+      <span className="shrink-0 rounded border border-amber-500/40 bg-amber-500/10 px-1 text-[10px] font-semibold text-amber-300">{badge}</span>
+    )}
+    {shortcut && <span className="text-[11px] text-slate-400 shrink-0">{shortcut}</span>}
     {checked && <Check className="w-3.5 h-3.5 text-sky-400 shrink-0" />}
   </button>
 );

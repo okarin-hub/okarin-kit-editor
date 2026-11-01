@@ -62,7 +62,7 @@ export const PartsSidebar: React.FC<PartsSidebarProps> = ({
       <div className="p-3 border-b border-slate-800/80 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Layers className="w-4 h-4 text-rose-400" />
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
+          <span className="text-xs font-semibold text-slate-100">
             Daftar Bagian Kit (Parts)
           </span>
         </div>

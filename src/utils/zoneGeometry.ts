@@ -216,6 +216,52 @@ export function transformPoint(p: Pt, box: ZoneBox, zs: Partial<TemplateZoneStat
 }
 
 /**
+ * Offsets of the copies of a repeated zone: the zone itself first, then one step per copy along its own (rotated)
+ * height or width, so the copies of a diagonal strip stay parallel to it.
+ */
+export function repeatOffsets(zone: KitZoneDef, zs: Partial<TemplateZoneState>): Pt[] {
+  const n = Math.max(1, Math.round(zs.repeat ?? 1));
+  if (n === 1) return [[0, 0]];
+  const box = zoneBox(zone);
+  const w = box.w * (zs.sx ?? 1);
+  const h = box.h * (zs.sy ?? 1);
+  const dir = zs.repeatDir ?? (w >= h ? 'y' : 'x');
+  const step = (dir === 'y' ? h : w) + (zs.repeatGap ?? 12);
+  const a = rad(zs.rot ?? 0);
+  const [ux, uy] = dir === 'y' ? [-Math.sin(a), Math.cos(a)] : [Math.cos(a), Math.sin(a)];
+  return Array.from({ length: n }, (_, i) => [ux * step * i, uy * step * i] as Pt);
+}
+
+/** The zone moved onto another part: the same relative place inside the part, scaled to the part's size. */
+export function moveZoneToPart(
+  zone: KitZoneDef,
+  part: KitPartId,
+  from: { x: number; y: number; width: number; height: number },
+  to: { x: number; y: number; width: number; height: number }
+): { zone: KitZoneDef; scale: number } {
+  const box = zoneBox(zone);
+  const s = Math.min(to.width / from.width, to.height / from.height);
+  const cx = to.x + ((box.cx - from.x) / from.width) * to.width;
+  const cy = to.y + ((box.cy - from.y) / from.height) * to.height;
+  const map = ([x, y]: Pt): Pt => [cx + (x - box.cx) * s, cy + (y - box.cy) * s];
+  const rect = ([x, y, w, h]: [number, number, number, number]): [number, number, number, number] => {
+    const [nx, ny] = map([x, y]);
+    return [nx, ny, w * s, h * s];
+  };
+  return {
+    zone: {
+      ...zone,
+      part,
+      parts: undefined,
+      rects: zone.rects?.map(rect),
+      ellipses: zone.ellipses?.map(rect),
+      polygons: zone.polygons?.map((p) => p.map(map)),
+    },
+    scale: s,
+  };
+}
+
+/**
  * Builds the canvas path of the zone (move / scale / rotate and edge shaping applied) and leaves
  * it as the current path, ready for fill() / stroke(). `inset` (px) shrinks the shape a little,
  * which is used for the fine top-stitch inside a zone.
@@ -231,15 +277,18 @@ export function zonePath(
   const hScaled = box.h * (zs.sy ?? 1);
   const shrink = inset > 0 ? clamp(1 - (2 * inset) / Math.max(8, Math.min(wScaled, hScaled)), 0.35, 1) : 1;
 
+  const polys = zoneBasePolygons(zone, zs);
   ctx.beginPath();
-  zoneBasePolygons(zone, zs).forEach((poly) => {
-    poly.forEach((p, i) => {
-      const [x, y] = transformPoint(p, box, zs, shrink);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    });
-    ctx.closePath();
-  });
+  repeatOffsets(zone, zs).forEach(([ox, oy]) =>
+    polys.forEach((poly) => {
+      poly.forEach((p, i) => {
+        const [x, y] = transformPoint(p, box, zs, shrink);
+        if (i === 0) ctx.moveTo(x + ox, y + oy);
+        else ctx.lineTo(x + ox, y + oy);
+      });
+      ctx.closePath();
+    })
+  );
 }
 
 /** Draws a full-texture mask image with the zone's move / scale / rotate applied. */
@@ -260,14 +309,18 @@ export function drawMaskTransformed(
   ctx.restore();
 }
 
-/** Turns an edited zone into plain polygons (final position / size / shape) for saving. */
-export function bakeZone(zone: KitZoneDef, zs: Partial<TemplateZoneState>): KitZoneDef {
+/** Turns an edited zone into plain polygons (final position / size / shape) for saving; `withRepeats` also bakes the copies. */
+export function bakeZone(zone: KitZoneDef, zs: Partial<TemplateZoneState>, withRepeats = false): KitZoneDef {
   const box = zoneBox(zone);
-  const polygons = zoneBasePolygons(zone, zs).map((poly) =>
-    poly.map((p) => {
-      const [x, y] = transformPoint(p, box, zs);
-      return [Math.round(x * 10) / 10, Math.round(y * 10) / 10] as Pt;
-    })
+  const base = zoneBasePolygons(zone, zs);
+  const offsets: Pt[] = withRepeats ? repeatOffsets(zone, zs) : [[0, 0]];
+  const polygons = offsets.flatMap(([ox, oy]) =>
+    base.map((poly) =>
+      poly.map((p) => {
+        const [x, y] = transformPoint(p, box, zs);
+        return [Math.round((x + ox) * 10) / 10, Math.round((y + oy) * 10) / 10] as Pt;
+      })
+    )
   );
   const baked: KitZoneDef = { ...zone, rects: undefined, ellipses: undefined, polygons };
   if (!polygons.length) delete baked.polygons;

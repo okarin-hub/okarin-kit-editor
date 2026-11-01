@@ -9,12 +9,12 @@ import {
   AlertTriangle,
   Sliders,
   Palette,
-  CheckCircle2,
   Download,
 } from 'lucide-react';
 import { PlayerMarkingsConfig } from '@/types/kit';
 import { AssetLibrary } from '@/hooks/useAssetLibrary';
 import FontPicker from '@/components/ui/FontPicker';
+import { InfoTip } from '@/components/ui/InfoTip';
 
 interface MarkingsPanelProps {
   markings: PlayerMarkingsConfig;
@@ -63,38 +63,30 @@ export const MarkingsPanel: React.FC<MarkingsPanelProps> = ({
           </button>
         </div>
 
-        {/* PES 2021 Important Note */}
-        <div className="p-3 rounded-xl bg-sky-950/40 border border-sky-600/30 text-xs space-y-1.5">
-          <div className="flex items-center gap-1.5 text-sky-300 font-semibold">
-            <CheckCircle2 className="w-4 h-4 text-sky-400 shrink-0" />
-            <span>Format PES 2021: Font Terpisah</span>
-          </div>
-          <p className="text-[11px] text-slate-400 leading-relaxed">
-            Game PES membaca nomor dan nama dari sistem font internal game (terpisah dari tekstur kit PNG). Fitur ini difokuskan untuk <strong>visualisasi penempatan (preview)</strong>.
-          </p>
-
-          <label className="flex items-center gap-2 pt-2 border-t border-sky-800/40 cursor-pointer mt-2">
+        {/* PES reads names / numbers from its own fonts: here they are only a placement preview */}
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
               checked={markings.includeInExport}
               onChange={(e) =>
                 onUpdateMarkings({ includeInExport: e.target.checked })
               }
-              className="accent-rose-500 rounded cursor-pointer"
+              className="accent-sky-500 rounded cursor-pointer"
             />
             <span className="text-[11px] text-slate-300">
               Sertakan nama/nomor saat Export PNG
             </span>
           </label>
-          <p className="text-[10px] text-slate-500 italic">
-            *Default nonaktif agar PNG kit game kamu tetap bersih standar PES.
-          </p>
+          <InfoTip
+            text="Game PES membaca nomor dan nama dari font internal game, terpisah dari tekstur kit. Di sini nama dan nomor hanya pratinjau penempatan. Biarkan mati agar PNG kit tetap bersih (standar PES)."
+          />
         </div>
       </div>
 
       {/* 2. Text Inputs */}
       <div className="space-y-3 pt-2 border-t border-slate-800">
-        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+        <span className="text-xs font-semibold text-slate-200">
           Data Pemain
         </span>
 
@@ -155,7 +147,7 @@ export const MarkingsPanel: React.FC<MarkingsPanelProps> = ({
 
       {/* 3. Font & Colors */}
       <div className="space-y-3 pt-2 border-t border-slate-800">
-        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+        <span className="text-xs font-semibold text-slate-200">
           Tipografi & Warna
         </span>
 
@@ -243,7 +235,7 @@ export const MarkingsPanel: React.FC<MarkingsPanelProps> = ({
 
       {/* 4. Position & Sizing Adjustments */}
       <div className="space-y-3 pt-2 border-t border-slate-800">
-        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+        <span className="text-xs font-semibold text-slate-200">
           Ukuran & Posisi
         </span>
 

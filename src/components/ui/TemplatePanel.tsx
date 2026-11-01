@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Eye,
   EyeOff,
@@ -23,6 +23,11 @@ import {
   FileUp,
   ImagePlus,
   ArrowRightLeft,
+  ArrowUp,
+  ArrowDown,
+  GripVertical,
+  Sparkles,
+  Search,
 } from 'lucide-react';
 import {
   BaseTexture,
@@ -38,13 +43,17 @@ import {
   ZoneEdge,
 } from '@/types/kit';
 import { AssetLibrary } from '@/hooks/useAssetLibrary';
-import { PatternLayersPanel } from '@/components/ui/PatternLayersPanel';
+import { PatternLayerEditor, groupPartIds, newPatternLayer } from '@/components/ui/PatternLayersPanel';
 import { PanelSection } from '@/components/ui/PanelSection';
+import { InfoTip } from '@/components/ui/InfoTip';
+import { LayerSidePanel } from '@/components/ui/LayerSidePanel';
+import { useLayerEditorMode } from '@/hooks/useLayerEditorMode';
 import { AccentRow } from '@/components/ui/AccentLayersPanel';
 import { BUILTIN_TEMPLATES } from '@/constants/templates';
 import { COLOR_PALETTES } from '@/constants/presets';
 import { PES_2021_PARTS, DEFAULT_BACKGROUND_COLOR } from '@/constants/pes2021Parts';
-import { zoneParts } from '@/utils/zoneGeometry';
+import { zoneBox, zoneParts } from '@/utils/zoneGeometry';
+import { helperName } from '@/utils/psdImport';
 
 export type NewZoneKind = 'strip' | 'panel' | 'ellipse' | 'triangle';
 
@@ -67,6 +76,7 @@ interface TemplatePanelProps {
   onUpdateZoneDef: (zoneId: string, patch: Partial<KitZoneDef>) => void;
   onAddZone: (kind: NewZoneKind, part: KitPartId) => void;
   onDuplicateZone: (zoneId: string) => void;
+  onMoveZone: (zoneId: string, part: KitPartId, copy: boolean) => void;
   onDeleteZone: (zoneId: string) => void;
   onSaveTemplate: (name: string) => Promise<{ ok: boolean; message: string }>;
   onStartDraw: (kind: 'free' | 'poly' | 'stitch' | 'stitchFree') => void;
@@ -116,6 +126,17 @@ const BASE_ROWS: Record<KitCategory, { id: string; label: string; parts: KitPart
   details: [],
 };
 const DETAIL_PARTS: KitPartId[] = ['collar', 'armband', 'credit'];
+
+/** One flat list row (layers, parts): highlighted when selected, dimmed when hidden. */
+const rowClass = (selected: boolean, visible = true) =>
+  `group flex items-center gap-2 px-1.5 py-1 rounded-md text-xs transition-colors ${
+    selected ? 'bg-sky-500/15 text-white' : visible ? 'hover:bg-slate-800/70' : 'text-slate-500 hover:bg-slate-800/50'
+  }`;
+/** Secondary row buttons show on hover / keyboard focus, and always on the selected row. */
+const rowExtra = (selected: boolean) =>
+  selected ? '' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100';
+/** Groups with more layers than this start closed. */
+const OPEN_GROUP_MAX = 8;
 
 const SEAM_STYLES: { id: SeamConfig['style']; label: string; hint: string }[] = [
   { id: 'natural', label: 'Alami', hint: 'Bayangan lembut, garis jahit halus, dan top-stitch tipis' },
@@ -186,6 +207,7 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
   onUpdateZoneDef,
   onAddZone,
   onDuplicateZone,
+  onMoveZone,
   onDeleteZone,
   onSaveTemplate,
   onStartDraw,
@@ -207,7 +229,6 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
   onFocusPart,
   onSyncRelatedParts,
 }) => {
-  const [newPart, setNewPart] = useState<KitPartId | ''>('');
   const [saveName, setSaveName] = useState('');
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [lockRatio, setLockRatio] = useState(false);
@@ -220,6 +241,112 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
     zones: template.zones.filter((z) => z.group === g),
   }));
   const [openBase, setOpenBase] = useState<Set<string>>(new Set());
+  // layer list: which groups were opened / closed by hand, which groups show their helper layers, and the search text
+  const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({});
+  const [helpersOpen, setHelpersOpen] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+
+  // Pattern layers sit in the groups of the layer list: drag a row to another group to move it there (Ctrl / Alt = copy)
+  const patterns = state.patterns ?? [];
+  const [openPattern, setOpenPattern] = useState<{ id: string; g: KitCategory } | null>(null);
+  // one layer editor at a time: opening a pattern closes the selected layer's editor, and the other way round
+  const openPatternEditor = (next: { id: string; g: KitCategory }) => {
+    if (selectedZoneId) onSelectZone(null);
+    setOpenPattern(next);
+  };
+  useEffect(() => {
+    if (selectedZoneId) setOpenPattern(null);
+  }, [selectedZoneId]);
+  const [drag, setDrag] = useState<{ kind: 'pattern' | 'zone'; id: string; from: KitCategory } | null>(null);
+  const [dropAt, setDropAt] = useState<{ g: KitCategory; before: string | null } | null>(null);
+  const inGroup = (l: PatternLayer, g: KitCategory) => l.parts.some((p) => groupPartIds(g).includes(p));
+  const updatePattern = (id: string, patch: Partial<PatternLayer>) =>
+    onChangePatterns(patterns.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+
+  const addPattern = (g: KitCategory) => {
+    const l = newPatternLayer(groupPartIds(g));
+    onChangePatterns([...patterns, l]);
+    setGroupOpen((prev) => ({ ...prev, [g]: true }));
+    openPatternEditor({ id: l.id, g });
+  };
+
+  // a pattern on several groups is only taken off this one; otherwise it is deleted
+  const removePattern = (l: PatternLayer, g: KitCategory) => {
+    const rest = l.parts.filter((p) => !groupPartIds(g).includes(p));
+    onChangePatterns(rest.length ? patterns.map((x) => (x.id === l.id ? { ...x, parts: rest } : x)) : patterns.filter((x) => x.id !== l.id));
+    if (openPattern?.id === l.id) setOpenPattern(null);
+  };
+
+  const copyOf = (l: PatternLayer, parts: KitPartId[]): PatternLayer => ({
+    ...l,
+    id: `pattern-${Date.now().toString(36)}`,
+    name: `${l.name ?? 'Pola'} (salinan)`,
+    parts,
+  });
+
+  const duplicatePattern = (l: PatternLayer, g: KitCategory) => {
+    const copy = copyOf(l, l.parts.filter((p) => groupPartIds(g).includes(p)));
+    const next = [...patterns];
+    next.splice(next.indexOf(l) + 1, 0, copy);
+    onChangePatterns(next);
+    openPatternEditor({ id: copy.id, g });
+  };
+
+  // the list shows the top layer first: "up" swaps with the next layer of the same group, further back in the array
+  const movePattern = (l: PatternLayer, g: KitCategory, dir: 'up' | 'down') => {
+    const same = patterns.filter((x) => inGroup(x, g));
+    const other = same[same.indexOf(l) + (dir === 'up' ? 1 : -1)];
+    if (!other) return;
+    const next = [...patterns];
+    const i = next.indexOf(l);
+    const j = next.indexOf(other);
+    [next[i], next[j]] = [next[j], next[i]];
+    onChangePatterns(next);
+  };
+
+  // Drop the dragged pattern on a group (or above one of its rows): it moves there, or with copy a copy goes there
+  const dropPattern = (g: KitCategory, before: string | null, copy: boolean) => {
+    const d = drag;
+    setDrag(null);
+    setDropAt(null);
+    const l = d ? patterns.find((x) => x.id === d.id) : undefined;
+    if (!d || !l) return;
+    const fromIds = groupPartIds(d.from);
+    const toIds = groupPartIds(g);
+    let moved: PatternLayer = l;
+    if (copy) moved = { ...copyOf(l, d.from === g ? l.parts.filter((p) => fromIds.includes(p)) : toIds), name: l.name };
+    else if (d.from !== g) {
+      const kept = l.parts.filter((p) => !fromIds.includes(p));
+      moved = { ...l, parts: kept.some((p) => toIds.includes(p)) ? kept : [...kept, ...toIds] };
+    }
+    const next = copy ? [...patterns] : patterns.filter((x) => x.id !== l.id);
+    // above a row = later in the array; dropped on the group itself a moved layer keeps its place, a copy goes over the original
+    const at =
+      before && before !== l.id
+        ? next.findIndex((x) => x.id === before) + 1
+        : copy
+          ? next.indexOf(l) + 1
+          : patterns.indexOf(l);
+    next.splice(at, 0, moved);
+    onChangePatterns(next);
+    setGroupOpen((prev) => ({ ...prev, [g]: true }));
+    if (copy || openPattern?.id === l.id) openPatternEditor({ id: moved.id, g });
+  };
+  // shape layers keep their order; dragged onto another group they move to its part
+  const dropOn = (g: KitCategory, before: string | null, copy: boolean) => {
+    if (drag?.kind !== 'zone') return dropPattern(g, before, copy);
+    const d = drag;
+    setDrag(null);
+    setDropAt(null);
+    if (d.from !== g) onMoveZone(d.id, objectPart(g), copy);
+    else if (copy) onDuplicateZone(d.id);
+    setGroupOpen((prev) => ({ ...prev, [g]: true }));
+  };
+  const dropEffect = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = e.ctrlKey || e.altKey ? 'copy' : 'move';
+  };
   const toggleBase = (id: string) =>
     setOpenBase((prev) => {
       const next = new Set(prev);
@@ -229,7 +356,18 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
     });
 
   const seams = state.seams;
-  const targetPart: KitPartId = newPart || (activePartId !== 'all' ? activePartId : 'front');
+  // a new or dragged-in object goes on the active part when it is in the group, else on the group's first part
+  const objectPart = (g: KitCategory): KitPartId =>
+    activePartId !== 'all' && PES_2021_PARTS.find((p) => p.id === activePartId)?.category === g
+      ? activePartId
+      : (PES_2021_PARTS.find((p) => p.category === g)?.id ?? 'front');
+  const [addObject, setAddObject] = useState<KitCategory | null>(null);
+  // Settings: layer settings open under the row or in a side panel left of the list
+  const [editorMode] = useLayerEditorMode();
+  // a layer selected here or on the canvas is scrolled into view (a new object lands at the end of a long group)
+  useEffect(() => {
+    if (selectedZoneId) document.querySelector(`[data-zone-row="${selectedZoneId}"]`)?.scrollIntoView({ block: 'nearest' });
+  }, [selectedZoneId]);
 
   // Keep the PES part order; the first selected part becomes the main part of the zone
   const setZoneParts = (z: KitZoneDef, parts: KitPartId[]) => {
@@ -247,15 +385,7 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
     const active = activePartId === id;
     return (
       <div key={id}>
-        <div
-          className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border text-xs transition-colors ${
-            active
-              ? 'bg-sky-950/40 border-sky-700'
-              : cfg.visible
-              ? 'bg-slate-900/60 border-slate-800'
-              : 'bg-slate-900/20 border-slate-800/60 text-slate-500'
-          }`}
-        >
+        <div className={rowClass(active || editPart === id, cfg.visible)}>
           <button
             type="button"
             onClick={() => onTogglePartVisibility(id)}
@@ -282,7 +412,13 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           >
             {def.name}
           </button>
-          <button type="button" onClick={() => onFocusPart(id)} className="text-slate-500 hover:text-sky-300" title="Fokus ke bagian ini di canvas">
+          <button
+            type="button"
+            onClick={() => onFocusPart(id)}
+            className={`text-slate-500 hover:text-sky-300 ${rowExtra(active || editPart === id)}`}
+            title="Fokus ke bagian ini di canvas"
+            aria-label="Fokus ke bagian ini di canvas"
+          >
             <Crosshair className="w-3.5 h-3.5" />
           </button>
           <button
@@ -291,8 +427,9 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
               onEditPart(id);
               setEditPart(editPart === id ? null : id);
             }}
-            className={editPart === id ? 'text-sky-300' : 'text-slate-500 hover:text-white'}
+            className={editPart === id ? 'text-sky-300' : `text-slate-500 hover:text-white ${rowExtra(active)}`}
             title="Buka warna dan pengaturan bagian ini"
+            aria-label="Buka warna dan pengaturan bagian ini"
           >
             <Settings2 className="w-3.5 h-3.5" />
           </button>
@@ -369,7 +506,227 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
     );
   };
 
-  const renderEditor = (z: KitZoneDef) => {
+  const renderZoneRow = (z: KitZoneDef) => {
+    const zs = state.zones[z.id] ?? { color: z.defaultColor, visible: z.defaultVisible };
+    const selected = selectedZoneId === z.id;
+    // shape layers (not PSD image layers) can be dragged to another group
+    const movable = !!(z.rects?.length || z.ellipses?.length || z.polygons?.length);
+    return (
+      <div key={z.id} data-zone-row={z.id} data-layer-anchor={z.id}>
+        <div
+          draggable={movable}
+          onDragStart={(e) => {
+            e.dataTransfer.effectAllowed = 'copyMove';
+            e.dataTransfer.setData('text/plain', z.id);
+            setDrag({ kind: 'zone', id: z.id, from: z.group });
+          }}
+          onDragEnd={() => {
+            setDrag(null);
+            setDropAt(null);
+          }}
+          className={`${rowClass(selected, zs.visible)} ${movable ? 'cursor-grab active:cursor-grabbing' : ''} ${drag?.id === z.id ? 'opacity-40' : ''}`}
+        >
+          {movable && <GripVertical className="w-3 h-3 -mx-1 shrink-0 text-slate-600" aria-hidden />}
+          <button
+            type="button"
+            onClick={() => onUpdateZone(z.id, { visible: !zs.visible })}
+            className="text-slate-400 hover:text-white"
+            title={zs.visible ? 'Sembunyikan layer' : 'Tampilkan layer'}
+            aria-label={zs.visible ? 'Sembunyikan layer' : 'Tampilkan layer'}
+          >
+            {zs.visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+          </button>
+          <input
+            type="color"
+            value={zs.color}
+            onChange={(e) => onUpdateZone(z.id, { color: e.target.value, visible: true })}
+            className="w-6 h-6 rounded border border-slate-700 bg-transparent cursor-pointer p-0.5 shrink-0"
+            title="Warna layer"
+            aria-label={`Warna ${z.name}`}
+          />
+          <button
+            type="button"
+            onClick={() => onSelectZone(selected ? null : z.id)}
+            aria-expanded={selected}
+            className="flex-1 min-w-0 text-left truncate hover:text-white"
+            title="Klik untuk mengubah posisi, ukuran, bentuk, dan jahitan layer ini"
+          >
+            {z.name}
+          </button>
+          <button
+            type="button"
+            onClick={() => onFocusPart(z.part)}
+            className={`text-slate-500 hover:text-sky-300 ${rowExtra(selected)}`}
+            title="Fokus ke bagian ini di canvas"
+            aria-label="Fokus ke bagian ini di canvas"
+          >
+            <Crosshair className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onDuplicateZone(z.id)}
+            className={`text-slate-500 hover:text-white ${rowExtra(selected)}`}
+            title="Gandakan layer ini"
+            aria-label="Gandakan layer ini"
+          >
+            <Copy className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onDeleteZone(z.id)}
+            className={`text-slate-500 hover:text-rose-400 ${rowExtra(selected)}`}
+            title="Hapus layer"
+            aria-label="Hapus layer"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+          <span className="text-slate-500" aria-hidden>
+            {selected ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className={`w-3.5 h-3.5 ${rowExtra(false)}`} />}
+          </span>
+        </div>
+        {selected &&
+          (editorMode === 'side' ? (
+            <LayerSidePanel anchor={z.id} title={z.name} onClose={() => onSelectZone(null)}>
+              {renderEditor(z, true)}
+            </LayerSidePanel>
+          ) : (
+            renderEditor(z)
+          ))}
+      </div>
+    );
+  };
+
+  const renderPatternRow = (l: PatternLayer, g: KitCategory) => {
+    const open = openPattern?.id === l.id && openPattern.g === g;
+    const same = patterns.filter((x) => inGroup(x, g));
+    const k = same.indexOf(l);
+    const others = (['shirt', 'shorts', 'socks', 'details'] as KitCategory[]).filter((x) => x !== g && inGroup(l, x));
+    const dropHere = dropAt?.g === g && dropAt.before === l.id;
+    const name = l.name ?? 'Pola';
+    return (
+      <div
+        key={l.id}
+        data-layer-anchor={`${l.id}-${g}`}
+        onDragOver={(e) => {
+          if (drag?.kind !== 'pattern') return;
+          dropEffect(e);
+          e.stopPropagation();
+          if (!dropHere) setDropAt({ g, before: l.id });
+        }}
+        onDrop={(e) => {
+          if (drag?.kind !== 'pattern') return;
+          e.preventDefault();
+          e.stopPropagation();
+          dropPattern(g, l.id, e.ctrlKey || e.altKey);
+        }}
+        className={`border-t-2 ${dropHere ? 'border-sky-400' : 'border-transparent'}`}
+      >
+        <div
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.effectAllowed = 'copyMove';
+            e.dataTransfer.setData('text/plain', l.id);
+            setDrag({ kind: 'pattern', id: l.id, from: g });
+          }}
+          onDragEnd={() => {
+            setDrag(null);
+            setDropAt(null);
+          }}
+          className={`${rowClass(open, l.visible)} cursor-grab active:cursor-grabbing ${drag?.id === l.id && drag.from === g ? 'opacity-40' : ''}`}
+        >
+          <GripVertical className="w-3 h-3 -mx-1 shrink-0 text-slate-600" aria-hidden />
+          <button
+            type="button"
+            onClick={() => updatePattern(l.id, { visible: !l.visible })}
+            className="text-slate-400 hover:text-white"
+            title={l.visible ? 'Sembunyikan pola' : 'Tampilkan pola'}
+            aria-label={l.visible ? 'Sembunyikan pola' : 'Tampilkan pola'}
+          >
+            {l.visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+          </button>
+          <input
+            type="color"
+            value={l.patternColor}
+            onChange={(e) => updatePattern(l.id, { patternColor: e.target.value, visible: true })}
+            className="w-6 h-6 rounded border border-slate-700 bg-transparent cursor-pointer p-0.5 shrink-0"
+            title="Warna pola"
+            aria-label={`Warna ${name}`}
+          />
+          <button
+            type="button"
+            onClick={() => (open ? setOpenPattern(null) : openPatternEditor({ id: l.id, g }))}
+            aria-expanded={open}
+            className="flex-1 min-w-0 flex items-center gap-1.5 text-left hover:text-white"
+            title="Klik untuk mengatur pola ini; seret untuk memindahkannya ke grup lain"
+          >
+            <Sparkles className="w-3 h-3 shrink-0 text-slate-500" aria-hidden />
+            <span className="truncate">{name}</span>
+            {others.length > 0 && (
+              <span className="shrink-0 text-[11px] text-slate-500" title="Pola yang sama juga dipakai di grup ini">
+                <span>+</span>
+                {others.map((x, i) => (
+                  <span key={x}>
+                    {i > 0 && ', '}
+                    <span>{GROUP_LABEL[x]}</span>
+                  </span>
+                ))}
+              </span>
+            )}
+          </button>
+          <span className={`flex items-center gap-1 ${rowExtra(open)}`}>
+            <button
+              type="button"
+              disabled={k === same.length - 1}
+              onClick={() => movePattern(l, g, 'up')}
+              className="text-slate-500 hover:text-white disabled:opacity-30"
+              title="Naikkan (lebih depan)"
+              aria-label="Naikkan (lebih depan)"
+            >
+              <ArrowUp className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              disabled={k === 0}
+              onClick={() => movePattern(l, g, 'down')}
+              className="text-slate-500 hover:text-white disabled:opacity-30"
+              title="Turunkan"
+              aria-label="Turunkan"
+            >
+              <ArrowDown className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => duplicatePattern(l, g)}
+              className="text-slate-500 hover:text-white"
+              title="Gandakan"
+              aria-label="Gandakan"
+            >
+              <Copy className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => removePattern(l, g)}
+              className="text-slate-500 hover:text-rose-400"
+              title={others.length ? 'Hapus dari grup ini' : 'Hapus pola'}
+              aria-label={others.length ? 'Hapus dari grup ini' : 'Hapus pola'}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </span>
+        </div>
+        {open &&
+          (editorMode === 'side' ? (
+            <LayerSidePanel anchor={`${l.id}-${g}`} title={name} onClose={() => setOpenPattern(null)}>
+              <PatternLayerEditor bare layer={l} group={g} library={library} onUpdate={(patch) => updatePattern(l.id, patch)} />
+            </LayerSidePanel>
+          ) : (
+            <PatternLayerEditor layer={l} group={g} library={library} onUpdate={(patch) => updatePattern(l.id, patch)} />
+          ))}
+      </div>
+    );
+  };
+
+  const renderEditor = (z: KitZoneDef, side = false) => {
     const zs: TemplateZoneState = state.zones[z.id] ?? { color: z.defaultColor, visible: z.defaultVisible };
     const sx = zs.sx ?? 1;
     const sy = zs.sy ?? 1;
@@ -377,24 +734,40 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
     const isMask = !!z.mask && !z.rects?.length && !z.polygons?.length && !z.ellipses?.length;
 
     return (
-      <div className="mt-1 mb-2 p-3 rounded-lg bg-slate-950/60 border border-sky-900/60 space-y-3">
+      <div className={side ? 'p-3 space-y-3' : 'mt-1 mb-2 p-3 rounded-lg bg-slate-950/60 border border-sky-900/60 space-y-3'}>
         <div className="grid grid-cols-2 gap-2">
-          <label className="col-span-2 block">
-            <span className="text-[10px] text-slate-500">Nama layer</span>
+          <div className="col-span-2">
+            <div className="flex items-center justify-between">
+              <label htmlFor={`zone-name-${z.id}`} className="text-[10px] text-slate-500">
+                Nama layer
+              </label>
+              <button
+                type="button"
+                onClick={() => onResetZone(z.id)}
+                className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
+                title="Kembalikan posisi, ukuran, dan bentuk ke awal"
+              >
+                <RotateCcw className="w-3 h-3" /> Reset
+              </button>
+            </div>
             <input
+              id={`zone-name-${z.id}`}
               value={z.name}
               onChange={(e) => onUpdateZoneDef(z.id, { name: e.target.value })}
               className="w-full mt-0.5 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white outline-none focus:border-sky-500"
             />
-          </label>
+          </div>
           <div className="col-span-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-slate-500">Menempel di bagian (boleh lebih dari satu)</span>
+            <div className="flex items-center gap-2">
+              <span className="flex-1 min-w-0 flex items-center gap-1 text-[11px] text-slate-400">
+                Menempel di bagian
+                <InfoTip text="Bentuk yang sama digambar di semua bagian terpilih (dipotong mengikuti tiap bagian). Geser atau lebarkan layer agar menyilang ke bagian lain, misalnya strip melintasi depan, belakang, dan lengan." />
+              </span>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={() => setZoneParts(z, ['front', 'back', 'leftSleeve', 'rightSleeve'])}
-                  className="text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
+                  className="text-[11px] whitespace-nowrap px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
                   title="Baju depan, belakang, dan kedua lengan"
                 >
                   Semua baju
@@ -402,7 +775,7 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
                 <button
                   type="button"
                   onClick={() => setZoneParts(z, PES_2021_PARTS.map((p) => p.id))}
-                  className="text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
+                  className="text-[11px] whitespace-nowrap px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
                 >
                   Semua
                 </button>
@@ -428,17 +801,13 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
                 );
               })}
             </div>
-            <p className="text-[10px] text-slate-500 mt-1 leading-snug">
-              Bentuk yang sama digambar di semua bagian terpilih (dipotong mengikuti tiap bagian). Geser atau lebarkan
-              layer agar menyilang ke bagian lain, misalnya strip melintasi depan, belakang, dan lengan.
-            </p>
           </div>
         </div>
 
         <Slider label="Transparansi" value={Math.round((zs.opacity ?? 1) * 100)} min={10} max={100} step={5} unit="%" onChange={(v) => onUpdateZone(z.id, { opacity: v / 100 })} />
 
         <div className="space-y-2 pt-2 border-t border-slate-800">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Posisi</div>
+          <div className="text-[11px] font-semibold text-slate-300">Posisi</div>
           <Slider label="Geser kiri / kanan (X)" value={zs.dx ?? 0} min={-400} max={400} unit="px" onChange={(v) => onUpdateZone(z.id, { dx: v })} />
           <Slider label="Geser atas / bawah (Y)" value={zs.dy ?? 0} min={-400} max={400} unit="px" onChange={(v) => onUpdateZone(z.id, { dy: v })} />
           <Slider label="Putar" value={zs.rot ?? 0} min={-180} max={180} unit="°" onChange={(v) => onUpdateZone(z.id, { rot: v })} />
@@ -446,7 +815,7 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
 
         <div className="space-y-2 pt-2 border-t border-slate-800">
           <div className="flex items-center justify-between">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Ukuran</div>
+            <div className="text-[11px] font-semibold text-slate-300">Ukuran</div>
             <label className="flex items-center gap-1 text-[10px] text-slate-400 cursor-pointer">
               <input type="checkbox" checked={lockRatio} onChange={(e) => setLockRatio(e.target.checked)} className="accent-sky-500" />
               Kunci proporsi
@@ -470,6 +839,46 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           />
         </div>
 
+        {!isMask && (
+          <div className="space-y-2 pt-2 border-t border-slate-800">
+            <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-300">
+              Kembar
+              <InfoTip text="Gambar bentuk ini beberapa kali berjajar dalam satu layer, misalnya 3 strip di dada. Lebar dan tinggi tiap salinan ikut Ukuran di atas." />
+            </div>
+            <Slider label="Jumlah" value={zs.repeat ?? 1} min={1} max={12} onChange={(v) => onUpdateZone(z.id, { repeat: v })} />
+            {(zs.repeat ?? 1) > 1 && (
+              <>
+                <Slider label="Jarak" value={zs.repeatGap ?? 12} min={0} max={300} unit="px" onChange={(v) => onUpdateZone(z.id, { repeatGap: v })} />
+                <div className="grid grid-cols-2 gap-1">
+                  {(
+                    [
+                      ['y', 'Ke bawah'],
+                      ['x', 'Ke samping'],
+                    ] as const
+                  ).map(([id, label]) => {
+                    const w = sx * zoneBox(z).w;
+                    const h = sy * zoneBox(z).h;
+                    const active = (zs.repeatDir ?? (w >= h ? 'y' : 'x')) === id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => onUpdateZone(z.id, { repeatDir: id })}
+                        className={`text-[11px] py-1 rounded-md border transition-colors ${
+                          active ? 'bg-sky-600/25 border-sky-500 text-sky-100' : 'bg-slate-800/70 border-slate-700/60 text-slate-300 hover:bg-slate-700'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {isMask && (
           <label className="flex items-start gap-2 text-[11px] text-slate-300 cursor-pointer pt-2 border-t border-slate-800">
             <input
@@ -489,7 +898,7 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
 
         {!isMask && (
           <div className="space-y-2 pt-2 border-t border-slate-800">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Titik &amp; lengkung</div>
+            <div className="text-[11px] font-semibold text-slate-300">Titik &amp; lengkung</div>
             <button
               type="button"
               onClick={() => onToggleEditPoints(z.id)}
@@ -525,7 +934,7 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
 
         {!isMask && (
           <div className="space-y-2 pt-2 border-t border-slate-800">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Bentuk sisi</div>
+            <div className="text-[11px] font-semibold text-slate-300">Bentuk sisi</div>
             <div className="grid grid-cols-4 gap-1">
               {EDGES.map((e) => (
                 <button
@@ -559,21 +968,6 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           Garis jahitan di sisi layer ini
         </label>
 
-        <div className="flex items-center gap-1.5 pt-1">
-          <button type="button" onClick={() => onResetZone(z.id)} className="flex-1 flex items-center justify-center gap-1 text-[11px] py-1.5 rounded-md border border-slate-700 text-slate-300 hover:bg-slate-800" title="Kembalikan posisi, ukuran, dan bentuk ke awal">
-            <RotateCcw className="w-3 h-3" /> Reset
-          </button>
-          <button type="button" onClick={() => onDuplicateZone(z.id)} className="flex-1 flex items-center justify-center gap-1 text-[11px] py-1.5 rounded-md border border-slate-700 text-slate-300 hover:bg-slate-800" title="Gandakan layer ini">
-            <Copy className="w-3 h-3" /> Duplikat
-          </button>
-          <button type="button" onClick={() => onDeleteZone(z.id)} className="flex-1 flex items-center justify-center gap-1 text-[11px] py-1.5 rounded-md border border-rose-900/70 text-rose-300 hover:bg-rose-950/50" title="Hapus layer">
-            <Trash2 className="w-3 h-3" /> Hapus
-          </button>
-        </div>
-        <p className="text-[10px] text-slate-500 leading-snug">
-          Layer yang dipilih juga muncul di canvas 2D dengan kotak biru: seret untuk menggeser, tarik sudut untuk
-          mengubah ukuran, dan tarik pegangan atas untuk memutar.
-        </p>
       </div>
     );
   };
@@ -584,7 +978,7 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
       <PanelSection
         id="template"
         title="Template"
-        icon={<LayoutGrid className="w-3.5 h-3.5 text-sky-400" />}
+        icon={<LayoutGrid className="w-3.5 h-3.5 text-slate-400" />}
         badge={template.name}
         defaultOpen={false}
         action={
@@ -636,7 +1030,7 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           >
             <FileUp className="w-3.5 h-3.5" />
             Import PSD
-            <span className="text-[8px] font-bold uppercase px-1 py-px rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">Eksp.</span>
+            <span className="text-[10px] font-bold uppercase px-1 py-px rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">Eksp.</span>
           </button>
           <button
             type="button"
@@ -646,7 +1040,7 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           >
             <ImagePlus className="w-3.5 h-3.5" />
             Import PNG
-            <span className="text-[8px] font-bold uppercase px-1 py-px rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">Eksp.</span>
+            <span className="text-[10px] font-bold uppercase px-1 py-px rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">Eksp.</span>
           </button>
         </div>
 
@@ -693,10 +1087,13 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
       </PanelSection>
 
       {/* Base: base layer choice, sleeve shape and background colour */}
-      <PanelSection id="base" title="Dasar kit" icon={<Layers className="w-3.5 h-3.5 text-sky-400" />}>
+      <PanelSection id="base" title="Dasar kit" icon={<Layers className="w-3.5 h-3.5 text-slate-400" />}>
       {/* Base layer: part colours or an imported design */}
       <div className="space-y-2">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Layer dasar</div>
+        <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-300">
+          Layer dasar
+          <InfoTip text="Warna: dasar kit dari warna tiap bagian. Desain impor: gambar kit yang sudah jadi menjadi dasarnya; pola, lis, dan logo tetap bisa ditambah di atasnya." />
+        </div>
         {(() => {
           const useImport = !!baseTexture && baseTexture.enabled !== false && baseTexture.mode === 'replace';
           return (
@@ -748,11 +1145,6 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
                   </button>
                 </div>
               )}
-              <p className="text-[10px] text-slate-500 leading-snug">
-                {useImport
-                  ? 'Gambar yang kamu import menjadi dasar kit. Pola, lis, dan logo tetap bisa ditambah di atasnya.'
-                  : 'Dasar kit dari warna tiap bagian. Pilih Desain impor untuk memakai gambar kit yang sudah jadi.'}
-              </p>
             </>
           );
         })()}
@@ -760,7 +1152,10 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
 
       {/* Sleeve shape: with the shoulder yoke, or the shorter shape */}
       <div className="space-y-2 pt-2.5 border-t border-slate-800/70">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Bentuk lengan</div>
+        <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-300">
+          Bentuk lengan
+          <InfoTip text="Sampai pundak mengikuti template PES: lengan menyambung ke area leher. Tanpa pundak memakai lengan yang lebih pendek dan berhenti di lubang lengan, sisanya ikut warna baju." />
+        </div>
         <div className="grid grid-cols-2 gap-1.5">
           {(
             [
@@ -785,15 +1180,11 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
             );
           })}
         </div>
-        <p className="text-[10px] text-slate-500 leading-snug">
-          Sampai pundak mengikuti template PES: lengan menyambung ke area leher. Tanpa pundak memakai lengan yang lebih
-          pendek dan berhenti di lubang lengan, sisanya ikut warna baju.
-        </p>
       </div>
 
       {/* Background colour */}
       <div className="space-y-2 pt-2.5 border-t border-slate-800/70">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Warna latar</div>
+        <div className="text-[11px] font-semibold text-slate-300">Warna latar</div>
         <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg border text-xs bg-slate-900/70 border-slate-700">
           <span className="text-slate-600" title="Layer paling bawah: tidak bisa disembunyikan atau dihapus">
             <Lock className="w-3.5 h-3.5" />
@@ -825,8 +1216,9 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
       <PanelSection
         id="layers"
         title="Layer"
-        icon={<Layers className="w-3.5 h-3.5 text-sky-400" />}
-        badge={template.zones.length || undefined}
+        icon={<Layers className="w-3.5 h-3.5 text-slate-400" />}
+        info="Pola selalu di bawah layer template dan di atas warna dasar; pola yang lebih atas tampil lebih depan. Klik + Pola atau + Objek di grup untuk menambah. Seret pola atau objek ke grup lain untuk memindahkannya, tahan Ctrl saat melepas untuk menyalinnya."
+        badge={template.zones.length + patterns.length || undefined}
         action={
           template.zones.length > 0 ? (
             <button
@@ -842,172 +1234,202 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
         }
       >
 
-        {groups.map(({ g, zones }) => (
-          <div key={g} className="space-y-1">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{GROUP_LABEL[g]}</div>
+        {template.zones.length > OPEN_GROUP_MAX && (
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Cari layer…"
+              aria-label="Cari layer"
+              className="w-full bg-slate-900 border border-slate-700 rounded-md pl-7 pr-2 py-1 text-xs text-white placeholder:text-slate-500 outline-none focus:border-sky-500"
+            />
+          </div>
+        )}
 
-            {zones.map((z: KitZoneDef) => {
-              const zs = state.zones[z.id] ?? { color: z.defaultColor, visible: z.defaultVisible };
-              const selected = selectedZoneId === z.id;
-              return (
-                <div key={z.id}>
-                  <div
-                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border text-xs transition-colors ${
-                      selected
-                        ? 'bg-sky-950/50 border-sky-600'
-                        : zs.visible
-                        ? 'bg-slate-900/60 border-slate-800'
-                        : 'bg-slate-900/20 border-slate-800/60 text-slate-500'
-                    }`}
-                  >
+        {groups.map(({ g, zones }) => {
+          // PSD helper layers (mesh, guides, stitch lines, shadows, background) go in their own closed sub-list
+          const isHelper = (z: KitZoneDef) => !!z.mask && !!helperName(z.name);
+          const matches = q ? zones.filter((z) => z.name.toLowerCase().includes(q)) : zones;
+          // top layer first, like the zones
+          const groupPatterns = patterns
+            .filter((l) => inGroup(l, g) && (!q || (l.name ?? '').toLowerCase().includes(q)))
+            .reverse();
+          if (q && matches.length + groupPatterns.length === 0) return null;
+          const main = q ? matches : matches.filter((z) => !isHelper(z));
+          const helpers = q ? [] : matches.filter(isHelper);
+          const count = zones.length + groupPatterns.length + BASE_ROWS[g].length + (g === 'details' ? DETAIL_PARTS.length : 0);
+          const open = q ? true : groupOpen[g] ?? zones.length <= OPEN_GROUP_MAX;
+          const helpersShown = helpersOpen.has(g);
+          return (
+            <div
+              key={g}
+              onDragOver={(e) => {
+                if (!drag) return;
+                dropEffect(e);
+                if (dropAt?.g !== g || dropAt.before !== null) setDropAt({ g, before: null });
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                dropOn(g, null, e.ctrlKey || e.altKey);
+              }}
+              className={`space-y-0.5 rounded-md ${dropAt?.g === g && dropAt.before === null ? 'bg-sky-500/10 ring-1 ring-sky-500/60' : ''}`}
+            >
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setGroupOpen((prev) => ({ ...prev, [g]: !open }))}
+                  aria-expanded={open}
+                  className="flex-1 min-w-0 flex items-center gap-1.5 px-1 py-1 rounded-md text-[11px] font-semibold text-slate-300 hover:text-white"
+                >
+                  {open ? <ChevronDown className="w-3.5 h-3.5 text-slate-500" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-500" />}
+                  {GROUP_LABEL[g]}
+                  <span className="font-normal text-slate-400">{q ? matches.length + groupPatterns.length : count}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => addPattern(g)}
+                  className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] text-slate-400 hover:text-white hover:bg-slate-800"
+                  title="Tambah pola di grup ini"
+                >
+                  <Plus className="w-3 h-3" />
+                  Pola
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAddObject(addObject === g ? null : g)}
+                  aria-expanded={addObject === g}
+                  className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] hover:text-white hover:bg-slate-800 ${addObject === g ? 'text-sky-200 bg-slate-800' : 'text-slate-400'}`}
+                  title="Tambah objek (strip, panel, elips, segitiga) di grup ini"
+                >
+                  <Plus className="w-3 h-3" />
+                  Objek
+                </button>
+              </div>
+              {addObject === g && (
+                <div className="grid grid-cols-4 gap-1 pb-1">
+                  {NEW_ZONES.map((n) => (
                     <button
+                      key={n.id}
                       type="button"
-                      onClick={() => onUpdateZone(z.id, { visible: !zs.visible })}
-                      className="text-slate-400 hover:text-white"
-                      title={zs.visible ? 'Sembunyikan layer' : 'Tampilkan layer'}
+                      onClick={() => {
+                        onAddZone(n.id, objectPart(g));
+                        setAddObject(null);
+                        setGroupOpen((prev) => ({ ...prev, [g]: true }));
+                      }}
+                      className="text-[11px] py-1 rounded-md border border-slate-700 bg-slate-800/70 text-slate-200 hover:bg-slate-700"
                     >
-                      {zs.visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                      {n.label}
                     </button>
-                    <input
-                      type="color"
-                      value={zs.color}
-                      onChange={(e) => onUpdateZone(z.id, { color: e.target.value, visible: true })}
-                      className="w-6 h-6 rounded border border-slate-700 bg-transparent cursor-pointer p-0.5 shrink-0"
-                      title="Warna layer"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => onSelectZone(selected ? null : z.id)}
-                      className="flex-1 min-w-0 text-left truncate hover:text-white"
-                      title="Klik untuk mengubah posisi, ukuran, bentuk, dan jahitan layer ini"
-                    >
-                      {z.name}
-                    </button>
-                    <button type="button" onClick={() => onFocusPart(z.part)} className="text-slate-500 hover:text-sky-300" title="Fokus ke bagian ini di canvas">
-                      <Crosshair className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onSelectZone(selected ? null : z.id)}
-                      className="text-slate-400 hover:text-white"
-                      title={selected ? 'Tutup pengaturan' : 'Buka pengaturan'}
-                    >
-                      {selected ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-                  {selected && renderEditor(z)}
+                  ))}
                 </div>
-              );
-            })}
+              )}
 
-            {/* Base rows: the main colour of a garment. They cannot be deleted. */}
-            {BASE_ROWS[g].map((base) => {
-              const open = openBase.has(base.id);
-              const first = partsConfig[base.parts[0]];
-              const same = base.parts.every((id) => partsConfig[id]?.color === first?.color);
-              // with an imported design as the base, the colour can be stacked on top of it
-              const stacked = designBase && base.parts.some((id) => partsConfig[id]?.overDesign);
-              const setStacked = (on: boolean) => base.parts.forEach((id) => onUpdatePartConfig(id, { overDesign: on }));
-              return (
-                <div key={base.id}>
-                  <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg border text-xs bg-slate-900/70 border-slate-700">
-                    {designBase ? (
+              {open && (
+                <>
+                  {/* Patterns first so they are easy to find; they are drawn over the base colour and under the template layers */}
+                  {groupPatterns.map((l) => renderPatternRow(l, g))}
+                  {main.map(renderZoneRow)}
+
+                  {helpers.length > 0 && (
+                    <>
                       <button
                         type="button"
-                        onClick={() => setStacked(!stacked)}
-                        className={stacked ? 'text-slate-300 hover:text-white' : 'text-slate-600 hover:text-slate-400'}
-                        title={stacked ? 'Sembunyikan warna di atas desain impor' : 'Tampilkan warna ini di atas desain impor'}
+                        onClick={() =>
+                          setHelpersOpen((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(g)) next.delete(g);
+                            else next.add(g);
+                            return next;
+                          })
+                        }
+                        aria-expanded={helpersShown}
+                        className="w-full flex items-center gap-1.5 px-1.5 py-1 rounded-md text-[11px] text-slate-400 hover:text-white hover:bg-slate-800/50"
+                        title="Layer dari PSD yang hanya membantu desainer: mesh, panduan, jahitan, bayangan, latar"
                       >
-                        {stacked ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                        {helpersShown ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                        Layer bantuan PSD
+                        <span className="text-slate-500">{helpers.length}</span>
                       </button>
-                    ) : (
-                      <span className="text-slate-600" title="Layer utama: tidak bisa disembunyikan atau dihapus">
-                        <Lock className="w-3.5 h-3.5" />
-                      </span>
-                    )}
-                    <input
-                      type="color"
-                      value={first?.color ?? '#ffffff'}
-                      onChange={(e) => {
-                        onSetBaseColor(base.parts, e.target.value);
-                        if (designBase) setStacked(true);
-                      }}
-                      className="w-6 h-6 rounded border border-slate-700 bg-transparent cursor-pointer p-0.5 shrink-0"
-                      title="Warna dasar semua bagian"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => toggleBase(base.id)}
-                      className="flex-1 min-w-0 text-left truncate font-semibold text-slate-200 hover:text-white"
-                      title="Klik untuk melihat bagian-bagiannya"
-                    >
-                      {base.label}
-                      {!same && <span className="ml-1.5 text-[10px] font-normal text-slate-500">(warna bervariasi)</span>}
-                    </button>
-                    <button type="button" onClick={() => toggleBase(base.id)} className="text-slate-400 hover:text-white">
-                      {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-                  {open && (
-                    <div className="mt-1 ml-3 space-y-1 border-l border-slate-800 pl-2">
-                      {base.parts.map((id) => renderPartRow(id))}
-                    </div>
+                      {helpersShown && <div className="ml-3 border-l border-slate-800 pl-1.5 space-y-0.5">{helpers.map(renderZoneRow)}</div>}
+                    </>
                   )}
-                </div>
-              );
-            })}
 
-            {/* Collar, captain's armband and the credit box are ordinary layers */}
-            {g === 'details' && DETAIL_PARTS.map((id) => renderPartRow(id, true))}
-          </div>
-        ))}
+                  {/* Base rows: the main colour of a garment. They cannot be deleted. */}
+                  {!q &&
+                    BASE_ROWS[g].map((base) => {
+                      const baseOpen = openBase.has(base.id);
+                      const first = partsConfig[base.parts[0]];
+                      const same = base.parts.every((id) => partsConfig[id]?.color === first?.color);
+                      // with an imported design as the base, the colour can be stacked on top of it
+                      const stacked = designBase && base.parts.some((id) => partsConfig[id]?.overDesign);
+                      const setStacked = (on: boolean) => base.parts.forEach((id) => onUpdatePartConfig(id, { overDesign: on }));
+                      return (
+                        <div key={base.id}>
+                          <div className={rowClass(false)}>
+                            {designBase ? (
+                              <button
+                                type="button"
+                                onClick={() => setStacked(!stacked)}
+                                className={stacked ? 'text-slate-300 hover:text-white' : 'text-slate-500 hover:text-slate-300'}
+                                title={stacked ? 'Sembunyikan warna di atas desain impor' : 'Tampilkan warna ini di atas desain impor'}
+                                aria-label={stacked ? 'Sembunyikan warna di atas desain impor' : 'Tampilkan warna ini di atas desain impor'}
+                              >
+                                {stacked ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                              </button>
+                            ) : (
+                              <span className="text-slate-500" title="Layer utama: tidak bisa disembunyikan atau dihapus">
+                                <Lock className="w-3.5 h-3.5" />
+                              </span>
+                            )}
+                            <input
+                              type="color"
+                              value={first?.color ?? '#ffffff'}
+                              onChange={(e) => {
+                                onSetBaseColor(base.parts, e.target.value);
+                                if (designBase) setStacked(true);
+                              }}
+                              className="w-6 h-6 rounded border border-slate-700 bg-transparent cursor-pointer p-0.5 shrink-0"
+                              title="Warna dasar semua bagian"
+                              aria-label={`Warna ${base.label}`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => toggleBase(base.id)}
+                              aria-expanded={baseOpen}
+                              className="flex-1 min-w-0 flex items-center gap-1.5 text-left font-semibold text-slate-200 hover:text-white"
+                              title="Klik untuk melihat bagian-bagiannya"
+                            >
+                              <span className="truncate">{base.label}</span>
+                              {!same && <span className="shrink-0 text-[11px] font-normal text-slate-400">warna campur</span>}
+                              <span className="ml-auto text-slate-500">
+                                {baseOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                              </span>
+                            </button>
+                          </div>
+                          {baseOpen && <div className="mt-0.5 ml-3 space-y-0.5 border-l border-slate-800 pl-1.5">{base.parts.map((id) => renderPartRow(id))}</div>}
+                        </div>
+                      );
+                    })}
 
-        {/* Add a layer */}
-        <div className="space-y-1.5 bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Tambah layer</div>
-          <select
-            value={newPart}
-            onChange={(e) => setNewPart(e.target.value as KitPartId | '')}
-            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white outline-none"
-          >
-            <option value="">Bagian aktif ({PES_2021_PARTS.find((p) => p.id === targetPart)?.name})</option>
-            {PES_2021_PARTS.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <div className="grid grid-cols-4 gap-1">
-            {NEW_ZONES.map((n) => (
-              <button
-                key={n.id}
-                type="button"
-                onClick={() => onAddZone(n.id, targetPart)}
-                className="flex items-center justify-center gap-1 text-[11px] py-1.5 rounded-md border border-slate-700 bg-slate-800/70 text-slate-200 hover:bg-slate-700"
-              >
-                <Plus className="w-3 h-3" />
-                {n.label}
-              </button>
-            ))}
-          </div>
-          <p className="text-[10px] text-slate-500 leading-snug">Alat gambar ada di bar alat di sisi kiri canvas.</p>
-        </div>
+                  {/* Collar, captain's armband and the credit box are ordinary layers */}
+                  {!q && g === 'details' && DETAIL_PARTS.map((id) => renderPartRow(id, true))}
+                </>
+              )}
+            </div>
+          );
+        })}
+
       </PanelSection>
-
-      {/* Pattern layers (drawn over the base colours above) */}
-        <PatternLayersPanel
-          layers={state.patterns ?? []}
-          library={library}
-          activePartId={activePartId}
-          onChange={onChangePatterns}
-        />
 
 
       {/* Seams */}
       <PanelSection
         id="seams"
         title="Garis Jahitan"
-        icon={<Spline className="w-3.5 h-3.5 text-sky-400" />}
+        icon={<Spline className="w-3.5 h-3.5 text-slate-400" />}
+        info='Canvas bersih secara bawaan: garis jahit hanya yang kamu gambar sendiri dan tepi layer. Nyalakan "Jahitan di tepi tiap bagian" bila ingin garis di sekeliling setiap potongan.'
         defaultOpen={false}
         action={
           <label className="flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer">
@@ -1018,7 +1440,9 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
       >
 
         <div className="space-y-1.5">
-          <p className="text-[10px] text-slate-500 leading-snug">Buat garis jahit baru dengan alat di sisi kiri canvas.</p>
+          {(template.seams ?? []).length === 0 && (
+            <p className="text-[11px] text-slate-400">Belum ada garis jahit. Gambar dengan alat jahit di bar kiri canvas.</p>
+          )}
           {(template.seams ?? []).map((s, i) => {
             const key = s.id ?? `seam-${i}`;
             const part = PES_2021_PARTS.find((p) => p.id === s.part);
@@ -1103,10 +1527,6 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
             </div>
           </div>
         )}
-        <p className="text-[10px] text-slate-500 leading-snug">
-          Canvas bersih secara bawaan: garis jahit hanya yang kamu gambar sendiri (daftar di atas) dan tepi layer.
-          Nyalakan "Jahitan di tepi tiap bagian" bila ingin garis di sekeliling setiap potongan.
-        </p>
       </PanelSection>
 
       {/* Save as library template */}

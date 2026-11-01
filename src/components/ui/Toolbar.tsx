@@ -2,8 +2,8 @@
 
 import React from 'react';
 import { ZoomIn, ZoomOut, Maximize2, Box, Layout, Columns, X } from 'lucide-react';
-import { CanvasViewState } from '@/types/kit';
-import { PART_MAP } from '@/constants/pes2021Parts';
+import { CanvasViewState, KitPartId } from '@/types/kit';
+import { PART_MAP, PES_2021_PARTS } from '@/constants/pes2021Parts';
 
 export type WorkspaceViewMode = '2d' | '3d' | 'split';
 
@@ -13,10 +13,11 @@ interface ToolbarProps {
   onResetSolo: () => void;
   viewMode: WorkspaceViewMode;
   setViewMode: (mode: WorkspaceViewMode) => void;
+  onFocusPart: (partId: KitPartId) => void;
 }
 
 /** Strip above the workspace: view mode (2D / Split / 3D), the focused part and the zoom. */
-export const Toolbar: React.FC<ToolbarProps> = ({ viewState, setViewState, onResetSolo, viewMode, setViewMode }) => {
+export const Toolbar: React.FC<ToolbarProps> = ({ viewState, setViewState, onResetSolo, viewMode, setViewMode, onFocusPart }) => {
   const activePart = viewState.activePartId !== 'all' ? PART_MAP[viewState.activePartId] : null;
 
   const modes: { id: WorkspaceViewMode; label: string; icon: React.ReactNode }[] = [
@@ -34,14 +35,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({ viewState, setViewState, onRes
   return (
     <div className="relative z-30 h-10 shrink-0 border-b border-slate-800 bg-[#161a26]/90 backdrop-blur px-3 flex items-center gap-2 text-xs text-slate-300 select-none">
       {/* View mode (2D / Split / 3D) */}
-      <div className="flex items-center bg-slate-900/90 border border-slate-800 p-0.5 rounded-lg shrink-0">
+      <div className="flex items-center bg-slate-900/90 border border-slate-800 p-0.5 rounded-lg shrink-0" role="group" aria-label="Tampilan">
         {modes.map((m) => (
           <button
             key={m.id}
             onClick={() => setViewMode(m.id)}
+            aria-pressed={viewMode === m.id}
             title={m.id === '2d' ? 'Hanya canvas 2D' : m.id === '3d' ? 'Hanya model 3D' : 'Canvas 2D + model 3D'}
-            className={`flex items-center gap-1.5 h-6 px-2.5 rounded-md font-bold whitespace-nowrap transition-all ${
-              viewMode === m.id ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            className={`flex items-center gap-1.5 h-6 px-2.5 rounded-md font-semibold whitespace-nowrap transition-colors ${
+              viewMode === m.id ? 'bg-sky-500/25 text-sky-100' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
             }`}
           >
             {m.icon}
@@ -50,21 +52,37 @@ export const Toolbar: React.FC<ToolbarProps> = ({ viewState, setViewState, onRes
         ))}
       </div>
 
-      {/* Focus chip (when one part is isolated) */}
-      {viewMode !== '3d' && activePart && (
+      {/* Part focus: pick a part to zoom the 2D canvas onto it (replaces the old part strip under the canvas) */}
+      {viewMode !== '3d' && (
         <div
-          className="flex items-center gap-1 min-w-0 h-7 pl-2.5 pr-1 rounded-md bg-sky-950/70 border border-sky-600/40 text-sky-300"
-          title={`Fokus pada ${activePart.name}`}
+          className={`flex items-center gap-1 min-w-0 h-7 pl-2 pr-1 rounded-md border ${
+            activePart ? 'bg-sky-500/15 border-sky-600/50 text-sky-100' : 'bg-slate-900/90 border-slate-800 text-slate-300'
+          }`}
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-sky-400 shrink-0" />
-          <span className="font-semibold truncate max-w-28 xl:max-w-44">{activePart.name}</span>
-          <button
-            onClick={onResetSolo}
-            className="p-1 rounded text-sky-200 hover:text-white hover:bg-sky-800 transition-colors"
-            title="Kembali ke tampilan penuh"
+          <select
+            value={activePart ? viewState.activePartId : 'all'}
+            onChange={(e) => (e.target.value === 'all' ? onResetSolo() : onFocusPart(e.target.value as KitPartId))}
+            aria-label="Fokus ke bagian"
+            title="Fokus canvas 2D ke satu bagian"
+            className="min-w-0 max-w-40 bg-transparent text-xs font-semibold outline-none cursor-pointer [&>option]:bg-slate-900 [&>option]:text-white"
           >
-            <X className="w-3 h-3" />
-          </button>
+            <option value="all">Semua bagian</option>
+            {PES_2021_PARTS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          {activePart && (
+            <button
+              onClick={onResetSolo}
+              className="p-1 rounded text-sky-200 hover:text-white hover:bg-sky-800/70 transition-colors"
+              title="Kembali ke tampilan penuh"
+              aria-label="Kembali ke tampilan penuh"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
         </div>
       )}
 
@@ -76,6 +94,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ viewState, setViewState, onRes
           onClick={() => zoomBy(-0.2)}
           className="h-6 w-6 flex items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-slate-800"
           title="Zoom out"
+          aria-label="Zoom out"
         >
           <ZoomOut className="w-3.5 h-3.5" />
         </button>
@@ -84,6 +103,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ viewState, setViewState, onRes
           onClick={() => zoomBy(0.2)}
           className="h-6 w-6 flex items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-slate-800"
           title="Zoom in"
+          aria-label="Zoom in"
         >
           <ZoomIn className="w-3.5 h-3.5" />
         </button>
@@ -91,6 +111,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ viewState, setViewState, onRes
           onClick={() => setViewState((prev) => ({ ...prev, zoom: 1, panX: 0, panY: 0 }))}
           className="h-6 w-6 flex items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-slate-800"
           title="Reset zoom dan posisi"
+          aria-label="Reset zoom dan posisi"
         >
           <Maximize2 className="w-3.5 h-3.5" />
         </button>

@@ -40,9 +40,16 @@ const JUNK_NAMES: [RegExp, string][] = [
   [/background|背景|下地/i, 'latar'],
 ];
 
+/** The helper kind a layer name points at (mesh, guide, stitch…), or undefined for an ordinary layer. */
+export function helperName(name: string): string | undefined {
+  for (const [re, reason] of JUNK_NAMES) if (re.test(name)) return reason;
+  return undefined;
+}
+
 /** Returns the reason a layer is most likely not a useful zone, or undefined when it looks useful. */
 export function junkReason(info: Pick<PsdLayerInfo, 'name' | 'opacity' | 'left' | 'top' | 'right' | 'bottom'>, psdW: number, psdH: number): string | undefined {
-  for (const [re, reason] of JUNK_NAMES) if (re.test(info.name)) return reason;
+  const byName = helperName(info.name);
+  if (byName) return byName;
   const w = info.right - info.left;
   const h = info.bottom - info.top;
   if (w >= psdW * 0.95 && h >= psdH * 0.95) return 'seukuran kanvas';

@@ -79,3 +79,11 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 | 40 | P3 | Import gambar font: huruf yang menempel dipisah di kolom paling tipis, yang bisa memotong sedikit salah satunya; pengenalan membandingkan bentuk dengan font umum dan mengandalkan urutan alfabet di gambar, jadi huruf yang sangat dekoratif atau gambar yang urutannya acak perlu dikoreksi lewat teks baris. Pada latar yang sangat ramai (garis neon, cahaya) pemisahan otomatis masih bisa mengambil potongan latar: pakai *Pilih huruf* di jendela import. Pola juga menutupi outline. Huruf beraksen belum dirakit dari gambar (diambil dari font cadangan). |
 | 41 | P3 | Huruf dari gambar font di-trace menjadi garis tepi vektor saat diperbesar, jadi tepinya tajam, tetapi gelombang atau penyok yang memang ada di gambar tetap terbawa, dan huruf yang sangat kecil (di bawah sekitar 40 px) bisa kehilangan detail terhalusnya. Pakai gambar terbesar dan terbersih yang kamu punya. |
 | 42 | P2 | **Pola dari foto jersey ditunda dan masih perlu disempurnakan.** Fitur ini berjalan pada foto mockup produk (diuji dengan satu kit, depan dan belakang) tetapi masih perkiraan: perspektif, lengkung badan, dan lipatan membuat garis lurus melengkung; pada dua warna pola yang satu rona (biru muda / biru tua) sebagian bayangan masih terbawa; pola di balik logo atau nomor besar diteruskan sepanjang arah utamanya, jadi bisa putus di tempat pola berbelok; kotak badan otomatis tidak mengambil sisi badan (gambar ulang kotaknya untuk mengambil lebih banyak). Yang masih harus dikerjakan: lengan dari foto (sekarang hanya diberi warna utama), mengenali pola teratur (strip, hoops, chevron…) lalu membangunnya ulang dengan layer pola, dan lebih banyak foto uji. Warna pola tipis di bawah batas (bawaan 8 %) dianggap logo. |
+
+## Tab Layer (ditambahkan di 0.3.0)
+
+| # | Pri | Masalah |
+|---|---|---|
+| 43 | P3 | Memindah pola atau objek ke grup lain dan mengubah ukuran panel samping perlu mouse; dengan keyboard, tombol panah hanya mengubah urutan di dalam grup. |
+| 44 | P3 | Pola tampil paling atas di grupnya tetapi selalu digambar di bawah layer template grup itu, jadi urutan daftar antara pola dan layer template bukan urutan gambarnya. |
+| 45 | P3 | Semua salinan objek kembar berukuran sama. Mengedit titik objek kembar yang diputar membuat arah kembarnya lurus lagi (mengikuti sumbu tekstur). |

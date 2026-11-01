@@ -111,7 +111,7 @@ export const FontSheetCropDialog: React.FC<FontSheetCropDialogProps> = ({ image,
   );
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 select-none">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 select-none">
       <div className="bg-[#121622] border border-slate-800 rounded-2xl w-full max-w-6xl max-h-[92vh] shadow-2xl overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-6 py-3 border-b border-slate-800 bg-[#0f131c]">
           <div className="flex items-center gap-2.5">
@@ -160,7 +160,7 @@ export const FontSheetCropDialog: React.FC<FontSheetCropDialogProps> = ({ image,
 
           <div className="p-5 space-y-4 border-l border-slate-800 text-[11px] text-slate-400">
             <section className="space-y-2">
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-300 border-b border-slate-800 pb-1">Area</h4>
+              <h4 className="text-xs font-semibold text-slate-200 border-b border-slate-800 pb-1">Area</h4>
               <p className="font-mono text-slate-500">{`${Math.round(rect.w)}×${Math.round(rect.h)} px`}</p>
               <button type="button" onClick={() => setRect(full)} className={`${btn} border-slate-700 text-slate-300 hover:bg-slate-800`}>
                 <Maximize className="w-3.5 h-3.5" /> Seluruh gambar
@@ -168,7 +168,7 @@ export const FontSheetCropDialog: React.FC<FontSheetCropDialogProps> = ({ image,
             </section>
 
             <section className="space-y-2">
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-300 border-b border-slate-800 pb-1">Pisahkan dari latar</h4>
+              <h4 className="text-xs font-semibold text-slate-200 border-b border-slate-800 pb-1">Pisahkan dari latar</h4>
               <div className="flex items-center justify-between gap-2">
                 <span>Latar</span>
                 {swatch(opts.bg, 'otomatis')}

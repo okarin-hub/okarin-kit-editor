@@ -5,21 +5,24 @@
 ## 1. The screen
 
 ```
-┌─ Menu bar: File  Edit  View  Preset  Settings  Help ───────────── [Export Kit] ┐
-│ Tool │  2D | Split | 3D                                          zoom         │
+┌─ Menu bar: File  Edit  View  Tools  Help ──────────────────────── [Export Kit] ┐
+│ Tool │  2D | Split | 3D   [All parts ▾]                          zoom         │
 │ rail │ ┌────────── 2D canvas ───────────┐ ┌────────── 3D preview ────────┐ ┌ Side panel ┐
 │      │ │ the texture (1024 x 1024)      │ │ the kit on the 3D model      │ │ Colour     │
 │      │ └────────────────────────────────┘ └──────────────────────────────┘ │ Layer      │
-│      │ Part shortcuts: Shirt Front · Shirt Back · Sleeves · Shorts · Socks … │ Logo       │
+│      │                                                                       │ Logo       │
 └──────┴───────────────────────────────────────────────────────────────────── │ Name       │
 ```
 
-- **Menu bar** – *File* (new kit, open / save project, import design, export), *Edit* (undo, redo, reset),
-  *View* (wireframe, labels, overlay), *Preset* (starter kits), *Settings* (language), *Help* (this guide,
-  shortcuts, update check, credits, about).
+- **Menu bar** – *File* (new kit, open / save project, import design, export), *Edit* (undo, redo, settings, colour presets),
+  *View* (part outlines, part labels, original PES template), *Tools* (pattern from a jersey photo, fontset generator,
+  kitserver config.txt; all experimental), *Help* (guide, shortcuts, update check, credits, about).
+  *New kit* asks first; *Undo* brings the old kit back.
 - **Tool rail (left)** – select / move, freehand shape, point shape, stitch line by points, stitch line freehand,
-  pattern eraser. One tool is active at a time; click the active tool again to go back to *select*.
-- **2D canvas** – scroll to zoom, drag to pan. Click a part to select it. The part shortcuts at the bottom zoom to a part.
+  pattern eraser (keys `V`, `B`, `P`, `S`, `J`, `E`). One tool is active at a time; click the active tool again to go
+  back to *select*.
+- **2D canvas** – scroll to zoom, drag to pan. Click a part to select it. The *All parts* list in the toolbar zooms
+  the canvas onto one part.
 - **3D preview** – drag to rotate, hold the middle mouse button (wheel button) and drag up / down to look from
   above or below, scroll to zoom. Buttons switch the camera (front, back, chest, bottom, full) and
   the sleeve length (short / long).
@@ -30,14 +33,15 @@ top, neck in the middle), and the shorts are stored rotated by 90°. The editor 
 
 ## 2. Quick start
 
-1. *Preset* menu → pick a starter kit.
+1. *Edit* menu → pick a colour preset.
 2. **Layer** tab → change the colour of *Shirt base*, *Shorts base* and *Socks base* (open a row for per-part colours).
 3. Add **pattern layers**, **trims**, a **collar** colour, then a **logo** (Logo tab) and the **name / number** (Name tab).
 4. Check the 3D preview. *File → Export kit…* when you are happy.
 
 ## 3. The Layer tab
 
-The tab is made of collapsible cards (their open / closed state is remembered).
+The tab is made of collapsible cards (their open / closed state is remembered). The **?** next to a heading explains
+that setting; *Help → Guide* explains them all.
 
 ### Template
 A template adds coloured **zones** (collar piping, side panels, shoulder panels, cuffs, stripes …) on top of the part
@@ -56,15 +60,20 @@ Importing a template from PSD / PNG is **experimental** (see [Known issues](KNOW
 ### Layer
 Base rows for shirt, shorts and socks (always the lowest layer) and the accessories: collar, captain's armband,
 credit box. **Trims** (the stripe at a cuff, hem or sock top) are added under each part with *+ Add trim*; the eye
-hides a trim, the colour and the width are set on the row. *Add layer* creates stripes, panels, ellipses and triangles.
-Click a part's name (or its gear button) to open its editor under the row: colour code, palette and *Match* (front ↔ back,
+hides a trim, the colour and the width are set on the row. The buttons on a layer row (shown on hover): focus, duplicate and delete; *Reset* is at the top of the layer's settings, next to its name. **+ Object** next to a group adds a stripe, panel, ellipse or triangle there. Drag an object row onto another group to move it (it is resized to the new part), hold `Ctrl` when you drop it to copy it. *Repeat* in its settings draws the shape 2, 3 or more times in a row inside the same layer, with a gap and a direction (downwards or sideways, following the shape's rotation); each copy has the object's width and height.
+Layers are grouped by shirt, shorts, socks and accessories; a group with many layers starts closed, and a search
+field appears. Helper layers from a PSD (mesh, guides, stitches, shadows, background) are gathered under
+*PSD helper layers*. Click a part's name (or its gear button) to open its editor under the row: colour code, palette and *Match* (front ↔ back,
 left ↔ right). Clicking a part on the canvas or its focus button also opens the Layer tab, never another tab.
 
 ### Pattern layers
-Each pattern is its own layer: type (14 built-in or an image from `library/patterns`), colour, scale, line
-thickness, opacity, X / Y offset, **rotation**, mirror / symmetry, **Repeating** on / off (off = one motif in the
-middle), and the parts it is used on. Layers higher in the list are drawn in front. The pattern is drawn over the
-base colour and under trims, logos and fabric.
+Patterns live in the groups of the layer list. **+ Pattern** next to a group (Shirt, Shorts, Socks, Accessories) adds
+one there; it is listed at the top of the group. **Drag** a pattern row onto another group to move it there, or hold
+`Ctrl` when you drop it to copy it. Click a row to open its settings: type (14 built-in or an image from
+`library/patterns`), colour, scale, line thickness, opacity, X / Y offset, **rotation**, mirror / symmetry,
+**Repeating** on / off (off = one motif in the middle) and which parts of the group it covers (for example the body
+without the sleeves). Higher patterns are drawn in front of lower ones. Patterns are drawn over the base colour and
+under the template layers, trims, logos and fabric.
 
 ### Stitch lines
 Stitch lines are layers you draw (see tools). The card lists them; each can be switched between straight and
@@ -126,7 +135,7 @@ tested in the game yet.
 
 This only edits the config file: the 2D/3D preview does not follow its values yet.
 
-*File → Kitserver (config.txt)…* edits the `config.txt` that kserv.lua (Sider) reads for one kit. The form follows
+*Tools → Kitserver config.txt…* edits the `config.txt` that kserv.lua (Sider) reads for one kit. The form follows
 kserv's own menu and limits; *Edit as text* shows the file itself. *Import config.txt* loads an existing config and
 keeps its comments and any key the form does not show. File names are written without `.ftex`: kserv only uses files
 inside the kit's own folder, and an empty name or a missing file means the game's own file.
@@ -136,7 +145,7 @@ inside the kit's own folder, and an empty name or a missing file means the game'
 
 ### Fontset generator – experimental
 
-*File → Fontset generator…* makes the number and name font files kitserver reads. Pick a font, fill colour and
+*Tools → Fontset generator…* makes the number and name font files kitserver reads. Pick a font, fill colour and
 outline for the numbers and for the name; the preview shows each texture with its character slots (blue) and the
 letter top and baseline (red). *Save to kit folder…* writes `<prefix>_back`, `_chest`, `_leg`, `_name` and `_name_ex`
 `.ftex` files and, with *Also write config.txt*, the config with those names filled in. The prefix defaults to the
@@ -151,12 +160,15 @@ in the row's text: one character per piece, `_` to skip one. Characters the pict
 
 ## 9. Projects, autosave, languages
 
-- Your work is autosaved in the browser / app storage. *File → Save project…* keeps named projects or downloads a
-  `.peskit` file; *Open project…* loads one.
-- *Settings → Language*: English, Bahasa Indonesia, Português, Español.
+- Your work is autosaved in the browser / app storage. *File → Open / save project…* (`Ctrl+S`) keeps named projects,
+  downloads a `.peskit` file or loads one.
+- *Edit → Settings…* (`Ctrl+,`): the language (English, Bahasa Indonesia, Português, Español) and where a layer's settings
+  open: *under the row* in the list, or in a *side panel* left of the layer list (closed with ✕ or `Esc`). Drag the side panel's left edge, bottom edge or
+  bottom-left corner to resize it; the size is remembered, a double click on the edge brings back the default size.
 - *Edit → Undo / Redo* (`Ctrl+Z`, `Ctrl+Y`).
 
 ## 10. Shortcuts
 
-`Ctrl+Z` undo · `Ctrl+Y` redo · scroll = zoom · drag = pan · `Enter` finish drawing · `Esc` cancel ·
+`Ctrl+Z` undo · `Ctrl+Y` redo · `Ctrl+S` open / save project · `Ctrl+E` export · `Ctrl+,` settings · `1` / `2` / `3` 2D / Split / 3D ·
+`V` `B` `P` `S` `J` `E` tools · `?` shortcut list · scroll = zoom · drag = pan · `Enter` finish drawing · `Esc` cancel ·
 `Backspace` remove last point · arrows / `Shift`+arrows nudge the selected logo by 1 / 10 px · `Delete` removes it.

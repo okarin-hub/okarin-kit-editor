@@ -53,7 +53,7 @@ Tips:
 
 ## 4. Menambah tile pola
 
-Salin gambar tile ke `library/patterns/`, tekan **Muat ulang** di kartu *Layer Pola*, tambah layer pola lalu pilih
+Salin gambar tile ke `library/patterns/`, tambah pola di tab Layer (**+ Pola**), tekan **Muat ulang** di pengaturannya lalu pilih
 gambarnya sebagai jenis. Tile sebaiknya bisa diulang mulus. Tile satu warna atau transparan bisa diwarnai dengan
 *Warna Pola*; tile berwarna dipakai apa adanya. Skala, geser, rotasi, cermin, dan opasitas bekerja seperti pola
 bawaan.

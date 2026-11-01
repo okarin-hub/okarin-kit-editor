@@ -10,18 +10,20 @@ interface ToolRailProps {
   onSelect: (tool: ToolId) => void;
 }
 
-const GROUPS: { id: ToolId; icon: React.ReactNode; title: string }[][] = [
-  [{ id: 'select', icon: <MousePointer2 className="w-4 h-4" />, title: 'Pilih dan geser' }],
+const GROUPS: { id: ToolId; icon: React.ReactNode; title: string; key: string }[][] = [
+  [{ id: 'select', icon: <MousePointer2 className="w-4 h-4" />, title: 'Pilih dan geser', key: 'V' }],
   [
     {
       id: 'free',
       icon: <Pencil className="w-4 h-4" />,
       title: 'Gambar bentuk bebas dengan menyeret mouse di canvas 2D',
+      key: 'B',
     },
     {
       id: 'poly',
       icon: <PenTool className="w-4 h-4" />,
       title: 'Klik titik demi titik di canvas 2D; klik titik pertama atau tekan Enter untuk menutup',
+      key: 'P',
     },
   ],
   [
@@ -29,11 +31,13 @@ const GROUPS: { id: ToolId; icon: React.ReactNode; title: string }[][] = [
       id: 'stitch',
       icon: <Spline className="w-4 h-4" />,
       title: 'Klik titik demi titik di canvas 2D untuk membuat garis jahit; Enter atau klik dua kali untuk selesai',
+      key: 'S',
     },
     {
       id: 'stitchFree',
       icon: <Brush className="w-4 h-4" />,
       title: 'Seret mouse di canvas 2D untuk menggambar garis jahit bebas',
+      key: 'J',
     },
   ],
   [
@@ -41,6 +45,7 @@ const GROUPS: { id: ToolId; icon: React.ReactNode; title: string }[][] = [
       id: 'eraser',
       icon: <Eraser className="w-4 h-4" />,
       title: 'Kuas hapus pola (agar logo bawaan desain tidak tertimpa)',
+      key: 'E',
     },
   ],
 ];
@@ -58,11 +63,13 @@ export const ToolRail: React.FC<ToolRailProps> = ({ active, onSelect }) => (
               key={t.id}
               type="button"
               onClick={() => onSelect(on && t.id !== 'select' ? 'select' : t.id)}
-              title={t.title}
+              title={`${t.title} (${t.key})`}
+              aria-label={t.title}
+              aria-keyshortcuts={t.key}
               aria-pressed={on}
               className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${
                 on
-                  ? 'bg-rose-600/25 border-rose-500/70 text-rose-100'
+                  ? 'bg-sky-500/20 border-sky-500/60 text-sky-100'
                   : 'border-transparent text-slate-400 hover:text-white hover:bg-slate-800'
               }`}
             >

@@ -53,7 +53,7 @@ editorial and fan (non-commercial) use only**; follow their licence. This folder
 
 ## 4. Add a pattern tile
 
-Copy a tile image into `library/patterns/`, press **Reload** in the *Pattern layers* card, add a pattern layer and pick
+Copy a tile image into `library/patterns/`, add a pattern in the Layer tab (**+ Pattern**), press **Reload** in its settings and pick
 the image as its type. A tile should repeat seamlessly. Single-colour or transparent tiles can be tinted with the
 *Pattern colour*; coloured tiles are used as they are. Scale, offset, rotation, mirror and opacity work as for
 built-in patterns.

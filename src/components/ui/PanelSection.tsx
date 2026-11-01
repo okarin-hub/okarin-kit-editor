@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { InfoTip } from '@/components/ui/InfoTip';
 
 interface PanelSectionProps {
   /** Stable id: the open / closed state is remembered per section in this browser. */
@@ -12,6 +13,8 @@ interface PanelSectionProps {
   badge?: string | number;
   /** Controls on the right of the header (stays clickable when the section is closed). */
   action?: React.ReactNode;
+  /** Short explanation behind a "?" next to the title. */
+  info?: React.ReactNode;
   defaultOpen?: boolean;
   children: React.ReactNode;
 }
@@ -25,6 +28,7 @@ export const PanelSection: React.FC<PanelSectionProps> = ({
   icon,
   badge,
   action,
+  info,
   defaultOpen = true,
   children,
 }) => {
@@ -62,13 +66,14 @@ export const PanelSection: React.FC<PanelSectionProps> = ({
         >
           {open ? <ChevronDown className="w-3.5 h-3.5 shrink-0 text-slate-500" /> : <ChevronRight className="w-3.5 h-3.5 shrink-0 text-slate-500" />}
           {icon}
-          <span className="text-[11px] font-bold uppercase tracking-wider truncate">{title}</span>
+          <span className="text-xs font-semibold truncate">{title}</span>
           {badge !== undefined && badge !== '' && (
             <span className="ml-0.5 max-w-[110px] truncate text-[10px] font-normal normal-case tracking-normal text-slate-500">
               {typeof badge === 'number' ? `(${badge})` : badge}
             </span>
           )}
         </button>
+        {info && <InfoTip text={info} />}
         {action && <div className="shrink-0 flex items-center gap-1.5">{action}</div>}
       </div>
       {open && <div className="px-3 pb-3 space-y-2.5">{children}</div>}

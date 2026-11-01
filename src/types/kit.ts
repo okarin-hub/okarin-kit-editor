@@ -281,6 +281,12 @@ export interface TemplateZoneState {
   opacity?: number;
   /** 0..1 smoothing of polygon outlines (drawn shapes become curves). */
   smooth?: number;
+  /** Shape layers: draw the shape this many times in a row (default 1). */
+  repeat?: number;
+  /** Space between the copies, in texture pixels (default 12). */
+  repeatGap?: number;
+  /** Copies go along the shape's own height ('y', e.g. hoops under a strip) or width ('x'); default: across the long side. */
+  repeatDir?: 'x' | 'y';
 }
 
 export interface SeamConfig {

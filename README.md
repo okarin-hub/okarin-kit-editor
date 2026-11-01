@@ -21,8 +21,9 @@ The `library` folder next to the exe starts **empty**: add your own logos, patte
 ## Features
 
 - 2D canvas (Konva) and 3D preview (Three.js) side by side, with the same renderer for both and for the export.
-- Part colours, **pattern layers** (several per kit, each with size, rotation, offset, mirror, parts), fabric
-  texture layers, trims, collar, captain's armband and credit box.
+- Layer groups for shirt, shorts, socks and accessories: part colours, **patterns** (several per kit, each with
+  size, rotation, offset, mirror, parts) and **objects** (stripe, panel, ellipse, triangle, repeatable), dragged
+  between groups; fabric texture layers, trims, collar, captain's armband and credit box.
 - **Base layer choice:** part colours, or an imported finished kit design (colours can be stacked on top).
 - Sleeve shape: to the shoulder (PES template) or without shoulder.
 - Logos and text with ratio lock, X/Y position, colour override, gradient and outline. Your own logo library.
@@ -30,7 +31,8 @@ The `library` folder next to the exe starts **empty**: add your own logos, patte
 - Player name and number, shorts number.
 - Export: **PNG**, **DDS** (DXT1 / DXT5 / BGRA, mipmaps), **FTEX** (written directly, tested in PES 2021),
   `.peskit` project file, showcase card. 1024 or 2048 px.
-- Languages: English, Bahasa Indonesia, Português, Español. Undo / redo, autosave, saved projects.
+- Experimental tools: pattern from a jersey photo, kitserver fontset generator and config.txt editor.
+- Languages: English, Bahasa Indonesia, Português, Español. Keyboard shortcuts, undo / redo, autosave, saved projects.
 
 ## Run from source
 

@@ -6,6 +6,7 @@ import { FabricConfig, FabricLayer, FabricTextureType, KitPartId } from '@/types
 import { createFabricPattern } from '@/utils/fabricRenderer';
 import { AssetLibrary } from '@/hooks/useAssetLibrary';
 import { preloadImage } from '@/utils/imageCache';
+import { InfoTip } from '@/components/ui/InfoTip';
 
 const FABRIC_TEXTURES: { id: FabricTextureType; label: string; desc: string }[] = [
   { id: 'jersey-dimple', label: 'Jersey Mesh Oval Datar', desc: 'Lubang oval mendatar bertingkat, seperti jersey bola putih' },
@@ -113,22 +114,19 @@ export const FabricLayersPanel: React.FC<FabricLayersPanelProps> = ({ config, li
     <div className="bg-[#151926] p-3.5 rounded-xl border border-slate-800/80 space-y-3">
       <div className="flex items-center justify-between">
         <span className="text-xs font-bold text-white flex items-center gap-1.5">
-          <Shirt className="w-3.5 h-3.5 text-amber-400" />
+          <Shirt className="w-3.5 h-3.5 text-slate-400" />
           <span>Layer Tekstur Kain</span>
+          <InfoTip text="Tiap layer punya tekstur, ukuran, dan intensitas sendiri, lalu centang bagian mana saja yang memakainya. Tampil di canvas 2D, model 3D, dan hasil export." />
         </span>
         <button
           type="button"
           onClick={addLayer}
-          className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-amber-700/60 bg-amber-900/20 text-amber-100 hover:bg-amber-800/30"
+          className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-slate-700 bg-slate-800/70 text-slate-100 hover:bg-slate-700"
         >
           <Plus className="w-3 h-3" />
           Tambah
         </button>
       </div>
-      <p className="text-[11px] text-slate-400 leading-snug">
-        Tiap layer punya tekstur, ukuran, dan intensitas sendiri, lalu centang bagian mana saja yang memakainya. Tampil
-        di canvas 2D, model 3D, dan hasil export.
-      </p>
 
       {config.layers.length === 0 && (
         <p className="text-[11px] text-slate-500 text-center py-2">Belum ada layer tekstur. Klik Tambah.</p>
@@ -167,7 +165,7 @@ export const FabricLayersPanel: React.FC<FabricLayersPanelProps> = ({ config, li
                       onClick={() => update(l.id, { type: fab.id, ...(fab.id.startsWith('jersey') ? { opacity: Math.max(l.opacity, 0.6) } : {}) })}
                       className={`w-full text-left p-1.5 rounded-lg border text-xs transition-all ${
                         l.type === fab.id
-                          ? 'bg-amber-950/40 border-amber-500/80 text-white font-medium'
+                          ? 'bg-sky-500/15 border-sky-500/80 text-white font-medium'
                           : 'bg-slate-900/40 border-slate-800 text-slate-400 hover:bg-slate-800/60'
                       }`}
                     >
@@ -186,7 +184,7 @@ export const FabricLayersPanel: React.FC<FabricLayersPanelProps> = ({ config, li
                 <div className="space-y-1.5 bg-slate-900/40 border border-slate-800 rounded-lg p-2">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-semibold text-slate-300 flex items-center gap-1.5">
-                      <FolderOpen className="w-3.5 h-3.5 text-amber-400" />
+                      <FolderOpen className="w-3.5 h-3.5 text-slate-400" />
                       Tekstur dari Pustaka ({library.textures.length})
                     </span>
                     <button
@@ -215,7 +213,7 @@ export const FabricLayersPanel: React.FC<FabricLayersPanelProps> = ({ config, li
                             update(l.id, { type: 'custom-image', image: t.url, name: t.name, opacity: Math.max(l.opacity, 0.5) });
                           }}
                           className={`aspect-square rounded-md border overflow-hidden transition-all ${
-                            isLib && l.image === t.url ? 'border-amber-400 bg-amber-500/10' : 'border-slate-700 bg-slate-800 hover:border-slate-500'
+                            isLib && l.image === t.url ? 'border-sky-400 bg-sky-500/10' : 'border-slate-700 bg-slate-800 hover:border-slate-500'
                           }`}
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -229,20 +227,20 @@ export const FabricLayersPanel: React.FC<FabricLayersPanelProps> = ({ config, li
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-[11px] text-slate-400">
                     <span>Ukuran Pori / Serat</span>
-                    <span className="font-mono text-amber-300">{l.scale.toFixed(1)}x</span>
+                    <span className="font-mono text-slate-300">{l.scale.toFixed(1)}x</span>
                   </div>
-                  <input type="range" min={isLib ? 0.2 : 0.4} max={isLib ? 6 : 3} step="0.1" value={l.scale} onChange={(e) => update(l.id, { scale: parseFloat(e.target.value) })} className="w-full accent-amber-500 cursor-pointer" />
+                  <input type="range" min={isLib ? 0.2 : 0.4} max={isLib ? 6 : 3} step="0.1" value={l.scale} onChange={(e) => update(l.id, { scale: parseFloat(e.target.value) })} className="w-full accent-sky-500 cursor-pointer" />
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-[11px] text-slate-400">
                     <span>Intensitas</span>
-                    <span className="font-mono text-amber-300">{Math.round(l.opacity * 100)}%</span>
+                    <span className="font-mono text-slate-300">{Math.round(l.opacity * 100)}%</span>
                   </div>
-                  <input type="range" min="0.05" max="1" step="0.02" value={l.opacity} onChange={(e) => update(l.id, { opacity: parseFloat(e.target.value) })} className="w-full accent-amber-500 cursor-pointer" />
+                  <input type="range" min="0.05" max="1" step="0.02" value={l.opacity} onChange={(e) => update(l.id, { opacity: parseFloat(e.target.value) })} className="w-full accent-sky-500 cursor-pointer" />
                 </div>
 
                 <div className="space-y-1.5">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Dipakai di bagian</div>
+                  <div className="text-[11px] font-semibold text-slate-300">Dipakai di bagian</div>
                   {PART_GROUPS.map((g) => {
                     const ids = g.parts.map((p) => p.id);
                     const all = ids.every((i) => l.parts.includes(i));
@@ -257,14 +255,14 @@ export const FabricLayersPanel: React.FC<FabricLayersPanelProps> = ({ config, li
                               if (el) el.indeterminate = some && !all;
                             }}
                             onChange={() => toggleGroup(l, ids)}
-                            className="accent-amber-500"
+                            className="accent-sky-500"
                           />
                           {g.label}
                         </label>
                         <div className="flex flex-wrap gap-x-3 gap-y-0.5">
                           {g.parts.map((p) => (
                             <label key={p.id} className="flex items-center gap-1 cursor-pointer text-slate-400">
-                              <input type="checkbox" checked={l.parts.includes(p.id)} onChange={() => togglePart(l, p.id)} className="accent-amber-500" />
+                              <input type="checkbox" checked={l.parts.includes(p.id)} onChange={() => togglePart(l, p.id)} className="accent-sky-500" />
                               {p.label}
                             </label>
                           ))}

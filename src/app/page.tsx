@@ -5,6 +5,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import type Konva from 'konva';
 import Navbar from '@/components/ui/Navbar';
 import { ToolRail, ToolId } from '@/components/ui/ToolRail';
+import { useI18n } from '@/i18n/I18nProvider';
 import { HelpDialog, HelpKind } from '@/components/ui/HelpDialogs';
 import Toolbar, { WorkspaceViewMode } from '@/components/ui/Toolbar';
 import PropertiesPanel from '@/components/ui/PropertiesPanel';
@@ -38,7 +39,7 @@ import {
 import { KitProject, ExportSettings, ExportTextureResolution, ExportDdsFormat } from '@/types/project';
 import { DEFAULT_PART_CONFIG, DEFAULT_CREDIT_CONFIG, PRESET_KITS, KitPreset } from '@/constants/presets';
 import { PES_2021_PARTS, PART_MAP, CANVAS_TEXTURE_SIZE, SHORTS_NUMBER_POS, migrateMarkings } from '@/constants/pes2021Parts';
-import { bakeZone, simplifyPath, zoneHitTest } from '@/utils/zoneGeometry';
+import { bakeZone, moveZoneToPart, simplifyPath, zoneHitTest } from '@/utils/zoneGeometry';
 import DrawBar from '@/components/ui/DrawBar';
 import ImportPsdModal from '@/components/ui/ImportPsdModal';
 import ImportPngModal from '@/components/ui/ImportPngModal';
@@ -455,6 +456,30 @@ export default function Home() {
     setSelectedZoneId(id);
   }, []);
 
+  // A layer dragged onto another group of the layer list moves to that part (copy: a copy goes there)
+  const handleMoveZone = useCallback((zoneId: string, part: KitPartId, copy: boolean) => {
+    const id = copy ? `custom-${Date.now().toString(36)}` : zoneId;
+    setTplBundle((prev) => {
+      const src = prev.def.zones.find((z) => z.id === zoneId);
+      if (!src) return prev;
+      const srcState = prev.state.zones[zoneId] ?? { color: src.defaultColor, visible: true };
+      const { zone, scale } = moveZoneToPart(src, part, PART_MAP[src.part].bounds, PART_MAP[part].bounds);
+      const moved: KitZoneDef = { ...zone, id, group: PART_MAP[part].category };
+      return {
+        def: {
+          ...prev.def,
+          modified: true,
+          zones: copy ? [...prev.def.zones, moved] : prev.def.zones.map((z) => (z.id === zoneId ? moved : z)),
+        },
+        state: {
+          ...prev.state,
+          zones: { ...prev.state.zones, [id]: { ...srcState, dx: (srcState.dx ?? 0) * scale, dy: (srcState.dy ?? 0) * scale } },
+        },
+      };
+    });
+    setSelectedZoneId(id);
+  }, []);
+
   const handleDeleteZone = useCallback((zoneId: string) => {
     setTplBundle((prev) => {
       const zones = { ...prev.state.zones };
@@ -618,6 +643,9 @@ export default function Home() {
                 opacity: zs.opacity,
                 seam: zs.seam,
                 smooth: zs.smooth,
+                repeat: zs.repeat,
+                repeatGap: zs.repeatGap,
+                repeatDir: zs.repeatDir,
               },
             },
           },
@@ -721,7 +749,7 @@ export default function Home() {
             });
             return { ...z, mask: relMask(z.mask), defaultColor: zs.color, defaultVisible: zs.visible, initial };
           }
-          const baked = bakeZone(z, zs);
+          const baked = bakeZone(z, zs, true);
           return { ...baked, mask: relMask(baked.mask), defaultColor: zs.color, defaultVisible: zs.visible };
         });
         const res = await fetch('/api/library/template', {
@@ -1190,6 +1218,43 @@ export default function Home() {
     if (dataUrl) download(dataUrl, `${settings.filename}.png`);
   }, [partsConfig, graphicItems, markings, fabricConfig, baseTexture, patternMask, tplBundle, buildGameTexture]);
 
+  // New kit replaces the colours and patterns: ask first (Undo still brings them back)
+  const { t } = useI18n();
+  const confirmReset = useCallback(() => {
+    if (window.confirm(t('Mulai kit baru? Warna dan pola sekarang diganti dengan bawaan. Bisa dibatalkan dengan Undo (Ctrl+Z).'))) handleReset();
+  }, [handleReset, t]);
+
+  // Single-key shortcuts (not while typing or while a dialog is open): tools, view mode, save, export, help
+  useEffect(() => {
+    const TOOL_KEYS: Record<string, ToolId> = { v: 'select', b: 'free', p: 'poly', s: 'stitch', j: 'stitchFree', e: 'eraser' };
+    const VIEW_KEYS: Record<string, WorkspaceViewMode> = { '1': '2d', '2': 'split', '3': '3d' };
+    const onKeyDown = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
+      if (document.querySelector('[aria-modal="true"]')) return;
+      const key = e.key.toLowerCase();
+      if (e.ctrlKey || e.metaKey) {
+        if (key === 's') {
+          e.preventDefault();
+          setIsProjectsModalOpen(true);
+        } else if (key === 'e') {
+          e.preventDefault();
+          setIsExportModalOpen(true);
+        } else if (key === ',') {
+          e.preventDefault();
+          setHelpKind('settings');
+        }
+        return;
+      }
+      if (e.altKey) return;
+      if (e.key === '?') setHelpKind('shortcuts');
+      else if (TOOL_KEYS[key]) handleSelectTool(TOOL_KEYS[key]);
+      else if (VIEW_KEYS[key]) setViewMode(VIEW_KEYS[key]);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleSelectTool]);
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0d1017]">
       {/* Top Navigation */}
@@ -1204,7 +1269,7 @@ export default function Home() {
         onOpenImportModal={() => setIsImportModalOpen(true)}
         onOpenPhotoPattern={() => setIsPhotoPatternOpen(true)}
         hasImportedDesign={!!baseTexture}
-        onReset={handleReset}
+        onReset={confirmReset}
         onUndo={undo}
         onRedo={redo}
         canUndo={canUndo}
@@ -1227,6 +1292,7 @@ export default function Home() {
             onResetSolo={handleViewAll}
             viewMode={viewMode}
             setViewMode={setViewMode}
+            onFocusPart={handleFocusPart}
           />
 
           {/* Viewport Area */}
@@ -1237,7 +1303,7 @@ export default function Home() {
             {/* 2D Canvas Panel (Visible in '2d' and 'split' modes). Both panels stay mounted and are only
                 hidden, so switching view keeps the 3D camera / sleeve mode and never rebuilds the WebGL scene. */}
             {(
-              <div className={`h-full flex-col items-center justify-center gap-2 relative ${viewMode === '3d' ? 'hidden' : 'flex'} ${viewMode === 'split' ? 'flex-1' : 'w-full'}`}>
+              <div className={`h-full flex-col items-center justify-center gap-2 relative ${viewMode === '3d' ? 'hidden' : 'flex'} ${viewMode === 'split' ? 'flex-1 min-w-0' : 'w-full'}`}>
                 <DrawBar
                   tool={drawTool}
                   pointCount={drawPts.length}
@@ -1294,7 +1360,7 @@ export default function Home() {
 
             {/* 3D Preview Panel (Visible in '3d' and 'split' modes) */}
             {(
-              <div className={`h-full relative ${viewMode === '2d' ? 'hidden' : ''} ${viewMode === 'split' ? 'flex-1' : 'w-full'}`}>
+              <div className={`h-full relative ${viewMode === '2d' ? 'hidden' : ''} ${viewMode === 'split' ? 'flex-1 min-w-0' : 'w-full'}`}>
                 <Kit3DViewerWrapper
                   textureDataUrl={texture3DDataUrl}
                   zoneDrag={zoneDrag3D}
@@ -1304,100 +1370,44 @@ export default function Home() {
             )}
           </div>
 
-          {/* Bottom Quick Part Strip */}
-          <div className="h-10 bg-[#121620] border-t border-slate-800/80 px-4 flex items-center gap-1.5 overflow-x-auto select-none">
-            <span className="text-[10px] text-slate-500 font-bold uppercase shrink-0 mr-1">
-              Pintasan Part:
-            </span>
-            {PES_2021_PARTS.map((p) => {
-              const isSelected = viewState.activePartId === p.id;
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => handleFocusPart(p.id)}
-                  className={`text-[11px] px-2 py-0.5 rounded transition-all shrink-0 flex items-center gap-1.5 border ${
-                    isSelected
-                      ? 'bg-rose-950 border-rose-500/80 text-rose-300 font-semibold'
-                      : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                  }`}
-                >
-                  <span
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: partsConfig[p.id].color }}
-                  />
-                  <span>{p.name}</span>
-                </button>
-              );
-            })}
-          </div>
         </main>
 
         {/* Right Sidebar: Tabbed Panel (Properties / Logos / Markings) */}
         <aside className="w-80 bg-[#121622] border-l border-slate-800 flex flex-col h-full select-none">
           {/* Top Tabs */}
-          <div className="flex border-b border-slate-800 bg-[#0f131c]">
-            <button
-              onClick={() => {
-                setSelectedGraphicId(null);
-                setRightTab('properties');
-              }}
-              className={`flex-1 py-2.5 flex items-center justify-center gap-1.5 text-xs font-semibold transition-all border-b-2 ${
-                rightTab === 'properties'
-                  ? 'border-rose-500 text-white bg-slate-800/40'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Shirt className="w-3.5 h-3.5" />
-              <span>Kain</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setSelectedGraphicId(null);
-                setRightTab('template');
-              }}
-              className={`flex-1 py-2.5 flex items-center justify-center gap-1.5 text-xs font-semibold transition-all border-b-2 ${
-                rightTab === 'template'
-                  ? 'border-sky-500 text-sky-200 bg-slate-800/40'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
-              title="Layer: warna dasar, zona template (kerah, panel samping, manset...), armband, kredit, dan garis jahitan"
-            >
-              <LayoutGrid className="w-3.5 h-3.5 text-sky-400" />
-              <span>Layer</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setRightTab('logos');
-                if (!selectedGraphicId && graphicItems.length > 0) {
-                  setSelectedGraphicId(graphicItems[0].id);
-                }
-              }}
-              className={`flex-1 py-2.5 flex items-center justify-center gap-1.5 text-xs font-semibold transition-all border-b-2 ${
-                rightTab === 'logos'
-                  ? 'border-rose-500 text-white bg-slate-800/40'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Shield className="w-3.5 h-3.5" />
-              <span>Logo ({graphicItems.length})</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setSelectedGraphicId(null);
-                setRightTab('markings');
-              }}
-              className={`flex-1 py-2.5 flex items-center justify-center gap-1.5 text-xs font-semibold transition-all border-b-2 ${
-                rightTab === 'markings'
-                  ? 'border-sky-500 text-sky-300 bg-slate-800/40'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Type className="w-3.5 h-3.5 text-sky-400" />
-              <span>Nama</span>
-            </button>
+          <div className="flex border-b border-slate-800 bg-[#0f131c]" role="tablist" aria-label="Panel">
+            {(
+              [
+                ['properties', 'Kain', <Shirt key="i" className="w-3.5 h-3.5" />, undefined],
+                ['template', 'Layer', <LayoutGrid key="i" className="w-3.5 h-3.5" />, 'Warna dasar, layer template, pola, dan garis jahitan'],
+                ['logos', 'Logo', <Shield key="i" className="w-3.5 h-3.5" />, undefined],
+                ['markings', 'Nama', <Type key="i" className="w-3.5 h-3.5" />, 'Pratinjau nama dan nomor punggung'],
+              ] as const
+            ).map(([id, label, icon, hint]) => (
+              <button
+                key={id}
+                role="tab"
+                aria-selected={rightTab === id}
+                title={hint}
+                onClick={() => {
+                  if (id === 'logos') {
+                    if (!selectedGraphicId && graphicItems.length > 0) setSelectedGraphicId(graphicItems[0].id);
+                  } else {
+                    setSelectedGraphicId(null);
+                  }
+                  setRightTab(id);
+                }}
+                className={`flex-1 py-2.5 flex items-center justify-center gap-1.5 text-xs font-semibold transition-colors border-b-2 ${
+                  rightTab === id ? 'border-sky-500 text-white bg-slate-800/40' : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {icon}
+                <span>{label}</span>
+                {id === 'logos' && graphicItems.length > 0 && (
+                  <span className="text-[11px] font-normal text-slate-400">{graphicItems.length}</span>
+                )}
+              </button>
+            ))}
           </div>
 
           {/* Tab Content */}
@@ -1429,6 +1439,7 @@ export default function Home() {
                 onUpdateZoneDef={handleUpdateZoneDef}
                 onAddZone={handleAddZone}
                 onDuplicateZone={handleDuplicateZone}
+                onMoveZone={handleMoveZone}
                 onDeleteZone={handleDeleteZone}
                 onSaveTemplate={handleSaveTemplate}
                 onStartDraw={handleStartDraw}
