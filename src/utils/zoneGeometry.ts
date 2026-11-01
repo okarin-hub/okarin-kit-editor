@@ -255,7 +255,8 @@ export function drawMaskTransformed(
   ctx.rotate(rad(zs.rot ?? 0));
   ctx.scale(zs.sx ?? 1, zs.sy ?? 1);
   ctx.translate(-box.cx, -box.cy);
-  ctx.drawImage(img, 0, 0, 1024, 1024);
+  if (zone.maskCropped && zone.maskBox) ctx.drawImage(img, ...zone.maskBox);
+  else ctx.drawImage(img, 0, 0, 1024, 1024);
   ctx.restore();
 }
 

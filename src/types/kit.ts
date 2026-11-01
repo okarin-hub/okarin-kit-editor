@@ -222,6 +222,8 @@ export interface KitZoneDef {
   mask?: string;
   /** Bounding box [x, y, w, h] of the visible pixels of the mask (used for move / scale / rotate). */
   maskBox?: [number, number, number, number];
+  /** The mask image holds only the maskBox area (not the full texture): smaller files. */
+  maskCropped?: boolean;
   /** Mask zones: use the image's own colours instead of tinting it with the zone colour. */
   keepColor?: boolean;
   /** Starting position / size / rotation / opacity (e.g. imported from a PSD). */

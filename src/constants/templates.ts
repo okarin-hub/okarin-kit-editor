@@ -10,8 +10,10 @@ import { KitTemplate, KitZoneDef, Pt, SeamConfig, TemplateState } from '@/types/
  * Positions were calibrated against the 3D model's own UV data:
  *  - sleeves: x runs along the arm (cuff on the outer side of the image); y wraps around it:
  *    y ~ 347/586 = underside, y ~ 440 = back, y ~ 480 = top of the shoulder, y ~ 535 = front.
- *  - shorts: the island is rotated: x runs along the leg (hem at x ~ 81 / 940, waist at x ~ 320 /
- *    704) and y wraps around it (y ~ 583 / 976 = inner seams, y ~ 780 = outer side).
+ *  - shorts: the island is rotated: x runs along the leg (hem at x 0 / 1024, waist at x ~ 320 /
+ *    704) and y wraps around it (y ~ 583 / 976 = inner seams, y ~ 780 = outer side). These are the
+ *    game's coordinates: the 3D model only uses x 81..320 of each leg and the preview stretches it to
+ *    0..320 (see Kit3DViewer remapShortsUV), so a model x maps to (x - 81) * 1.34.
  *  - socks: y runs along the leg (y = 320 is the top), x wraps around it.
  *  - shoulders: the shoulder ridge of the shirt is at y ~ 452..500, x 380..446 and 578..644.
  *
@@ -69,10 +71,10 @@ const LONG_CUFF_L: Rect = [984, 68, 40, 247];
 const LONG_R: Rect = [0, 68, 345, 247];
 const LONG_L: Rect = [680, 68, 344, 247];
 
-const SHORTS_HEM_R: Rect = [81, 583, 45, 393];
-const SHORTS_HEM_L: Rect = [895, 583, 45, 393];
-const SHORTS_SIDE_R: Rect = [81, 700, 240, 160]; // outer side of the leg
-const SHORTS_SIDE_L: Rect = [704, 700, 240, 160];
+const SHORTS_HEM_R: Rect = [0, 583, 60, 393];
+const SHORTS_HEM_L: Rect = [964, 583, 60, 393];
+const SHORTS_SIDE_R: Rect = [0, 700, 321, 160]; // outer side of the leg
+const SHORTS_SIDE_L: Rect = [703, 700, 321, 160];
 
 const SOCK_TOP_R: Rect = [0, 320, 222, 40];
 const SOCK_TOP_L: Rect = [805, 320, 219, 40];
@@ -215,8 +217,8 @@ const THREE_STRIPES: KitTemplate = {
     ...collarZones(),
     ...hemZones(),
     // outer side of the leg is at y ~ 780: bands at y 752 / 776 / 800 along the leg
-    zone('shorts-stripes-r', 'Garis celana kanan', 'leftShorts', 'shorts', { rects: bandsH(100, 200, 752) }, LIGHT),
-    zone('shorts-stripes-l', 'Garis celana kiri', 'rightShorts', 'shorts', { rects: bandsH(724, 200, 752) }, LIGHT),
+    zone('shorts-stripes-r', 'Garis celana kanan', 'leftShorts', 'shorts', { rects: bandsH(25, 268, 752) }, LIGHT),
+    zone('shorts-stripes-l', 'Garis celana kiri', 'rightShorts', 'shorts', { rects: bandsH(731, 268, 752) }, LIGHT),
     zone('sock-stripes-r', 'Garis kaus kaki kanan', 'leftSock', 'socks', { rects: bandsH(0, 222, 340) }, LIGHT),
     zone('sock-stripes-l', 'Garis kaus kaki kiri', 'rightSock', 'socks', { rects: bandsH(805, 219, 340) }, LIGHT),
   ],
@@ -234,8 +236,8 @@ const SIDE_PANELS: KitTemplate = {
     ...collarZones(),
     ...cuffZones(),
     ...hemZones(),
-    zone('shorts-side-r', 'Panel samping celana kanan', 'leftShorts', 'shorts', { rects: [[81, 660, 240, 240]] }, MID),
-    zone('shorts-side-l', 'Panel samping celana kiri', 'rightShorts', 'shorts', { rects: [[704, 660, 240, 240]] }, MID),
+    zone('shorts-side-r', 'Panel samping celana kanan', 'leftShorts', 'shorts', { rects: [[0, 660, 321, 240]] }, MID),
+    zone('shorts-side-l', 'Panel samping celana kiri', 'rightShorts', 'shorts', { rects: [[703, 660, 321, 240]] }, MID),
     ...sockTopZones(),
   ],
 };

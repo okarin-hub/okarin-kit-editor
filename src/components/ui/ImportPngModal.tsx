@@ -13,6 +13,7 @@ import {
   convertPngFile,
   imageToData,
   splitComponents,
+  type ImageFit,
 } from '@/utils/pngImport';
 import { ConvertedZone } from '@/utils/psdImport';
 import { saveConvertedTemplate } from '@/utils/templateSave';
@@ -56,6 +57,9 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
   // files tab
   const [files, setFiles] = useState<FileItem[]>([]);
   const [fileMode, setFileMode] = useState<'auto' | 'tint' | 'keep'>('auto');
+  // a non-square picture: stretch it (as before), fit it whole, or crop it to the square
+  const [fit, setFit] = useState<ImageFit>('stretch');
+  const colorImg = useRef<HTMLImageElement | null>(null);
   const filesRef = useRef<HTMLInputElement | null>(null);
 
   // colours tab
@@ -170,7 +174,8 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
         i.src = url;
       });
       URL.revokeObjectURL(url);
-      const { data } = imageToData(img);
+      colorImg.current = img;
+      const { data } = imageToData(img, fit);
       setColorFile({ name: file.name, width: img.naturalWidth, height: img.naturalHeight });
       setImageData(data);
       setTemplateName(file.name.replace(/\.[^.]+$/, ''));
@@ -193,7 +198,7 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
       let idx = 0;
       for (const f of chosen) {
         await new Promise((r) => setTimeout(r, 0));
-        const out = await convertPngFile({ name: f.name, file: f.file }, idx, fileMode);
+        const out = await convertPngFile({ name: f.name, file: f.file }, idx, fileMode, fit);
         if (out) {
           items.push(out);
           rep.push({ name: f.name, parts: out.parts.map(partName) });
@@ -357,7 +362,20 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
                       {colorFile?.name} — {colorFile?.width}×{colorFile?.height}px
                     </span>
                     {colorFile && colorFile.width !== colorFile.height && (
-                      <span className="text-amber-300">tidak persegi, akan diregangkan</span>
+                      <select
+                        value={fit}
+                        onChange={(e) => {
+                          const next = e.target.value as ImageFit;
+                          setFit(next);
+                          if (colorImg.current) setImageData(imageToData(colorImg.current, next).data);
+                        }}
+                        className="bg-slate-900 border border-amber-500/50 rounded px-1.5 py-0.5 text-[11px] text-amber-200 outline-none"
+                        title="Gambar tidak persegi: cara memasukkannya ke tekstur 1024 × 1024"
+                      >
+                        <option value="stretch">Regangkan</option>
+                        <option value="fit">Pas (sisa kosong)</option>
+                        <option value="crop">Potong ke persegi</option>
+                      </select>
                     )}
                     <button
                       onClick={() => {
@@ -459,6 +477,12 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
                       <option value="auto">Otomatis</option>
                       <option value="tint">Bisa diwarnai ulang (satu warna)</option>
                       <option value="keep">Pakai warna asli gambar</option>
+                    </select>
+                    <span title="Untuk file yang tidak persegi">Tidak persegi:</span>
+                    <select value={fit} onChange={(e) => setFit(e.target.value as ImageFit)} className="bg-slate-900 border border-slate-700 rounded px-1.5 py-1 text-[11px] text-white outline-none">
+                      <option value="stretch">Regangkan</option>
+                      <option value="fit">Pas (sisa kosong)</option>
+                      <option value="crop">Potong ke persegi</option>
                     </select>
                     <button onClick={() => setFiles([])} className="ml-auto text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800">
                       Kosongkan

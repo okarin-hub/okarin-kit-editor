@@ -27,20 +27,36 @@ function fileToImage(file: File): Promise<HTMLImageElement> {
   });
 }
 
-/** Draws an image stretched to 1024x1024 and returns its pixels. */
-export function imageToData(img: HTMLImageElement): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; data: ImageData } {
+/** How a non-square image goes into the square 1024 texture. */
+export type ImageFit = 'stretch' | 'fit' | 'crop';
+
+/**
+ * Draws an image into 1024x1024 and returns its pixels: stretched, fitted whole (the rest stays transparent)
+ * or cropped (fills the square, the middle is kept).
+ */
+export function imageToData(
+  img: HTMLImageElement,
+  fit: ImageFit = 'stretch'
+): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; data: ImageData } {
   const canvas = document.createElement('canvas');
   canvas.width = SIZE;
   canvas.height = SIZE;
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
   ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(img, 0, 0, SIZE, SIZE);
+  const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+  if (fit === 'stretch' || iw === ih) {
+    ctx.drawImage(img, 0, 0, SIZE, SIZE);
+  } else {
+    const k = (fit === 'fit' ? Math.min : Math.max)(SIZE / iw, SIZE / ih);
+    const w = iw * k, h = ih * k;
+    ctx.drawImage(img, (SIZE - w) / 2, (SIZE - h) / 2, w, h);
+  }
   return { canvas, ctx, data: ctx.getImageData(0, 0, SIZE, SIZE) };
 }
 
-export async function loadPngFile(file: File) {
+export async function loadPngFile(file: File, fit: ImageFit = 'stretch') {
   const img = await fileToImage(file);
-  return { img, width: img.naturalWidth, height: img.naturalHeight, ...imageToData(img) };
+  return { img, width: img.naturalWidth, height: img.naturalHeight, ...imageToData(img, fit) };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -91,9 +107,10 @@ export interface PngLayerInput {
 export async function convertPngFile(
   input: PngLayerInput,
   index: number,
-  mode: 'auto' | 'tint' | 'keep'
+  mode: 'auto' | 'tint' | 'keep',
+  fit: ImageFit = 'stretch'
 ): Promise<ConvertedZone | null> {
-  const { canvas, ctx, data } = await loadPngFile(input.file);
+  const { canvas, ctx, data } = await loadPngFile(input.file, fit);
   ensureAlpha(data);
   return finalizeMask(canvas, ctx, data, { name: input.name, mode }, index);
 }

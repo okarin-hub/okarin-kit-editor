@@ -959,4 +959,10 @@ export const DICTIONARY: [string, string, string, string][] = [
   ["Lanjut: jadikan layer warna", "Next: make colour layers", "Próximo: criar camadas de cor", "Siguiente: crear capas de color"],
   ["Gambar gagal dibaca.", "The picture could not be read.", "Não foi possível ler a imagem.", "No se pudo leer la imagen."],
   ["Tekstur gagal dibuat.", "The texture could not be made.", "Não foi possível criar a textura.", "No se pudo crear la textura."],
+  ["Regangkan", "Stretch", "Esticar", "Estirar"],
+  ["Pas (sisa kosong)", "Fit (rest empty)", "Ajustar (resto vazio)", "Ajustar (resto vacío)"],
+  ["Potong ke persegi", "Crop to square", "Recortar em quadrado", "Recortar a cuadrado"],
+  ["Gambar tidak persegi: cara memasukkannya ke tekstur 1024 × 1024", "Picture is not square: how it goes into the 1024 × 1024 texture", "A imagem não é quadrada: como entra na textura 1024 × 1024", "La imagen no es cuadrada: cómo entra en la textura 1024 × 1024"],
+  ["Tidak persegi:", "Not square:", "Não quadrada:", "No cuadrada:"],
+  ["Untuk file yang tidak persegi", "For files that are not square", "Para arquivos não quadrados", "Para archivos que no son cuadrados"],
 ];

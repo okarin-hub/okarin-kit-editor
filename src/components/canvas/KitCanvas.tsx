@@ -701,8 +701,10 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
           )}
         </Layer>
 
-        {/* Layer 1c: cuff / hem / collar accents (drawn over patterns, like the texture generator) */}
-        <Layer id="accent-layer" listening={false}>
+        {/* Layer 1c: everything static over the patterns, in one canvas (fewer layers = less memory; Konva warns
+            above 5): cuff / hem / collar accents, template zones and seams, fabric texture, imported overlay */}
+        <Layer id="static-layer" listening={false}>
+        <Group id="accent-group" listening={false}>
           {shapeParts.renderOrder.map((part) => {
             const config = partsConfig[part.id];
             if (!config || !config.visible) return null;
@@ -722,11 +724,11 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
               </Group>
             );
           })}
-        </Layer>
+        </Group>
 
-        {/* Layer 1d: template zones + seam / stitch lines (same renderer as the 3D texture) */}
+        {/* template zones + seam / stitch lines (same renderer as the 3D texture) */}
         {templateBundle && (
-          <Layer id="template-layer" listening={false}>
+          <Group id="template-group" listening={false}>
             <Shape
               listening={false}
               sceneFunc={(context) => {
@@ -738,12 +740,12 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
                 });
               }}
             />
-          </Layer>
+          </Group>
         )}
 
-        {/* Layer 1e: fabric texture on top of colours, patterns and zones (same renderer as the 3D texture) */}
+        {/* fabric texture on top of colours, patterns and zones (same renderer as the 3D texture) */}
         {fabricConfig && (
-          <Layer id="fabric-layer" listening={false}>
+          <Group id="fabric-group" listening={false}>
             <Shape
               listening={false}
               sceneFunc={(context) => {
@@ -760,12 +762,12 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
                 });
               }}
             />
-          </Layer>
+          </Group>
         )}
 
-        {/* Imported design drawn over the parts */}
+        {/* imported design drawn over the parts */}
         {baseTexture && baseTexture.mode === 'overlay' && baseImg && (
-          <Layer id="import-overlay-layer" opacity={baseTexture.opacity} listening={false}>
+          <Group id="import-overlay-group" opacity={baseTexture.opacity} listening={false}>
             <KonvaImage
               image={baseImg}
               x={0}
@@ -774,8 +776,9 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
               height={CANVAS_TEXTURE_SIZE}
               listening={false}
             />
-          </Layer>
+          </Group>
         )}
+        </Layer>
 
         {/* Layer 2: Original Template Overlay (Toggleable) */}
         {viewState.showOriginalTemplate && templateImg && (
@@ -805,6 +808,12 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
               />
             ))}
 
+          {/* Player markings (name & number preview) share this layer: Konva warns above 5 layers */}
+          <PlayerMarkingsLayer
+            markings={markings}
+            isExportingClean={isExportingClean}
+          />
+
           {/* Centralized Transformer: never defaults to (0,0) */}
           {!isExportingClean && (
             <Transformer
@@ -832,14 +841,6 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
               rotateAnchorOffset={20}
             />
           )}
-        </Layer>
-
-        {/* Layer 4: Player Markings (Nama & Nomor Punggung - Preview or Optional Export) */}
-        <Layer id="markings-layer">
-          <PlayerMarkingsLayer
-            markings={markings}
-            isExportingClean={isExportingClean}
-          />
         </Layer>
 
         {/* Layer 5: Seams, Wireframe, & Part Outlines */}

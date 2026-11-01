@@ -19,18 +19,16 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 | 2 | P3 | **PSD template resmi berisi banyak layer yang hanya membantu desainer** (mesh, bayangan, jahitan titik-titik, panduan, mask, latar). Sekarang tidak dicentang secara bawaan (115 layer jadi 19 di PSD resmi 2019, dengan label alasannya); tombol *Semua* tetap memilihnya. Filter memakai nama (Inggris dan Jepang) dan ukuran, jadi nama yang tidak biasa bisa lolos atau layer berguna bisa ikut berlabel. | Pratinjau tiap layer. |
 | 3 | P1 | **Efek PSD tidak terbawa:** mode blend, efek layer (bayangan, stroke, overlay warna), clipping mask, layer penyesuaian, smart object, teks dan bentuk vektor. | Dukung clipping mask dan mode blend dasar; rasterize otomatis. |
 | 4 | P2 | Konversi PSD besar lambat (tiap layer diproses 1024 × 1024 di main thread). | Web Worker, crop mask ke kotak pembatas, unggah paralel. |
-| 5 | P2 | Mask disimpan ukuran penuh walau isinya kecil (112 layer ≈ 3,4 MB). | Simpan mask yang di-crop dengan offset. |
 | 6 | P2 | Zona mask tidak bisa diedit titik demi titik atau diberi bentuk tepi. | "Ubah mask jadi poligon". |
 | 7 | P2 | Mask dicat satu warna, jadi layer abu-abu kehilangan nuansanya. | Mode "pertahankan luminansi". |
 | 8 | P2 | Pemisahan PNG per warna sudah lebih baik tetapi tetap perkiraan: tepi anti-alias dan warna noise diserap ke wilayah di sekitarnya, namun gradasi dan desain berbayang masih pecah menjadi beberapa warna, dan maksimal 80 zona. Sebuah zona warna ikut ke setiap bagian yang memuat beberapa puluh pikselnya, jadi daftar bagiannya bisa lebih banyak dari dugaan. | Penghalusan tepi per zona, pratinjau bagian. |
-| 9 | P2 | Gambar tidak persegi diregangkan ke 1024 × 1024 tanpa pilihan fit / crop. | Opsi fit / crop / regang. |
 | 10 | P3 | Hanya layer piksel; grup tidak dipertahankan sebagai folder. Fill opacity PSD diabaikan. | |
 
 ## Template dan layer
 
 | # | Pri | Masalah |
 |---|---|---|
-| 11 | P1 | Zona template bawaan dikalibrasi dari UV model; sebagian masih meleset di bahu, celana, dan lengan panjang. |
+| 11 | P2 | Zona template bawaan dikalibrasi dari UV model. Zona celana kini memakai koordinat game (hem di x 0 / 1024); zona bahu dan lengan panjang belum dicek di game. |
 | 12 | P2 | Satu layer = satu bentuk di semua bagian terpilih. Bagian punya posisi UV berbeda, jadi layer yang menempel ke banyak bagian bisa hanya mengenai sebagian. |
 | 13 | P2 | Menggeser layer di model 3D bisa melompat di sambungan UV, dan arah geser tidak persis arah mouse di bahu. |
 | 14 | P2 | Template yang sudah kamu ubah tidak diperbarui otomatis saat definisi bawaannya berubah (memilih ulang mengembalikan ke awal). |
@@ -50,7 +48,6 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 | 19 | P2 | **Lengan panjang dibuat otomatis** (tabung meruncing): tanpa siku, tanpa lipatan, dan sambungan bahu bisa terlihat sempit dari sudut tertentu. Modelnya sendiri hanya punya lengan pendek. |
 | 20 | P2 | **UV celana adalah perkiraan.** Model hanya memakai x 81–320 area celana, game memakai x 0–330. Preview meregangkan sisi luar (x 81 → 0, sekitar 1,34×) agar area 2D tampil di 3D; faktor itu bukan hasil ukur dari model game. Di preview, hem baju juga menutupi bagian atas celana, jadi hanya sekitar x 0-148 dari area celana 336 px (celana kanan: 876-1024) yang terlihat; logo yang ditaruh lebih ke dalam tersembunyi di bawah baju. |
 | 21 | P3 | Material kain masih sederhana (tanpa normal map atau pencahayaan realistis). |
-| 22 | P3 | Peringatan konsol: three.js `PCFSoftShadowMap has been removed`; Konva memperingatkan lebih dari 5 layer. |
 
 ## Aplikasi dan distribusi
 

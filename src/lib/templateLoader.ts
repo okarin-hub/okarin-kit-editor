@@ -81,6 +81,7 @@ export function parseTemplate(json: any, relDirs: string[], fileName: string) {
       ellipses,
       mask,
       maskBox: isBox(z.maskBox) ? z.maskBox : undefined,
+      maskCropped: z.maskCropped === true && isBox(z.maskBox) ? true : undefined,
       keepColor: z.keepColor === true ? true : undefined,
       initial,
       defaultColor: typeof z.defaultColor === 'string' ? z.defaultColor : '#ffffff',

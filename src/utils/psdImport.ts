@@ -222,13 +222,18 @@ export function finalizeMask(
     ...(parts.length > 1 ? { parts: parts.slice(1) } : {}),
     mask: `masks/${file}`,
     maskBox: [x0, y0, x1 - x0 + 1, y1 - y0 + 1],
+    maskCropped: true,
     ...(keepColor ? { keepColor: true } : {}),
     defaultColor: meta.defaultColor ?? `#${hex2(mean[0])}${hex2(mean[1])}${hex2(mean[2])}`,
     defaultVisible: !meta.hidden,
     ...(opacity < 0.995 ? { initial: { opacity: Math.round(opacity * 100) / 100 } } : {}),
   };
 
-  return { zone, maskFile: file, maskDataUrl: canvas.toDataURL('image/png'), parts, pixels: count };
+  const crop = document.createElement('canvas');
+  crop.width = x1 - x0 + 1;
+  crop.height = y1 - y0 + 1;
+  crop.getContext('2d')!.drawImage(canvas, x0, y0, crop.width, crop.height, 0, 0, crop.width, crop.height);
+  return { zone, maskFile: file, maskDataUrl: crop.toDataURL('image/png'), parts, pixels: count };
 }
 
 /** Returns the zone with its parts replaced (first = main part, the rest go to `parts`). */
