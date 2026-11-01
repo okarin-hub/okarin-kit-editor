@@ -112,16 +112,40 @@ const DEFAULT_LOGO: LogoState = {
   offsets: {},
 };
 
+/** What is kept of the generator between sessions and in project files (images are reloaded from their URL). */
+export interface FontsetSettings {
+  styles: Record<Group, FontsetStyle>;
+  prefix: string;
+  selected: Record<FileKind, boolean>;
+  writeConfig: boolean;
+  format: 'ftex' | 'dds' | 'png';
+  useSheet: Record<Group, boolean>;
+  recolor: Record<Group, boolean>;
+  patterns: Record<Group, Omit<PatternState, 'image'>>;
+  logo: Omit<LogoState, 'image'>;
+}
+
 interface FontsetModalProps {
   isOpen: boolean;
   onClose: () => void;
   library: AssetLibrary;
   configText: string;
   onConfigChange: (text: string) => void;
+  /** saved settings to start from (autosave or an opened project) */
+  settings?: FontsetSettings | null;
+  onSettingsChange?: (settings: FontsetSettings) => void;
 }
 
 /** Number and name font textures for kitserver, generated from a font or a font sheet image into the PES slots. */
-export const FontsetModal: React.FC<FontsetModalProps> = ({ isOpen, onClose, library, configText, onConfigChange }) => {
+export const FontsetModal: React.FC<FontsetModalProps> = ({
+  isOpen,
+  onClose,
+  library,
+  configText,
+  onConfigChange,
+  settings,
+  onSettingsChange,
+}) => {
   const [styles, setStyles] = useState<Record<Group, FontsetStyle>>({ number: DEFAULT_STYLE, name: DEFAULT_STYLE });
   const [prefix, setPrefix] = useState('');
   const [view, setView] = useState<FileKind>('back');
@@ -144,6 +168,60 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({ isOpen, onClose, lib
   const previewRef = useRef<HTMLCanvasElement | null>(null);
   const sheetInput = useRef<HTMLInputElement | null>(null);
   const logoInput = useRef<HTMLInputElement | null>(null);
+  const lastEmitted = useRef<FontsetSettings | null>(null);
+
+  // settings out (autosave / project): a picked file's blob URL does not survive a reload, so it is not kept
+  useEffect(() => {
+    const keepUrl = (url: string | null) => (url && !url.startsWith('blob:') ? url : null);
+    const strip = <T extends { image: HTMLImageElement | null; url: string | null }>({ image: _i, ...rest }: T) => ({
+      ...rest,
+      url: keepUrl(rest.url),
+    });
+    const s: FontsetSettings = {
+      styles,
+      prefix,
+      selected,
+      writeConfig,
+      format,
+      useSheet,
+      recolor,
+      patterns: { number: strip(patterns.number), name: strip(patterns.name) },
+      logo: strip(logo),
+    };
+    lastEmitted.current = s;
+    onSettingsChange?.(s);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [styles, prefix, selected, writeConfig, format, useSheet, recolor, patterns, logo]);
+
+  // settings in (autosave on start, or an opened project); our own echo is ignored
+  useEffect(() => {
+    if (!settings || settings === lastEmitted.current) return;
+    let cancelled = false;
+    const img = async (url: string | null) => {
+      if (!url) return null;
+      const im = new Image();
+      im.src = url;
+      return im.decode().then(() => im, () => null);
+    };
+    setStyles(settings.styles);
+    setPrefix(settings.prefix);
+    setSelected(settings.selected);
+    setWriteConfig(settings.writeConfig);
+    setFormat(settings.format);
+    setUseSheet(settings.useSheet);
+    setRecolor(settings.recolor);
+    setPatterns({ number: { ...settings.patterns.number, image: null }, name: { ...settings.patterns.name, image: null } });
+    setLogo({ ...DEFAULT_LOGO, ...settings.logo, image: null });
+    (async () => {
+      const [pn, pm, lg] = await Promise.all([img(settings.patterns.number.url), img(settings.patterns.name.url), img(settings.logo.url)]);
+      if (cancelled) return;
+      setPatterns((p) => ({ number: { ...p.number, image: pn }, name: { ...p.name, image: pm } }));
+      setLogo((l) => ({ ...l, image: lg }));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [settings]);
 
   const config = useMemo(() => parseKitConfig(configText), [configText]);
   const filePrefix = (prefix || config.KitFile || 'kit').replace(/[^\w-]/g, '_');

@@ -41,7 +41,6 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 
 | # | Pri | Masalah |
 |---|---|---|
-| 17 | P2 | **Pengaturan layer tekstur kain belum tersimpan** di autosave atau `.peskit`; setelah dimuat ulang kembali ke bawaan. |
 | 18 | P3 | Undo / redo belum mencakup pilihan zona, edit titik yang sedang berjalan, dan pergantian template. |
 
 ## Preview 3D
@@ -79,9 +78,9 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 
 | # | Pri | Masalah |
 |---|---|---|
-| 36 | P3 | config.txt disimpan per browser/aplikasi, bukan di file proyek: membuka proyek lain tetap memakai config yang sekarang. |
 | 37 | P3 | **Eksperimental:** editor config.txt hanya menulis file. Nilainya (posisi nama/nomor, badge, model kerah dan baju) tidak tampil di pratinjau 2D/3D: posisi memakai satuan game yang masih perlu dikalibrasi dari screenshot di game, dan model kerah/baju adalah mesh game yang tidak dimiliki app. |
 | 38 | P3 | **Eksperimental:** output FTEX generator fontset sudah diuji di PES 2021 (nomor dan nama tampil di game); output DDS-nya belum diuji. Slot karakter diambil dari template modder (tiga fontset cocok sampai ±5 px), bukan dari file game; satu slot di file `_ex` (antara Ę dan Ğ) kosong di semua sampel dan dibiarkan kosong. |
 | 39 | P3 | Karakter yang tidak ada di font yang dipilih digambar dengan font cadangan; pengecekannya membandingkan bentuk dan bisa terlewat kalau font cadangannya mirip. Huruf yang lebih lebar dari slotnya dipersempit ke samping. |
-| 40 | P3 | Import gambar font: huruf yang menempel dipisah di kolom paling tipis, yang bisa memotong sedikit salah satunya; pengenalan membandingkan bentuk dengan font umum dan mengandalkan urutan alfabet di gambar, jadi huruf yang sangat dekoratif atau gambar yang urutannya acak perlu dikoreksi lewat teks baris. Pada latar yang sangat ramai (garis neon, cahaya) pemisahan otomatis masih bisa mengambil potongan latar: pakai *Pilih huruf* di jendela import. Pola juga menutupi outline. Huruf yang diperbesar berkali-kali dari gambar kecil sudutnya sedikit membulat, dan garis yang lebih tipis dari sekitar satu piksel sumber bisa hilang. Huruf beraksen belum dirakit dari gambar (diambil dari font cadangan). |
+| 40 | P3 | Import gambar font: huruf yang menempel dipisah di kolom paling tipis, yang bisa memotong sedikit salah satunya; pengenalan membandingkan bentuk dengan font umum dan mengandalkan urutan alfabet di gambar, jadi huruf yang sangat dekoratif atau gambar yang urutannya acak perlu dikoreksi lewat teks baris. Pada latar yang sangat ramai (garis neon, cahaya) pemisahan otomatis masih bisa mengambil potongan latar: pakai *Pilih huruf* di jendela import. Pola juga menutupi outline. Huruf beraksen belum dirakit dari gambar (diambil dari font cadangan). |
 | 41 | P3 | Huruf dari gambar font di-trace menjadi garis tepi vektor saat diperbesar, jadi tepinya tajam, tetapi gelombang atau penyok yang memang ada di gambar tetap terbawa, dan huruf yang sangat kecil (di bawah sekitar 40 px) bisa kehilangan detail terhalusnya. Pakai gambar terbesar dan terbersih yang kamu punya. |
+| 42 | P2 | **Pola dari foto jersey ditunda dan masih perlu disempurnakan.** Fitur ini berjalan pada foto mockup produk (diuji dengan satu kit, depan dan belakang) tetapi masih perkiraan: perspektif, lengkung badan, dan lipatan membuat garis lurus melengkung; pada dua warna pola yang satu rona (biru muda / biru tua) sebagian bayangan masih terbawa; pola di balik logo atau nomor besar diteruskan sepanjang arah utamanya, jadi bisa putus di tempat pola berbelok; kotak badan otomatis tidak mengambil sisi badan (gambar ulang kotaknya untuk mengambil lebih banyak). Yang masih harus dikerjakan: lengan dari foto (sekarang hanya diberi warna utama), mengenali pola teratur (strip, hoops, chevron…) lalu membangunnya ulang dengan layer pola, dan lebih banyak foto uji. Warna pola tipis di bawah batas (bawaan 8 %) dianggap logo. |

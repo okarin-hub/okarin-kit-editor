@@ -21,6 +21,7 @@ import {
   Info,
   FileCog,
   Type,
+  Shirt,
 } from 'lucide-react';
 import { PRESET_KITS, KitPreset } from '@/constants/presets';
 import { CanvasViewState } from '@/types/kit';
@@ -35,6 +36,7 @@ interface NavbarProps {
   onOpenFontset: () => void;
   onOpenProjectsModal: () => void;
   onOpenImportModal: () => void;
+  onOpenPhotoPattern: () => void;
   hasImportedDesign: boolean;
   onReset: () => void;
   onUndo: () => void;
@@ -56,6 +58,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenFontset,
   onOpenProjectsModal,
   onOpenImportModal,
+  onOpenPhotoPattern,
   hasImportedDesign,
   onReset,
   onUndo,
@@ -141,6 +144,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                 title="Import desain kit yang sudah jadi (PNG / JPG / DDS)"
                 checked={hasImportedDesign}
                 onClick={run(close, onOpenImportModal)}
+              />
+              <MenuItem
+                icon={<Shirt className="w-3.5 h-3.5" />}
+                label="Pola dari foto jersey… (eksperimental)"
+                title="Ambil pola badan baju dari foto jersey (tanpa logo) dan jadikan layer warna"
+                onClick={run(close, onOpenPhotoPattern)}
               />
               <MenuItem
                 icon={<Download className="w-3.5 h-3.5" />}

@@ -41,7 +41,6 @@ welcome (see [Contributing](CONTRIBUTING.md)).
 
 | # | Pri | Issue |
 |---|---|---|
-| 17 | P2 | **Fabric texture layer settings are not stored** in autosave or `.peskit` yet; after a reload they return to the defaults. |
 | 18 | P3 | Undo / redo does not cover zone selection, point editing in progress, or switching templates. |
 
 ## 3D preview
@@ -79,9 +78,9 @@ welcome (see [Contributing](CONTRIBUTING.md)).
 
 | # | Pri | Issue |
 |---|---|---|
-| 36 | P3 | The config.txt is kept per browser/app, not in the project file: opening another project keeps the current config. |
 | 37 | P3 | **Experimental:** the config.txt editor only writes the file. Its values (name/number positions, badges, collar and shirt models) are not shown in the 2D/3D preview: the positions are game units that still need calibrating from in-game screenshots, and the collar/shirt models are game meshes the app does not have. |
 | 38 | P3 | **Experimental:** the fontset generator's FTEX output was tested in PES 2021 (numbers and name show in the game); its DDS output is not tested. The character slots come from modder templates (three fontsets agree to ±5 px), not from the game files; one slot of the `_ex` file (between Ę and Ğ) is empty in every sample and is left empty. |
 | 39 | P3 | A character missing from the chosen font is drawn with a fallback font; the check compares shapes and can miss a fallback that looks the same. Letters wider than their slot are squeezed sideways. |
-| 40 | P3 | Font sheet import: letters that touch are split at the thinnest column, which can cut a little off one of them; recognition compares shapes with common fonts and relies on the sheet being in alphabet order, so very decorative letters or a shuffled sheet need the row text corrected by hand. On a very busy background (neon lines, glow) the automatic cut can still pick up background pieces: use *Pick letters* in the import dialog. A pattern also covers the outline. Letters enlarged many times from a small picture get slightly rounded corners and lose strokes thinner than about one source pixel. Accented letters are not built from the sheet yet (they come from the fallback font). |
+| 40 | P3 | Font sheet import: letters that touch are split at the thinnest column, which can cut a little off one of them; recognition compares shapes with common fonts and relies on the sheet being in alphabet order, so very decorative letters or a shuffled sheet need the row text corrected by hand. On a very busy background (neon lines, glow) the automatic cut can still pick up background pieces: use *Pick letters* in the import dialog. A pattern also covers the outline. Accented letters are not built from the sheet yet (they come from the fallback font). |
 | 41 | P3 | Letters from a font sheet picture are traced into vector outlines when they are enlarged, so their edges are sharp, but a wobble or a dent that is in the picture itself stays, and very small letters (under about 40 px) can lose their finest details. Use the largest, cleanest picture you have. |
+| 42 | P2 | **Pattern from a jersey photo is on hold and still needs refinement.** It works on a product mockup (tested with one kit, front and back) but is an approximation: perspective, the body's curve and folds bend straight lines; with two pattern colours of the same hue (light / dark blue) some shading still shows; the pattern behind a big logo or number is continued along its main direction, so it can break where the pattern turns; the automatic body box leaves out the sides (redraw it to take more). Still to do: sleeves from the photo (they only get the main colour), recognising regular patterns (stripes, hoops, chevrons…) and rebuilding them with the pattern layers, more test photos. A thin pattern colour under the threshold (default 8 %) is treated as a logo. |

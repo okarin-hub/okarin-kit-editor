@@ -6,7 +6,9 @@ import {
   BaseTexture,
   TemplateState,
   KitTemplate,
+  FabricConfig,
 } from './kit';
+import type { FontsetSettings } from '@/components/ui/FontsetModal';
 
 export interface KitProject {
   id: string;
@@ -28,6 +30,12 @@ export interface KitProject {
   template?: TemplateState | null;
   /** The template definition itself, so a project made with a custom template still opens elsewhere. */
   templateDef?: KitTemplate | null;
+  /** Fabric texture layers (Fabric tab). */
+  fabricConfig?: FabricConfig;
+  /** Kitserver config.txt of this kit (as text). */
+  kitConfig?: string;
+  /** Fontset generator settings (fonts, colours, logo, pattern; not the imported font sheet picture). */
+  fontset?: FontsetSettings | null;
 }
 
 export interface SavedProjectMeta {

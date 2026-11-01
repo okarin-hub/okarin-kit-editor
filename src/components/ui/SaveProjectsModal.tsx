@@ -16,7 +16,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { KitProject, SavedProjectMeta } from '@/types/project';
-import { KitPartId, KitPartConfig, KitGraphicItem, PlayerMarkingsConfig, BaseTexture, TemplateBundle } from '@/types/kit';
+import { KitPartId, KitPartConfig, KitGraphicItem, PlayerMarkingsConfig, BaseTexture, TemplateBundle, FabricConfig } from '@/types/kit';
+import type { FontsetSettings } from '@/components/ui/FontsetModal';
 import {
   getLocalProjectsList,
   getLocalProjectById,
@@ -38,6 +39,9 @@ interface SaveProjectsModalProps {
   currentPatternMask?: string | null;
   currentTemplate?: TemplateBundle | null;
   currentThumbnail?: string;
+  currentFabricConfig?: FabricConfig;
+  currentKitConfig?: string;
+  currentFontset?: FontsetSettings | null;
   onLoadProject: (project: KitProject) => void;
 }
 
@@ -51,6 +55,9 @@ export const SaveProjectsModal: React.FC<SaveProjectsModalProps> = ({
   currentPatternMask,
   currentTemplate,
   currentThumbnail,
+  currentFabricConfig,
+  currentKitConfig,
+  currentFontset,
   onLoadProject,
 }) => {
   const [activeTab, setActiveTab] = useState<'save' | 'projects' | 'import' | 'cloud'>('save');
@@ -91,6 +98,9 @@ export const SaveProjectsModal: React.FC<SaveProjectsModalProps> = ({
       patternMask: currentPatternMask ?? null,
       template: currentTemplate?.state ?? null,
       templateDef: currentTemplate?.def ?? null,
+      fabricConfig: currentFabricConfig,
+      kitConfig: currentKitConfig,
+      fontset: currentFontset ?? null,
     };
   };
 

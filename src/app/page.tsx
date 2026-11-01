@@ -43,6 +43,7 @@ import ImportPsdModal from '@/components/ui/ImportPsdModal';
 import ImportPngModal from '@/components/ui/ImportPngModal';
 import KitConfigModal from '@/components/ui/KitConfigModal';
 import FontsetModal from '@/components/ui/FontsetModal';
+import PhotoPatternModal from '@/components/ui/PhotoPatternModal';
 import { DEFAULT_KIT_CONFIG } from '@/utils/kitConfig';
 import {
   saveAutosaveState,
@@ -57,7 +58,10 @@ import {
   downloadPeskitFile,
   saveKitConfigText,
   loadKitConfigText,
+  saveFontsetSettings,
+  loadFontsetSettings,
 } from '@/services/storageService';
+import type { FontsetSettings } from '@/components/ui/FontsetModal';
 import { generateKitTexture, generateShowcaseCard, renderKitCanvas, preloadImage } from '@/utils/textureGenerator';
 import { encodeDDS } from '@/utils/ddsEncoder';
 import { encodeFtex } from '@/utils/ftexEncoder';
@@ -102,6 +106,7 @@ export default function Home() {
 
   // Realistic athletic fabric texture configuration
   const [fabricConfig, setFabricConfig] = useState<FabricConfig>(DEFAULT_FABRIC_CONFIG);
+  const [fontsetSettings, setFontsetSettings] = useState<FontsetSettings | null>(null);
 
   // Active tab on right sidebar: 'properties' | 'logos' | 'markings'
   const [rightTab, setRightTab] = useState<'properties' | 'template' | 'logos' | 'markings'>('template');
@@ -212,7 +217,10 @@ export default function Home() {
       if (autosaved.partsConfig) setPartsConfig({ ...DEFAULT_PART_CONFIG, ...autosaved.partsConfig });
       if (autosaved.graphicItems) setGraphicItems(autosaved.graphicItems);
       if (autosaved.markings) setMarkings(migrateMarkings(autosaved.markings));
+      if (autosaved.fabricConfig) setFabricConfig(autosaved.fabricConfig);
     }
+    const savedFontset = loadFontsetSettings();
+    if (savedFontset) setFontsetSettings(savedFontset);
     const savedTpl = loadTemplateState();
     if (savedTpl) {
       // Built-in templates are refreshed from the current definitions (zone positions get
@@ -257,10 +265,16 @@ export default function Home() {
         partsConfig,
         graphicItems,
         markings,
+        fabricConfig,
       });
     }, 1200);
     return () => clearTimeout(timer);
-  }, [partsConfig, graphicItems, markings]);
+  }, [partsConfig, graphicItems, markings, fabricConfig]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => saveFontsetSettings(fontsetSettings), 800);
+    return () => clearTimeout(timer);
+  }, [fontsetSettings]);
 
   // Persist the imported design separately (it can be large)
   useEffect(() => {
@@ -309,6 +323,8 @@ export default function Home() {
 
   const [isPsdImportOpen, setIsPsdImportOpen] = useState(false);
   const [isPngImportOpen, setIsPngImportOpen] = useState(false);
+  const [isPhotoPatternOpen, setIsPhotoPatternOpen] = useState(false);
+  const [pngImportFile, setPngImportFile] = useState<File | null>(null);
 
   // Drawing a new layer on the 2D canvas
   const [drawTool, setDrawTool] = useState<'free' | 'poly' | 'stitch' | 'stitchFree' | null>(null);
@@ -989,6 +1005,10 @@ export default function Home() {
     setPartsConfig({ ...DEFAULT_PART_CONFIG, ...project.partsConfig });
     setGraphicItems(project.graphicItems);
     setMarkings(migrateMarkings(project.markings));
+    // older projects have none of these: keep the defaults / the current config
+    setFabricConfig(project.fabricConfig ?? DEFAULT_FABRIC_CONFIG);
+    if (project.kitConfig) setKitConfigText(project.kitConfig);
+    if (project.fontset) setFontsetSettings(project.fontset);
     if (project.baseTexture) {
       const loadedBase = project.baseTexture;
       preloadImage(loadedBase.src).then(() => setBaseTexture(loadedBase));
@@ -1096,6 +1116,9 @@ export default function Home() {
         patternMask,
         template: tplBundle.state,
         templateDef: tplBundle.def,
+        fabricConfig,
+        kitConfig: kitConfigText,
+        fontset: fontsetSettings,
       };
       downloadPeskitFile(currentProj);
       return;
@@ -1151,6 +1174,7 @@ export default function Home() {
         onOpenFontset={() => setIsFontsetOpen(true)}
         onOpenProjectsModal={() => setIsProjectsModalOpen(true)}
         onOpenImportModal={() => setIsImportModalOpen(true)}
+        onOpenPhotoPattern={() => setIsPhotoPatternOpen(true)}
         hasImportedDesign={!!baseTexture}
         onReset={handleReset}
         onUndo={undo}
@@ -1447,6 +1471,8 @@ export default function Home() {
         library={library}
         configText={kitConfigText}
         onConfigChange={setKitConfigText}
+        settings={fontsetSettings}
+        onSettingsChange={setFontsetSettings}
       />
 
       {/* PSD template import */}
@@ -1461,10 +1487,24 @@ export default function Home() {
 
       <ImportPngModal
         isOpen={isPngImportOpen}
-        onClose={() => setIsPngImportOpen(false)}
+        initialFile={pngImportFile}
+        onClose={() => {
+          setIsPngImportOpen(false);
+          setPngImportFile(null);
+        }}
         onImported={(t) => {
           library.reload();
           handleSelectTemplate(t);
+        }}
+      />
+
+      <PhotoPatternModal
+        isOpen={isPhotoPatternOpen}
+        onClose={() => setIsPhotoPatternOpen(false)}
+        onDone={(file) => {
+          setIsPhotoPatternOpen(false);
+          setPngImportFile(file);
+          setIsPngImportOpen(true);
         }}
       />
 
@@ -1494,6 +1534,9 @@ export default function Home() {
         currentBaseTexture={baseTexture}
         currentPatternMask={patternMask}
         currentTemplate={tplBundle}
+        currentFabricConfig={fabricConfig}
+        currentKitConfig={kitConfigText}
+        currentFontset={fontsetSettings}
         onLoadProject={handleLoadProject}
       />
     </div>

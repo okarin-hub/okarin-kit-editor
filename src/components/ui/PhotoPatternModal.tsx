@@ -1,0 +1,236 @@
+'use client';
+
+import React, { useEffect, useRef, useState } from 'react';
+import { X, Shirt, ImagePlus, Trash2 } from 'lucide-react';
+import { PhotoRect, PatternResult, guessTorso, extractPattern, buildKitTexture } from '@/utils/photoPattern';
+
+interface Shot {
+  image: HTMLImageElement;
+  name: string;
+  rect: PhotoRect;
+}
+
+interface PhotoPatternModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  /** the flat kit texture, ready for the PNG colour split */
+  onDone: (file: File) => void;
+}
+
+const VIEW = 300;
+
+/** One photo with the body area drawn as a box that can be redrawn by dragging. */
+const ShotView: React.FC<{ shot: Shot; onRect: (r: PhotoRect) => void }> = ({ shot, onRect }) => {
+  const ref = useRef<HTMLCanvasElement | null>(null);
+  const drag = useRef<{ x: number; y: number } | null>(null);
+  const scale = Math.min(VIEW / shot.image.width, (VIEW * 1.25) / shot.image.height);
+  const vw = Math.round(shot.image.width * scale), vh = Math.round(shot.image.height * scale);
+  useEffect(() => {
+    const c = ref.current;
+    if (!c) return;
+    c.width = vw;
+    c.height = vh;
+    c.getContext('2d')!.drawImage(shot.image, 0, 0, vw, vh);
+  }, [shot.image, vw, vh]);
+  const at = (e: React.MouseEvent) => {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    return {
+      x: Math.max(0, Math.min(shot.image.width, (e.clientX - r.left) / scale)),
+      y: Math.max(0, Math.min(shot.image.height, (e.clientY - r.top) / scale)),
+    };
+  };
+  const r = shot.rect;
+  return (
+    <div
+      className="relative cursor-crosshair mx-auto"
+      style={{ width: vw, height: vh }}
+      onMouseDown={(e) => (drag.current = at(e))}
+      onMouseMove={(e) => {
+        const s = drag.current;
+        if (!s) return;
+        const p = at(e);
+        if (Math.abs(p.x - s.x) * scale + Math.abs(p.y - s.y) * scale < 6) return;
+        onRect({ x: Math.min(s.x, p.x), y: Math.min(s.y, p.y), w: Math.abs(p.x - s.x), h: Math.abs(p.y - s.y) });
+      }}
+      onMouseUp={() => (drag.current = null)}
+      onMouseLeave={() => (drag.current = null)}
+    >
+      <canvas ref={ref} className="block rounded" style={{ width: vw, height: vh }} />
+      <div
+        className="absolute border-2 border-sky-400 pointer-events-none"
+        style={{ left: r.x * scale, top: r.y * scale, width: r.w * scale, height: r.h * scale, boxShadow: '0 0 0 9999px rgba(2,6,23,0.5)' }}
+      />
+    </div>
+  );
+};
+
+/** Pattern of a jersey photo (front, optional back) as a flat kit texture; logos are left out. */
+export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, onClose, onDone }) => {
+  const [front, setFront] = useState<Shot | null>(null);
+  const [back, setBack] = useState<Shot | null>(null);
+  const [minShare, setMinShare] = useState(8);
+  const [result, setResult] = useState<{ front: PatternResult; texture: HTMLCanvasElement } | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const previewRef = useRef<HTMLCanvasElement | null>(null);
+  const frontInput = useRef<HTMLInputElement | null>(null);
+  const backInput = useRef<HTMLInputElement | null>(null);
+
+  // flatten the pattern again shortly after the last change
+  useEffect(() => {
+    if (!isOpen || !front) return setResult(null);
+    const t = setTimeout(() => {
+      const f = extractPattern(front.image, front.rect, minShare / 100);
+      const b = back ? extractPattern(back.image, back.rect, minShare / 100, f) : null;
+      setResult({ front: f, texture: buildKitTexture(f, b) });
+    }, 200);
+    return () => clearTimeout(t);
+  }, [isOpen, front, back, minShare]);
+
+  // preview: the shirt pieces of the texture (front, back and sleeves)
+  useEffect(() => {
+    const c = previewRef.current;
+    if (!c || !result) return;
+    const src = { x: 0, y: 0, w: 1024, h: 940 };
+    c.width = 512;
+    c.height = Math.round((512 * src.h) / src.w);
+    const ctx = c.getContext('2d')!;
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.drawImage(result.texture, src.x, src.y, src.w, src.h, 0, 0, c.width, c.height);
+  }, [result]);
+
+  if (!isOpen) return null;
+
+  const load = async (file: File | undefined, set: (s: Shot) => void) => {
+    if (!file) return;
+    try {
+      const url = URL.createObjectURL(file);
+      const image = new Image();
+      image.src = url;
+      await image.decode();
+      set({ image, name: file.name, rect: guessTorso(image) });
+      setStatus(null);
+    } catch {
+      setStatus('Gambar gagal dibaca.');
+    }
+  };
+
+  const finish = () => {
+    if (!result) return;
+    result.texture.toBlob((blob) => {
+      if (!blob) return setStatus('Tekstur gagal dibuat.');
+      onDone(new File([blob], `${(front?.name ?? 'jersey').replace(/\.[^.]+$/, '')}-pola.png`, { type: 'image/png' }));
+    }, 'image/png');
+  };
+
+  const slot = (title: string, shot: Shot | null, set: (s: Shot | null) => void, input: React.RefObject<HTMLInputElement | null>, optional: boolean) => (
+    <section className="space-y-2 min-w-0">
+      <div className="flex items-center justify-between">
+        <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-300">{title}</h4>
+        {shot && (
+          <button type="button" onClick={() => set(null)} className="p-1 rounded text-slate-400 hover:bg-slate-800" title="Hapus foto">
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+      {shot ? (
+        <>
+          <ShotView shot={shot} onRect={(rect) => set({ ...shot, rect })} />
+          <p className="text-[10px] text-slate-500 text-center">Tarik kotak di badan baju (tanpa lengan dan kerah).</p>
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={() => input.current?.click()}
+          className="w-full h-40 flex flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-700 text-[11px] text-slate-400 hover:bg-slate-800/50"
+        >
+          <ImagePlus className="w-5 h-5" />
+          {optional ? 'Foto belakang (opsional)' : 'Pilih foto depan'}
+        </button>
+      )}
+      <input
+        ref={input}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          load(e.target.files?.[0], set);
+          e.target.value = '';
+        }}
+      />
+    </section>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none">
+      <div className="bg-[#121622] border border-slate-800 rounded-2xl w-full max-w-6xl max-h-[92vh] shadow-2xl overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#0f131c]">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-lg bg-sky-600/20 text-sky-400 border border-sky-500/30">
+              <Shirt className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                Pola dari foto jersey
+                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  Eksperimental
+                </span>
+              </h3>
+              <p className="text-[11px] text-slate-400">Pola badan baju diambil dari foto; logo dan tulisan dibuang. Hasilnya dijadikan layer warna yang bisa diedit.</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto grid grid-cols-1 lg:grid-cols-[1fr_1fr_1.3fr] gap-5 p-5">
+          {slot('Depan', front, setFront, frontInput, false)}
+          {slot('Belakang', back, setBack, backInput, true)}
+          <section className="space-y-2 min-w-0">
+            <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-300">Hasil</h4>
+            <div
+              className="rounded-lg border border-slate-800 overflow-hidden"
+              style={{ backgroundImage: 'repeating-conic-gradient(#64748b 0% 25%, #475569 0% 50%)', backgroundSize: '16px 16px' }}
+            >
+              {result ? <canvas ref={previewRef} className="w-full h-auto block" /> : <div className="h-40" />}
+            </div>
+            {result && (
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
+                <span>Warna pola:</span>
+                {result.front.palette.map((c) => (
+                  <span key={c} className="flex items-center gap-1 font-mono text-[10px]">
+                    <span className="w-4 h-4 rounded border border-slate-600" style={{ background: c }} />
+                    {c}
+                  </span>
+                ))}
+              </div>
+            )}
+            <label className="flex items-center justify-between gap-2 text-[11px] text-slate-400">
+              <span>{`Batas warna pola ${minShare}%`}</span>
+              <input type="range" min={3} max={25} value={minShare} onChange={(e) => setMinShare(Number(e.target.value))} className="w-28 accent-sky-500" />
+            </label>
+            <p className="text-[10px] text-slate-500 leading-snug">
+              Warna yang menutupi kurang dari batas ini dianggap logo atau tulisan dan diisi dari pola di sekitarnya. Turunkan kalau ada warna pola tipis yang hilang.
+            </p>
+          </section>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 px-6 py-3 border-t border-slate-800 bg-[#0f131c]">
+          {status && <span className="mr-auto text-[11px] text-amber-300">{status}</span>}
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800">
+            Batal
+          </button>
+          <button
+            onClick={finish}
+            disabled={!result}
+            className="px-5 py-2 rounded-lg text-xs font-bold text-white bg-sky-600 hover:bg-sky-500 disabled:opacity-50"
+          >
+            Lanjut: jadikan layer warna
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default PhotoPatternModal;

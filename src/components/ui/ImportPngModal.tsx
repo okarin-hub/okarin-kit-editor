@@ -22,6 +22,8 @@ interface ImportPngModalProps {
   isOpen: boolean;
   onClose: () => void;
   onImported: (template: KitTemplate) => void;
+  /** a picture to start the colour split with (e.g. the pattern made from a jersey photo) */
+  initialFile?: File | null;
 }
 
 type Tab = 'files' | 'colors';
@@ -43,7 +45,7 @@ interface ClusterItem {
   on: boolean;
 }
 
-export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose, onImported }) => {
+export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose, onImported, initialFile }) => {
   const [tab, setTab] = useState<Tab>('colors');
   const [templateName, setTemplateName] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
@@ -117,6 +119,13 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
     }
     ctx.putImageData(out, 0, 0);
   }, [analysis, clusters]);
+
+  useEffect(() => {
+    if (!isOpen || !initialFile) return;
+    setTab('colors');
+    loadColorFile(initialFile);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, initialFile]);
 
   const opaqueTotal = useMemo(() => (analysis ? analysis.clusters.reduce((n, c) => n + c.count, 0) || 1 : 1), [analysis]);
 

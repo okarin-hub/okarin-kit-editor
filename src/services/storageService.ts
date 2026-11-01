@@ -6,7 +6,9 @@ import {
   PlayerMarkingsConfig,
   BaseTexture,
   TemplateBundle,
+  FabricConfig,
 } from '@/types/kit';
+import type { FontsetSettings } from '@/components/ui/FontsetModal';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { SHORTS_NUMBER_POS } from '@/constants/pes2021Parts';
 
@@ -17,6 +19,7 @@ const STORAGE_KEYS = {
   PATTERN_MASK: 'pes_kit_creator_pattern_mask',
   TEMPLATE: 'pes_kit_creator_template',
   KITSERVER_CONFIG: 'pes_kit_creator_kitserver_config',
+  FONTSET: 'pes_kit_creator_fontset',
 };
 
 // 1. Get list of saved projects metadata
@@ -146,6 +149,9 @@ export function parsePeskitFile(file: File): Promise<KitProject> {
           patternMask: parsed.patternMask || null,
           template: parsed.template || null,
           templateDef: parsed.templateDef || null,
+          fabricConfig: parsed.fabricConfig,
+          kitConfig: typeof parsed.kitConfig === 'string' ? parsed.kitConfig : undefined,
+          fontset: parsed.fontset || null,
           markings: parsed.markings || {
             showPreview: true,
             includeInExport: false,
@@ -182,6 +188,7 @@ export function saveAutosaveState(state: {
   partsConfig: Record<KitPartId, KitPartConfig>;
   graphicItems: KitGraphicItem[];
   markings: PlayerMarkingsConfig;
+  fabricConfig?: FabricConfig;
 }): void {
   if (typeof window === 'undefined') return;
   try {
@@ -195,6 +202,7 @@ export function loadAutosaveState(): {
   partsConfig: Record<KitPartId, KitPartConfig>;
   graphicItems: KitGraphicItem[];
   markings: PlayerMarkingsConfig;
+  fabricConfig?: FabricConfig;
 } | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -212,6 +220,25 @@ export function saveKitConfigText(text: string): void {
     localStorage.setItem(STORAGE_KEYS.KITSERVER_CONFIG, text);
   } catch (e) {
     // ignore quota errors
+  }
+}
+
+export function saveFontsetSettings(settings: FontsetSettings | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (settings) localStorage.setItem(STORAGE_KEYS.FONTSET, JSON.stringify(settings));
+  } catch (e) {
+    // ignore quota errors
+  }
+}
+
+export function loadFontsetSettings(): FontsetSettings | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.FONTSET);
+    return raw ? (JSON.parse(raw) as FontsetSettings) : null;
+  } catch (e) {
+    return null;
   }
 }
 
