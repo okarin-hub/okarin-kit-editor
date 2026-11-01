@@ -242,6 +242,14 @@ const SIDE_PANELS: KitTemplate = {
   ],
 };
 
+/** Short hash of the zones and seams: changes whenever a built-in definition is changed in code. */
+function fingerprint(t: KitTemplate): string {
+  const s = JSON.stringify([t.zones, t.seams ?? []]);
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
 export const BUILTIN_TEMPLATES: KitTemplate[] = [
   BLANK,
   CLASSIC,
@@ -250,7 +258,7 @@ export const BUILTIN_TEMPLATES: KitTemplate[] = [
   YOKE,
   THREE_STRIPES,
   SIDE_PANELS,
-];
+].map((t) => ({ ...t, rev: fingerprint(t) }));
 
 export const DEFAULT_TEMPLATE_ID = 'blank';
 

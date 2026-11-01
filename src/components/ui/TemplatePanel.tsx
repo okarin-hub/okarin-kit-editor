@@ -85,6 +85,7 @@ interface TemplatePanelProps {
   onToggleEditPoints: (zoneId: string) => void;
   onUpdateSeams: (update: Partial<SeamConfig>) => void;
   onResetZones: () => void;
+  onRefreshBuiltin: (apply: boolean) => void;
   onFocusPart: (partId: KitPartId) => void;
   onSyncRelatedParts: (partId: KitPartId) => void;
 }
@@ -202,6 +203,7 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
   onToggleEditPoints,
   onUpdateSeams,
   onResetZones,
+  onRefreshBuiltin,
   onFocusPart,
   onSyncRelatedParts,
 }) => {
@@ -651,6 +653,32 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
         {template.modified && (
           <p className="text-[10px] text-amber-300/90">Template ini sudah kamu ubah. Memilih ulang template akan mengembalikannya ke awal.</p>
         )}
+        {template.modified &&
+          template.source === 'builtin' &&
+          BUILTIN_TEMPLATES.some((t) => t.id === template.id && t.rev !== template.rev) && (
+            <div className="text-[10px] text-sky-200 bg-sky-950/40 border border-sky-800/60 rounded p-2 space-y-1.5">
+              <p>
+                Template bawaan ini sudah diperbarui. <strong>Pakai versi baru</strong> mengganti zona bawaannya
+                (perubahan bentuknya hilang); warna, serta layer dan jahitan yang kamu tambahkan sendiri tetap ada.
+              </p>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => onRefreshBuiltin(true)}
+                  className="px-2 py-0.5 rounded bg-sky-600 hover:bg-sky-500 text-white font-semibold"
+                >
+                  Pakai versi baru
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRefreshBuiltin(false)}
+                  className="px-2 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
+                >
+                  Abaikan
+                </button>
+              </div>
+            </div>
+          )}
         {template.description && <p className="text-[11px] text-slate-500 leading-snug">{template.description}</p>}
 
         {library.templateErrors.length > 0 && (

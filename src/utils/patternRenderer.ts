@@ -66,13 +66,18 @@ export function isTintableTile(src: string, img: HTMLImageElement): boolean {
   return info.hasAlpha || info.mono;
 }
 
+/**
+ * Recolours a single-colour tile with `color`. With `shade` (template masks), the tile's grey levels are kept
+ * (colour × grey, so a white tile gets exactly `color`): template masks that carry shading.
+ */
 export function tintedTile(
   src: string,
   img: HTMLImageElement,
   color: string,
-  maxSize = 512
+  maxSize = 512,
+  shade = false
 ): HTMLCanvasElement | null {
-  const key = `${src}|${color}|${maxSize}`;
+  const key = `${src}|${color}|${maxSize}|${shade}`;
   const cached = tintedCache.get(key);
   if (cached) return cached;
 
@@ -89,6 +94,21 @@ export function tintedTile(
   cx.drawImage(img, 0, 0, w, h);
 
   const info = analyzeTile(src, img);
+  // template masks are alpha masks even when fully opaque (a mask cropped to a solid box)
+  if (shade) {
+    const data = cx.getImageData(0, 0, w, h);
+    const d = data.data;
+    const n = parseInt(color.replace('#', '').padEnd(6, '0').slice(0, 6), 16) || 0;
+    const cr = (n >> 16) & 255, cg = (n >> 8) & 255, cb = n & 255;
+    for (let i = 0; i < d.length; i += 4) {
+      const g = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255;
+      d[i] = cr * g; d[i + 1] = cg * g; d[i + 2] = cb * g;
+    }
+    cx.putImageData(data, 0, 0);
+    if (tintedCache.size > 60) tintedCache.clear();
+    tintedCache.set(key, c);
+    return c;
+  }
   if (!info.hasAlpha) {
     // Opaque single-colour image: the motif is the darker (or lighter) part, so derive an alpha
     const data = cx.getImageData(0, 0, w, h);

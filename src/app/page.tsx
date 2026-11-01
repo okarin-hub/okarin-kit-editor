@@ -29,6 +29,7 @@ import {
   PatternBrushState,
   TemplateBundle,
   KitTemplate,
+  KitSeamDef,
   TemplateZoneState,
   SeamConfig,
   KitZoneDef,
@@ -739,6 +740,33 @@ export default function Home() {
     [tplBundle, library]
   );
 
+  // An edited built-in template whose definition changed since: take the new built-in zones (keeping the
+  // colours and the user's own zones / seams), or just stop the notice.
+  const handleRefreshBuiltin = useCallback((apply: boolean) => {
+    setSelectedZoneId(null);
+    setTplBundle((prev) => {
+      const fresh = BUILTIN_TEMPLATES.find((t) => t.id === prev.def.id);
+      if (!fresh) return prev;
+      if (!apply) return { ...prev, def: { ...prev.def, rev: fresh.rev } };
+      const zoneIds = new Set(fresh.zones.map((z) => z.id));
+      const seamKey = (s: KitSeamDef) => s.id ?? JSON.stringify(s);
+      const seamKeys = new Set((fresh.seams ?? []).map(seamKey));
+      const ownZones = prev.def.zones.filter((z) => !zoneIds.has(z.id));
+      const ownSeams = (prev.def.seams ?? []).filter((s) => !seamKeys.has(seamKey(s)));
+      const def: KitTemplate = {
+        ...fresh,
+        modified: ownZones.length + ownSeams.length > 0 || undefined,
+        zones: [...fresh.zones, ...ownZones],
+        seams: [...(fresh.seams ?? []), ...ownSeams],
+      };
+      const zones: TemplateBundle['state']['zones'] = {};
+      def.zones.forEach((z) => {
+        zones[z.id] = prev.state.zones[z.id] ?? { color: z.defaultColor, visible: z.defaultVisible };
+      });
+      return { def, state: { ...prev.state, zones } };
+    });
+  }, []);
+
   const handleResetZones = useCallback(() => {
     setTplBundle((prev) => ({ ...prev, state: buildTemplateState(prev.def, prev.state.seams) }));
   }, []);
@@ -1418,6 +1446,7 @@ export default function Home() {
                 onToggleEditPoints={handleToggleEditPoints}
                 onUpdateSeams={handleUpdateSeams}
                 onResetZones={handleResetZones}
+                onRefreshBuiltin={handleRefreshBuiltin}
                 onFocusPart={handleFocusPart}
                 onSyncRelatedParts={handleSyncRelatedParts}
               />

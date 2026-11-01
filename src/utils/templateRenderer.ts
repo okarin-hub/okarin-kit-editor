@@ -202,7 +202,7 @@ export function drawTemplateForPart(
       const img = getCachedImage(zone.mask);
       if (img) {
         // masks keep the full 1024 px resolution (pattern tiles are downscaled to 512)
-        const tinted = zone.keepColor ? img : tintedTile(zone.mask, img, zs.color, 1024);
+        const tinted = zone.keepColor ? img : tintedTile(zone.mask, img, zs.color, 1024, true);
         if (tinted) {
           ctx.save();
           ctx.globalAlpha = zs.opacity ?? 1;

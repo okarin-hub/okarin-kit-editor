@@ -151,23 +151,28 @@ export interface MaskMeta {
 /**
  * Turns a 1024x1024 canvas holding one layer's pixels into a template zone + mask PNG:
  * bounding box, covered parts, colour handling. Returns null when nothing is visible.
+ * `img` may hold only the area at (ox, oy) of the canvas (the rest is known to be empty): much faster for small layers.
  */
 export function finalizeMask(
   canvas: HTMLCanvasElement,
   ctx: CanvasRenderingContext2D,
   img: ImageData,
   meta: MaskMeta,
-  index: number
+  index: number,
+  ox = 0,
+  oy = 0
 ): ConvertedZone | null {
   const d = img.data;
+  const W = img.width, H = img.height;
 
   // Statistics: bounding box, pixel count, mean colour, chroma
   let x0 = SIZE, y0 = SIZE, x1 = -1, y1 = -1, count = 0;
   let sr = 0, sg = 0, sb = 0, chroma = 0;
-  for (let y = 0; y < SIZE; y++) {
-    for (let x = 0; x < SIZE; x++) {
-      const i = (y * SIZE + x) * 4;
+  for (let ly = 0; ly < H; ly++) {
+    for (let lx = 0; lx < W; lx++) {
+      const i = (ly * W + lx) * 4;
       if (d[i + 3] < 12) continue;
+      const x = lx + ox, y = ly + oy;
       count++;
       if (x < x0) x0 = x;
       if (x > x1) x1 = x;
@@ -187,12 +192,15 @@ export function finalizeMask(
   const perPart: { id: KitPartId; n: number }[] = PES_2021_PARTS.map((p) => {
     let n = 0;
     p.regions.forEach((r) => {
-      const ya = Math.max(0, Math.floor(r.y));
-      const yb = Math.min(SIZE, Math.ceil(r.y + r.height));
-      const xa = Math.max(0, Math.floor(r.x));
-      const xb = Math.min(SIZE, Math.ceil(r.x + r.width));
+      // sample every 2nd pixel on the same grid as a full scan, but only inside the layer's box
+      const ya0 = Math.max(0, Math.floor(r.y));
+      const xa0 = Math.max(0, Math.floor(r.x));
+      const ya = ya0 + Math.max(0, Math.ceil((y0 - ya0) / 2) * 2);
+      const xa = xa0 + Math.max(0, Math.ceil((x0 - xa0) / 2) * 2);
+      const yb = Math.min(y1 + 1, Math.ceil(r.y + r.height));
+      const xb = Math.min(x1 + 1, Math.ceil(r.x + r.width));
       for (let y = ya; y < yb; y += 2) {
-        for (let x = xa; x < xb; x += 2) if (d[(y * SIZE + x) * 4 + 3] >= 12) n++;
+        for (let x = xa; x < xb; x += 2) if (d[((y - oy) * W + x - ox) * 4 + 3] >= 12) n++;
       }
     });
     return { id: p.id, n: n * 4 };
@@ -204,13 +212,23 @@ export function finalizeMask(
   let parts: KitPartId[] = sorted.filter((p) => p.n > 0 && p.n >= minPixels && p.n / Math.max(1, covered) >= minShare).map((p) => p.id);
   if (parts.length === 0) parts = [sorted[0].n > 0 ? sorted[0].id : 'front'];
 
-  // Tinted layers become white-on-transparent (smaller files, tint-ready); coloured layers keep pixels
+  // Tinted layers keep only their shading: grey levels scaled so the lightest pixel is white (a flat layer
+  // becomes plain white); the zone colour is multiplied in when drawn. Coloured layers keep their pixels.
   if (!keepColor) {
+    let lo = 255, hi = 0;
     for (let i = 0; i < d.length; i += 4) {
-      d[i] = 255; d[i + 1] = 255; d[i + 2] = 255;
+      if (d[i + 3] < 12) continue;
+      const l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      if (l < lo) lo = l;
+      if (l > hi) hi = l;
+    }
+    const flat = hi - lo < 8 || hi < 1;
+    for (let i = 0; i < d.length; i += 4) {
+      const v = flat ? 255 : Math.round((255 * (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2])) / hi);
+      d[i] = v; d[i + 1] = v; d[i + 2] = v;
     }
   }
-  ctx.putImageData(img, 0, 0);
+  ctx.putImageData(img, ox, oy);
 
   const file = `${String(index + 1).padStart(2, '0')}-${slug(meta.name)}.png`;
   const zoneId = `psd-${String(index + 1).padStart(2, '0')}-${slug(meta.name)}`.slice(0, 60);
@@ -256,7 +274,13 @@ export function convertLayer(info: PsdLayerInfo, psdW: number, psdH: number, ind
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(l.canvas, info.left * sx, info.top * sy, (info.right - info.left) * sx, (info.bottom - info.top) * sy);
 
-  const img = ctx.getImageData(0, 0, SIZE, SIZE);
+  // only the layer's own area is read and processed (most layers are small)
+  const rx = Math.max(0, Math.floor(info.left * sx));
+  const ry = Math.max(0, Math.floor(info.top * sy));
+  const rw = Math.min(SIZE, Math.ceil(info.right * sx)) - rx;
+  const rh = Math.min(SIZE, Math.ceil(info.bottom * sy)) - ry;
+  if (rw <= 0 || rh <= 0) return null;
+  const img = ctx.getImageData(rx, ry, rw, rh);
   const d = img.data;
 
   // User layer mask (grayscale): multiply it into the alpha
@@ -271,10 +295,10 @@ export function convertLayer(info: PsdLayerInfo, psdW: number, psdH: number, ind
       mctx.fillStyle = `rgb(${dc},${dc},${dc})`;
       mctx.fillRect(0, 0, SIZE, SIZE);
       mctx.drawImage(m.canvas, m.left * sx, m.top * sy, (m.right - m.left) * sx, (m.bottom - m.top) * sy);
-      const md = mctx.getImageData(0, 0, SIZE, SIZE).data;
+      const md = mctx.getImageData(rx, ry, rw, rh).data;
       for (let i = 0; i < d.length; i += 4) d[i + 3] = (d[i + 3] * md[i]) / 255;
     }
   }
 
-  return finalizeMask(canvas, ctx, img, { name: info.name, hidden: info.hidden, opacity: info.opacity }, index);
+  return finalizeMask(canvas, ctx, img, { name: info.name, hidden: info.hidden, opacity: info.opacity }, index, rx, ry);
 }

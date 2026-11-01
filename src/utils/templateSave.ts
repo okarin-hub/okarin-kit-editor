@@ -25,11 +25,17 @@ export async function saveConvertedTemplate(
 ): Promise<KitTemplate> {
   if (items.length === 0) throw new Error('Tidak ada layer yang bisa disimpan.');
   const { folder } = await importPost({ action: 'init', name });
+  // up to 4 uploads at a time
   let done = 0;
-  for (const it of items) {
-    await importPost({ action: 'mask', folder, file: it.maskFile, dataUrl: it.maskDataUrl });
-    onProgress?.(++done, items.length);
-  }
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const it = items[next++];
+      await importPost({ action: 'mask', folder, file: it.maskFile, dataUrl: it.maskDataUrl });
+      onProgress?.(++done, items.length);
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
   const res = await importPost({
     action: 'finish',
     folder,

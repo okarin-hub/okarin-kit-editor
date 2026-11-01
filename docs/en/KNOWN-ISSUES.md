@@ -18,9 +18,8 @@ welcome (see [Contributing](CONTRIBUTING.md)).
 | 1 | P2 | **Part mapping is still a guess.** The part of a layer is guessed from the share of pixels in each area; layers that cross several areas are often attached to the wrong part. After converting, click a layer in the report to change its parts (saved at once). | Show the guess in a preview before saving. |
 | 2 | P3 | **Official template PSDs hold many layers that only help the artist** (mesh, shadows, dotted stitch, guides, masks, background). They are now left unchecked by default (115 layers become 19 in the official 2019 PSD, tagged with the reason); *All* still selects them. The filter is by name (English and Japanese) and size, so an unusual name can slip through or a useful layer be tagged. | A preview of each layer. |
 | 3 | P1 | **PSD effects are not carried over:** blend modes, layer effects (shadow, stroke, colour overlay), clipping masks, adjustment layers, smart objects, text and vector shapes. | Support clipping masks and basic blend modes; auto-rasterize. |
-| 4 | P2 | Conversion of large PSDs is slow (every layer is processed at 1024 × 1024 on the main thread). | Web Worker, crop masks to their bounding box, parallel upload. |
+| 4 | P3 | Converting a large PSD takes a while (115 layers ≈ 20 s in the test browser) and runs on the main thread. Each layer is now processed only inside its own box and masks are uploaded 4 at a time. | Web Worker. |
 | 6 | P2 | Mask zones cannot be edited point by point or get edge shapes. | "Convert mask to polygon". |
-| 7 | P2 | A mask is painted with one colour, so grey layers lose their shading. | "Keep luminance" mode. |
 | 8 | P2 | PNG split-by-colour is better but still an approximation: anti-aliased edges and noise colours are absorbed into the neighbouring region, but gradients and shaded designs still break into several colours, and there is a maximum of 80 zones. A colour zone joins every part that holds a few dozen of its pixels, so it can list more parts than you expect. | Edge smoothing per zone, a preview of the parts. |
 | 10 | P3 | Only pixel layers; groups are not kept as folders. PSD fill opacity is ignored. | |
 
@@ -31,7 +30,6 @@ welcome (see [Contributing](CONTRIBUTING.md)).
 | 11 | P2 | Built-in template zones were calibrated from the model UV. The shorts zones now use the game's coordinates (hem at x 0 / 1024); the shoulder and long-sleeve zones have not been checked in the game yet. |
 | 12 | P2 | One layer = one shape on all selected parts. Parts sit at different UV positions, so a layer attached to many parts may only cover some of them. |
 | 13 | P2 | Dragging a layer on the 3D model can jump over UV seams, and the drag direction is not exactly the mouse direction on shoulders. |
-| 14 | P2 | A template you already edited is not updated automatically when its built-in definition changes (re-selecting it resets your edits). |
 | 15 | P3 | Layer stitching follows only rectangle / polygon edges; mask layers are not stitched. Per-seam options (colour, thickness, hide) are missing. |
 | 16 | P3 | Editing points bakes the transform and edge shape into the polygon. |
 

@@ -18,9 +18,8 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 | 1 | P2 | **Pemetaan bagian masih tebakan.** Bagian layer ditebak dari persentase piksel di tiap area; layer yang melintasi banyak area sering ditempel ke bagian yang salah. Setelah konversi, klik sebuah layer di laporan untuk mengubah bagiannya (langsung disimpan). | Tampilkan tebakan di pratinjau sebelum menyimpan. |
 | 2 | P3 | **PSD template resmi berisi banyak layer yang hanya membantu desainer** (mesh, bayangan, jahitan titik-titik, panduan, mask, latar). Sekarang tidak dicentang secara bawaan (115 layer jadi 19 di PSD resmi 2019, dengan label alasannya); tombol *Semua* tetap memilihnya. Filter memakai nama (Inggris dan Jepang) dan ukuran, jadi nama yang tidak biasa bisa lolos atau layer berguna bisa ikut berlabel. | Pratinjau tiap layer. |
 | 3 | P1 | **Efek PSD tidak terbawa:** mode blend, efek layer (bayangan, stroke, overlay warna), clipping mask, layer penyesuaian, smart object, teks dan bentuk vektor. | Dukung clipping mask dan mode blend dasar; rasterize otomatis. |
-| 4 | P2 | Konversi PSD besar lambat (tiap layer diproses 1024 × 1024 di main thread). | Web Worker, crop mask ke kotak pembatas, unggah paralel. |
+| 4 | P3 | Konversi PSD besar butuh waktu (115 layer ≈ 20 detik di browser uji) dan berjalan di main thread. Tiap layer kini hanya diproses di dalam kotaknya sendiri dan mask diunggah 4 sekaligus. | Web Worker. |
 | 6 | P2 | Zona mask tidak bisa diedit titik demi titik atau diberi bentuk tepi. | "Ubah mask jadi poligon". |
-| 7 | P2 | Mask dicat satu warna, jadi layer abu-abu kehilangan nuansanya. | Mode "pertahankan luminansi". |
 | 8 | P2 | Pemisahan PNG per warna sudah lebih baik tetapi tetap perkiraan: tepi anti-alias dan warna noise diserap ke wilayah di sekitarnya, namun gradasi dan desain berbayang masih pecah menjadi beberapa warna, dan maksimal 80 zona. Sebuah zona warna ikut ke setiap bagian yang memuat beberapa puluh pikselnya, jadi daftar bagiannya bisa lebih banyak dari dugaan. | Penghalusan tepi per zona, pratinjau bagian. |
 | 10 | P3 | Hanya layer piksel; grup tidak dipertahankan sebagai folder. Fill opacity PSD diabaikan. | |
 
@@ -31,7 +30,6 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 | 11 | P2 | Zona template bawaan dikalibrasi dari UV model. Zona celana kini memakai koordinat game (hem di x 0 / 1024); zona bahu dan lengan panjang belum dicek di game. |
 | 12 | P2 | Satu layer = satu bentuk di semua bagian terpilih. Bagian punya posisi UV berbeda, jadi layer yang menempel ke banyak bagian bisa hanya mengenai sebagian. |
 | 13 | P2 | Menggeser layer di model 3D bisa melompat di sambungan UV, dan arah geser tidak persis arah mouse di bahu. |
-| 14 | P2 | Template yang sudah kamu ubah tidak diperbarui otomatis saat definisi bawaannya berubah (memilih ulang mengembalikan ke awal). |
 | 15 | P3 | Jahitan layer hanya mengikuti tepi persegi / poligon; layer mask tidak dijahit. Opsi per garis jahit (warna, tebal, sembunyi) belum ada. |
 | 16 | P3 | Edit titik melebur transformasi dan bentuk sisi ke dalam poligon. |
 

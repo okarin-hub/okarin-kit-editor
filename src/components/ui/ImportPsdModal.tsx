@@ -106,13 +106,20 @@ export const ImportPsdModal: React.FC<ImportPsdModalProps> = ({ isOpen, onClose,
       const { folder } = await post({ action: 'init', name: name.trim() || 'template-psd' });
       const zones: Record<string, unknown>[] = [];
       const rep: ReportRow[] = [];
+      // a few mask uploads run while the next layers are converted
+      const uploads: Promise<unknown>[] = [];
       let idx = 0;
+      let painted = performance.now();
       for (const info of chosen) {
-        // let the progress bar paint between heavy layers
-        await new Promise((r) => setTimeout(r, 0));
+        // let the progress bar paint now and then (a yield after every layer costs at least one frame each)
+        if (performance.now() - painted > 100) {
+          await new Promise((r) => setTimeout(r, 0));
+          painted = performance.now();
+        }
         const out = convertLayer(info, parsed.width, parsed.height, idx);
         if (out) {
-          await post({ action: 'mask', folder, file: out.maskFile, dataUrl: out.maskDataUrl });
+          uploads.push(post({ action: 'mask', folder, file: out.maskFile, dataUrl: out.maskDataUrl }));
+          if (uploads.length >= 4) await uploads.shift();
           zones.push(out.zone);
           rep.push({ name: info.name, parts: out.parts.map(partName), partIds: out.parts, pixels: out.pixels, zoneId: String(out.zone.id) });
           idx++;
@@ -121,6 +128,7 @@ export const ImportPsdModal: React.FC<ImportPsdModalProps> = ({ isOpen, onClose,
         }
         setProgress((p) => (p ? { ...p, done: p.done + 1 } : p));
       }
+      await Promise.all(uploads);
       if (zones.length === 0) throw new Error('Semua layer kosong, tidak ada yang bisa dikonversi.');
       const finalName = name.trim() || 'Template PSD';
       const template = {

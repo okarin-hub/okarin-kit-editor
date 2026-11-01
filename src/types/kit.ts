@@ -251,6 +251,8 @@ export interface KitTemplate {
   source?: 'builtin' | 'library';
   /** True once the user added, deleted or re-assigned zones (so it is no longer refreshed from code). */
   modified?: boolean;
+  /** Built-in templates: fingerprint of the definition (an edited copy keeps the one it was made from). */
+  rev?: string;
   zones: KitZoneDef[];
   seams?: KitSeamDef[];
 }
