@@ -103,6 +103,8 @@ export function extractInk(
     // where background ends and ink starts, from the picture itself (Otsu on the distance to the background):
     // a gradient or noisy background stays below it, the letters above
     let otsu = 150;
+    // mean distance of the background class and of the ink class at the split
+    let mBg = 0, mInk = 300;
     if (!opts.ink) {
       const hist = new Float64Array(766);
       for (let p = 0; p < w * h; p += 3) hist[Math.min(765, dist(p * 4, bg))]++;
@@ -121,6 +123,13 @@ export function extractInk(
         }
       }
       otsu = Math.max(40, otsu);
+      let nB = 0, sB = 0, nF = 0, sF = 0;
+      for (let i = 0; i < 766; i++) {
+        if (i < otsu) (nB += hist[i]), (sB += i * hist[i]);
+        else (nF += hist[i]), (sF += i * hist[i]);
+      }
+      mBg = nB ? sB / nB : 0;
+      mInk = nF ? sF / nF : otsu * 2;
     }
     for (let p = 0; p < w * h; p++) {
       const i = p * 4;
@@ -144,9 +153,20 @@ export function extractInk(
           d[i + 2] = ink[2];
         }
       } else {
-        // colour distance where a pixel becomes ink; tolerance 50 = the measured split
+        // an edge pixel is a mix of background and ink: its distance between the two class means is its coverage,
+        // so the anti-aliased edge survives (a hard cut-off leaves pixel steps that show as jagged edges when the
+        // letter is enlarged). Below `floor` (faint noise, a gradient background) nothing is kept; tolerance 50 =
+        // the measured split, higher keeps fainter pixels.
         const cut = otsu * (1.5 - t);
-        a = (dBg - cut) / Math.max(20, otsu * 0.3) + 0.5;
+        const floor = mBg + (cut - mBg) * 0.3;
+        const full = mBg + Math.max(20, (mInk - mBg) * 0.85);
+        a = dBg <= floor ? 0 : (dBg - mBg) / Math.max(1, full - mBg);
+        // an edge pixel's colour is part background: take the background out, so no dark (or light) rim of the
+        // old background is left around the letters
+        // (the true share of letter, not the alpha above, which is full a little before the letter colour is)
+        const share = (dBg - mBg) / Math.max(1, mInk - mBg);
+        if (a > 0.05 && share > 0.05 && share < 1)
+          for (let k = 0; k < 3; k++) d[i + k] = Math.max(0, Math.min(255, Math.round((d[i + k] - (1 - share) * bg[k]) / share)));
       }
       alpha[p] = Math.max(0, Math.min(1, a)) * 255;
     }

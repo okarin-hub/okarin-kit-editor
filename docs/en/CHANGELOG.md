@@ -2,6 +2,13 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## 0.3.1 — font sheets: vertical sheets and smoother letters
+
+- **Smoother letters from small font sheets:** the automatic background separation cut the anti-aliased edge into hard pixel steps (the edge kept 66 of about 300 partly covered pixels on a 145 px digit), and enlarged three times the steps showed as jagged edges. An edge pixel now keeps the share of letter it holds (the mix between the measured background and letter colours), so the traced outline follows the real edge, and its colour has the old background taken out (no dark rim). The traced curves also lost two sources of small dents: the two handles at a curve point now keep one direction (they were turned apart on long segments, a small kink at each point), and a small letter that will be enlarged is smoothed a little more, since its picture carries no detail under half a pixel. Near-level / near-upright sides are straightened only when the straight line still lies on the outline.
+- **A hole closed in letters from a picture:** a hole with one sharp corner (the lower hole of an 8 in some fonts) was traced as a flat line and filled in, with a dotted ring left at its edge. Single stray pixels at the edge of a badge no longer leave pinholes in the character either.
+- **Recolouring a font sheet keeps its logos:** *Replace the picture's colour with the fill colour* now changes only the main colour of each character; colours that are clearly different (a club badge on the numbers, a second colour) stay as they are. The anti-aliased edge follows the new colour.
+- **Vertical font sheets:** a font sheet picture with one character per row (a column of digits, read top to bottom) is now read as one row; before, every row was dropped as a lone mark and nothing was found. Dim sheets also read better: the threshold that separates the characters from the background now follows the picture's own contrast (dark grey digits on black are found).
+
 ## 0.3.0 — a tidier editor: patterns and objects in the layer groups
 
 The Layer tab is reorganised: patterns and shape objects live in the shirt, shorts, socks and accessories groups and

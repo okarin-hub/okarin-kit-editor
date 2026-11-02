@@ -2,6 +2,13 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## 0.3.1 — gambar font: sheet vertikal dan huruf lebih mulus
+
+- **Huruf lebih mulus dari gambar font kecil:** pemisahan latar otomatis memotong tepi anti-alias menjadi tangga piksel yang keras (dari sekitar 300 piksel tepi bercampur di angka setinggi 145 px hanya 66 yang tersisa), dan setelah diperbesar tiga kali tangga itu terlihat bergerigi. Piksel tepi kini mempertahankan bagian hurufnya (campuran antara warna latar dan warna huruf yang diukur), sehingga garis tepi hasil trace mengikuti tepi aslinya, dan warnanya dibersihkan dari warna latar lama (tidak ada pinggiran gelap). Lengkung hasil trace juga kehilangan dua sumber takik kecil: dua pegangan di satu titik lengkung kini searah (sebelumnya dibelokkan terpisah pada segmen panjang, membuat patahan kecil di tiap titik), dan huruf kecil yang akan diperbesar dihaluskan sedikit lebih kuat, karena gambarnya tidak membawa detail di bawah setengah piksel. Sisi yang hampir datar / tegak hanya diluruskan bila garis lurusnya tetap menempel di tepi.
+- **Lubang huruf dari gambar tertutup:** lubang dengan satu sudut lancip (lubang bawah angka 8 di sebagian font) ter-trace sebagai garis datar dan ikut terisi, dengan cincin putus-putus di tepinya. Piksel tunggal di tepi badge juga tidak lagi meninggalkan lubang kecil di karakter.
+- **Mewarnai ulang gambar font tetap menjaga logonya:** *Ganti warna gambar dengan warna isi* kini hanya mengganti warna utama tiap karakter; warna yang jelas berbeda (badge klub di nomor, warna kedua) tetap. Tepi anti-alias ikut warna baru.
+- **Gambar font vertikal:** gambar font dengan satu karakter per baris (kolom angka, dibaca dari atas ke bawah) kini dibaca sebagai satu baris; sebelumnya setiap baris dibuang sebagai tanda tunggal dan tidak ada yang ditemukan. Gambar yang redup juga lebih terbaca: ambang pemisah karakter dari latar kini mengikuti kontras gambarnya sendiri (angka abu tua di latar hitam ditemukan).
+
 ## 0.3.0 — editor lebih rapi: pola dan objek di grup layer
 
 Tab Layer disusun ulang: pola dan objek bentuk ada di grup baju, celana, kaus kaki, dan aksesoris dan dipindah

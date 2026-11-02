@@ -136,7 +136,13 @@ function smooth(run: P[], passes: number): P[] {
 function simplify(run: P[], tol: number): P[] {
   if (run.length < 3) return run;
   const a = run[0], b = run[run.length - 1];
-  const len = dist(a, b) || 1;
+  const len = dist(a, b);
+  if (len < 1e-6) {
+    // a closed run (a loop with one corner starts and ends on it) has no chord: split it at its farthest point
+    let far = 1;
+    for (let i = 2; i < run.length - 1; i++) if (dist(run[i], a) > dist(run[far], a)) far = i;
+    return [...simplify(run.slice(0, far + 1), tol).slice(0, -1), ...simplify(run.slice(far), tol)];
+  }
   let worst = 0, idx = 0;
   for (let i = 1; i < run.length - 1; i++) {
     const d = Math.abs((b.x - a.x) * (a.y - run[i].y) - (a.x - run[i].x) * (b.y - a.y)) / len;
@@ -212,24 +218,24 @@ function curveTo(pts: P[], closed: boolean): string {
     const l = Math.hypot(t.x, t.y) || 1;
     return { x: t.x / l, y: t.y / l };
   };
-  // a handle may turn away from its segment only so far that the curve stays within ~0.3 px of the straight
-  // segment (bulge ≈ length × angle / 4): long segments (straight sides) stay straight, short ones curve freely
-  const limit = (t: P, c: P, len: number): P => {
-    const max = Math.min(Math.PI / 2, (4 * 0.3) / len);
-    const ang = Math.atan2(c.x * t.y - c.y * t.x, c.x * t.x + c.y * t.y);
-    if (Math.abs(ang) <= max) return t;
-    const a = Math.sign(ang) * max;
-    return { x: c.x * Math.cos(a) - c.y * Math.sin(a), y: c.x * Math.sin(a) + c.y * Math.cos(a) };
+  // A handle that turns away from its segment is shortened (not turned) so the curve stays within ~0.3 px of the
+  // straight segment: long segments (straight sides) stay straight, and both handles at a point keep the same
+  // direction, so a gentle curve has no kink at its points (turning them showed as small steps when enlarged).
+  const handle = (t: P, c: P, len: number) => {
+    const cos = c.x * t.x + c.y * t.y;
+    if (cos <= 0) return 0;
+    const sin = Math.abs(c.x * t.y - c.y * t.x);
+    return Math.min(len / 3, sin > 1e-6 ? 0.4 / sin : len / 3);
   };
   let d = '';
   const last = closed ? n : n - 1;
   for (let i = 0; i < last; i++) {
     const p1 = at(i), p2 = at(i + 1);
     const len = dist(p1, p2);
-    const h = len / 3;
     const c = unit(p1, p2);
-    const t1 = limit(tangent(i), c, len), t2 = limit(tangent((i + 1) % (closed ? n : Infinity)), c, len);
-    d += `C${fmt(p1.x + t1.x * h)} ${fmt(p1.y + t1.y * h)} ${fmt(p2.x - t2.x * h)} ${fmt(p2.y - t2.y * h)} ${fmt(p2.x)} ${fmt(p2.y)}`;
+    const t1 = tangent(i), t2 = tangent((i + 1) % (closed ? n : Infinity));
+    const h1 = handle(t1, c, len), h2 = handle(t2, c, len);
+    d += `C${fmt(p1.x + t1.x * h1)} ${fmt(p1.y + t1.y * h1)} ${fmt(p2.x - t2.x * h2)} ${fmt(p2.y - t2.y * h2)} ${fmt(p2.x)} ${fmt(p2.y)}`;
   }
   return d;
 }
@@ -242,14 +248,21 @@ const SNAP = (3 * Math.PI) / 180; // lines within 3° of level / upright are mad
  */
 export function traceCoverage(alpha: Float32Array, w: number, h: number, reach = Math.max(1.5, Math.min(4, h * 0.03))): string {
   let d = '';
+  // a small letter (it will be enlarged) carries no detail under ~0.5 px: its curves are smoothed more, so the
+  // picture's own sub-pixel wobble does not show as dents when it is drawn 3× larger
+  const passes = h < 200 ? 6 : 2;
+  const tol = h < 200 ? 0.45 : 0.3;
   for (const loop of contours(alpha, w, h)) {
+    // a loop under 2 px (one stray pixel at the edge of a badge or of noise) would only leave a speck or a pinhole
+    const xs = loop.map((p) => p.x), ys = loop.map((p) => p.y);
+    if (Math.max(...xs) - Math.min(...xs) < 2 && Math.max(...ys) - Math.min(...ys) < 2) continue;
     const cs = corners(loop, reach);
     if (cs.length === 0) {
       // no corner (O, 0): one smooth closed curve; simplified as two halves (a closed run has no chord)
-      const sm = smooth([...loop, loop[0]], 2);
+      const sm = smooth([...loop, loop[0]], passes);
       let far = 0;
       sm.forEach((p, i) => dist(p, sm[0]) > dist(sm[far], sm[0]) && (far = i));
-      const pts = [...simplify(sm.slice(0, far + 1), 0.3).slice(0, -1), ...simplify(sm.slice(far), 0.3).slice(0, -1)];
+      const pts = [...simplify(sm.slice(0, far + 1), tol).slice(0, -1), ...simplify(sm.slice(far), tol).slice(0, -1)];
       if (pts.length < 3) continue;
       d += `M${fmt(pts[0].x)} ${fmt(pts[0].y)}` + curveTo(pts, true) + 'Z';
       continue;
@@ -274,13 +287,16 @@ export function traceCoverage(alpha: Float32Array, w: number, h: number, reach =
     });
     // the lines as measured, before straightening: the real corners (for telling a rounded corner from a sharp one)
     const measured = lines.map((l) => l && { c: { ...l.c }, dir: { ...l.dir } });
-    // near-level / near-upright lines become exactly so
-    lines.forEach((l) => {
+    // near-level / near-upright lines become exactly so, but only while the straightened line still lies on the
+    // outline: on a long side of a small, enlarged letter even 2° moves the ends a few px and leaves a step
+    lines.forEach((l, k) => {
       if (!l) return;
       const ang = Math.atan2(l.dir.y, l.dir.x);
       const off = (t: number) => Math.abs(Math.atan2(Math.sin(ang - t), Math.cos(ang - t)));
-      if (Math.min(off(0), off(Math.PI)) < SNAP) l.dir = { x: 1, y: 0 };
-      else if (Math.min(off(Math.PI / 2), off(-Math.PI / 2)) < SNAP) l.dir = { x: 0, y: 1 };
+      const dir = Math.min(off(0), off(Math.PI)) < SNAP ? { x: 1, y: 0 } : Math.min(off(Math.PI / 2), off(-Math.PI / 2)) < SNAP ? { x: 0, y: 1 } : null;
+      if (!dir) return;
+      const fits = trim(runs[k], reach).every((p) => Math.abs((p.x - l.c.x) * dir.y - (p.y - l.c.y) * dir.x) <= 0.5);
+      if (fits) l.dir = dir;
     });
     // a rounder corner can be read as two corners with a short line between: that line goes, the corners merge
     for (let k = 0; runs.length > 3 && k < runs.length; ) {
@@ -343,7 +359,7 @@ export function traceCoverage(alpha: Float32Array, w: number, h: number, reach =
       const end = entry(k2);
       if (lines[k]) d += `L${fmt(end.x)} ${fmt(end.y)}`;
       else {
-        const inner = simplify(smooth(run, 2), 0.3);
+        const inner = simplify(smooth(run, passes), tol);
         inner[0] = exit(k);
         inner[inner.length - 1] = end;
         d += curveTo(inner, false);

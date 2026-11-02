@@ -173,14 +173,19 @@ export function analyzeFontSheet(image: HTMLImageElement | HTMLCanvasElement): S
   for (let y = 0; y < h; y += 4) border.push([0, y], [w - 1, y]);
   const bg = [0, 1, 2].map((k) => median(border.map(([x, y]) => d[(y * w + x) * 4 + k])));
   const N = w * h;
+  const distOf = (i: number) => Math.abs(d[i] - bg[0]) + Math.abs(d[i + 1] - bg[1]) + Math.abs(d[i + 2] - bg[2]);
+  // low-contrast sheets (dark grey on black): the ink's own distance from the background sets the threshold
+  const inkDists: number[] = [];
+  if (!hasAlpha) for (let i = 0; i < d.length; i += 4 * 7) if (distOf(i) > 12) inkDists.push(distOf(i));
+  inkDists.sort((a, b) => a - b);
+  const ink = inkDists.length ? inkDists[Math.floor(inkDists.length * 0.9)] : 120;
+  const lo = Math.min(40, ink * 0.33);
+  const span = Math.min(80, ink * 0.67);
   const alpha = new Uint8ClampedArray(N);
   for (let p = 0; p < N; p++) {
     const i = p * 4;
     if (hasAlpha) alpha[p] = d[i + 3];
-    else {
-      const dist = Math.abs(d[i] - bg[0]) + Math.abs(d[i + 1] - bg[1]) + Math.abs(d[i + 2] - bg[2]);
-      alpha[p] = Math.max(0, Math.min(255, ((dist - 40) / 80) * 255));
-    }
+    else alpha[p] = Math.max(0, Math.min(255, ((distOf(i) - lo) / span) * 255));
     d[i + 3] = alpha[p];
   }
 
@@ -355,8 +360,27 @@ export function analyzeFontSheet(image: HTMLImageElement | HTMLCanvasElement): S
     });
     return { glyphs };
   });
-  // a lone shape (a logo, a stray mark) is not a row of characters
-  return read.filter((r) => r.glyphs.length >= 2);
+  // A vertical sheet has one character per row: 3 or more such rows in a row are one column, read top to bottom.
+  // A lone shape (a logo, a stray mark) is not a row of characters.
+  const out: SheetRow[] = [];
+  for (let i = 0; i < read.length; ) {
+    let j = i;
+    while (j < read.length && read[j].glyphs.length === 1) j++;
+    if (j - i >= 3) out.push(columnRow(read.slice(i, j).flatMap((r) => r.glyphs)));
+    else if (j === i) out.push(read[j++]);
+    i = j;
+  }
+  return out;
+}
+
+/**
+ * The characters of a vertical column as one row. Each was measured on its own, so the column's common capital
+ * height replaces theirs: a taller one (Q, J with a tail) keeps its top on the capital line, a small one (the dot)
+ * keeps its bottom on the baseline instead of being scaled up to a capital.
+ */
+function columnRow(glyphs: SheetGlyph[]): SheetRow {
+  const capH = median(glyphs.map((g) => g.capH));
+  return { glyphs: glyphs.map((g) => ({ ...g, capH, base: g.capH > capH * 1.15 ? 1 + capH : g.base })) };
 }
 
 /** Average colour of the solid pixels of a sheet, as #RRGGBB (the fill for characters taken from the fallback font). */
@@ -440,7 +464,34 @@ function vectorUpscale(sg: SheetGlyph, k: number): SheetGlyph {
   return out;
 }
 
-/** Glyphs from a font sheet: `recolor` paints them in the fill colour, else they keep the sheet's colours. */
+/**
+ * Recolours a sheet letter: its main colour (the median of its solid pixels) becomes `fill`, smoothly, so the
+ * anti-aliased edge follows; colours clearly different from it (a club badge on the number, a second colour) stay.
+ */
+function recolourMain(src: HTMLCanvasElement, fill: string): HTMLCanvasElement {
+  const t = document.createElement('canvas');
+  t.width = src.width;
+  t.height = src.height;
+  const tc = t.getContext('2d', { willReadFrequently: true })!;
+  tc.drawImage(src, 0, 0);
+  const img = tc.getImageData(0, 0, t.width, t.height);
+  const d = img.data;
+  const solid: number[][] = [[], [], []];
+  for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 200) for (let k = 0; k < 3; k++) solid[k].push(d[i + k]);
+  if (!solid[0].length) return t;
+  const main = solid.map(median);
+  const to = [1, 3, 5].map((k) => parseInt(fill.slice(k, k + 2), 16) || 0);
+  for (let i = 0; i < d.length; i += 4) {
+    if (!d[i + 3]) continue;
+    const dist = Math.abs(d[i] - main[0]) + Math.abs(d[i + 1] - main[1]) + Math.abs(d[i + 2] - main[2]);
+    const keep = Math.max(0, Math.min(1, (dist - 60) / 60)); // 0 = main colour, 1 = a colour of its own
+    for (let k = 0; k < 3; k++) d[i + k] = Math.round(to[k] * (1 - keep) + d[i + k] * keep);
+  }
+  tc.putImageData(img, 0, 0);
+  return t;
+}
+
+/** Glyphs from a font sheet: `recolor` paints their main colour in the fill colour, else they keep the sheet's colours. */
 export function sheetGlyphSource(map: Map<string, SheetGlyph>, style: FontsetStyle, recolor: boolean): GlyphSource {
   const tint = (src: HTMLCanvasElement, color: string) => {
     const t = document.createElement('canvas');
@@ -475,7 +526,7 @@ export function sheetGlyphSource(map: Map<string, SheetGlyph>, style: FontsetSty
         }
       }
     }
-    ctx.drawImage(recolor ? tint(sg.canvas, style.fill) : sg.canvas, m, m);
+    ctx.drawImage(recolor ? recolourMain(sg.canvas, style.fill) : sg.canvas, m, m);
     return {
       canvas: c,
       x0: Math.floor(m - oSrc),

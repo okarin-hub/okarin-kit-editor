@@ -153,7 +153,8 @@ garis dasar (merah). *Simpan ke folder kit…* menulis file `<awalan>_back`, `_c
 
 *Import gambar font…* memakai gambar huruf dan/atau angka sebagai pengganti font (PNG, JPG…). Jendela import
 menampilkan gambarnya dulu: tarik kotak di bagian yang dipakai, centang *Lihat hasil pemisahan* untuk mengecek
-potongannya, dan pada latar yang ramai pilih warna latar dan warna huruf. Setiap karakter dikenali dan barisnya
+potongannya, dan pada latar yang ramai pilih warna latar dan warna huruf. Gambar boleh mendatar (baris) atau menurun (satu karakter per
+baris, dibaca dari atas ke bawah sebagai satu baris). Setiap karakter dikenali dan barisnya
 dicocokkan dengan urutan alfabet; baris menampilkan setiap potongan dengan hasil bacaannya (kuning = kurang yakin atau
 dilewati). Koreksi lewat teks baris: satu karakter per potongan, `_` untuk melewati. Karakter yang tidak ada di gambar
 (titik, huruf beraksen) diambil dari font yang dipilih di bawahnya. *Logo di nomor* menaruh badge di setiap angka.
