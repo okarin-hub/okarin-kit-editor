@@ -2,6 +2,23 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## 0.3.2 (eksperimental) — lengan dari foto jersey, ukuran huruf dan posisi outline di generator fontset
+
+Pre-release eksperimental: bagian baru sudah berjalan tetapi masih perlu disempurnakan. Tetap pakai 0.3.1 untuk versi stabil.
+
+- **Lengan dan bahu dari foto jersey:** *Pola dari foto jersey* kini juga mengambil pola lengan dan bahu (sebelumnya
+  hanya diberi warna utama). Tiap foto mendapat dua kotak lengan kuning di samping kotak badan, ditebak dari garis luar
+  baju; pilih *Lengan kiri gambar* / *Lengan kanan gambar* di atas foto untuk menggambar ulang salah satunya. Lengan yang
+  miring diluruskan (tiap baris diregangkan dari tepi luar ke tepi dalam baju), foto depan mengisi setengah depan tiap
+  lengan dan foto belakang setengah belakangnya (tanpa foto belakang, foto depan dipakai untuk keduanya), dan strip
+  bahu sampai leher meneruskan bagian atas lengan. Lengan dibaca dengan warna pola badan. *Lengan dan bahu dari foto*
+  mematikannya.
+- **Ukuran huruf dan posisi outline di generator fontset:** *Ukuran %* (50–150) membesarkan atau mengecilkan nomor atau
+  huruf nama di garis dasar, untuk font yang hasilnya kecil di slotnya. *Posisi outline* menaruh outline di luar huruf
+  (seperti sebelumnya), di tengah tepinya, atau di dalamnya (inline). Huruf yang melewati kotak slotnya ditandai kotak
+  kuning dan didaftar di bawah pratinjau, dan *Simpan ke folder kit…* bertanya dulu sebelum menyimpannya (di game huruf
+  itu akan dipadatkan atau terpotong).
+
 ## 0.3.1 — gambar font: sheet vertikal dan huruf lebih mulus
 
 - **Huruf lebih mulus dari gambar font kecil:** pemisahan latar otomatis memotong tepi anti-alias menjadi tangga piksel yang keras (dari sekitar 300 piksel tepi bercampur di angka setinggi 145 px hanya 66 yang tersisa), dan setelah diperbesar tiga kali tangga itu terlihat bergerigi. Piksel tepi kini mempertahankan bagian hurufnya (campuran antara warna latar dan warna huruf yang diukur), sehingga garis tepi hasil trace mengikuti tepi aslinya, dan warnanya dibersihkan dari warna latar lama (tidak ada pinggiran gelap). Lengkung hasil trace juga kehilangan dua sumber takik kecil: dua pegangan di satu titik lengkung kini searah (sebelumnya dibelokkan terpisah pada segmen panjang, membuat patahan kecil di tiap titik), dan huruf kecil yang akan diperbesar dihaluskan sedikit lebih kuat, karena gambarnya tidak membawa detail di bawah setengah piksel. Sisi yang hampir datar / tegak hanya diluruskan bila garis lurusnya tetap menempel di tepi.

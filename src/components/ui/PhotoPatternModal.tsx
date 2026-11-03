@@ -2,13 +2,18 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { X, Shirt, ImagePlus, Trash2 } from 'lucide-react';
-import { PhotoRect, PatternResult, guessTorso, extractPattern, buildKitTexture } from '@/utils/photoPattern';
+import { PhotoRect, PatternResult, guessAreas, extractPattern, buildKitTexture, extractSleeves } from '@/utils/photoPattern';
 
 interface Shot {
   image: HTMLImageElement;
   name: string;
   rect: PhotoRect;
+  /** sleeve boxes, by their side in the photo */
+  left: PhotoRect;
+  right: PhotoRect;
 }
+
+type Area = 'rect' | 'left' | 'right';
 
 interface PhotoPatternModalProps {
   isOpen: boolean;
@@ -19,8 +24,8 @@ interface PhotoPatternModalProps {
 
 const VIEW = 300;
 
-/** One photo with the body area drawn as a box that can be redrawn by dragging. */
-const ShotView: React.FC<{ shot: Shot; onRect: (r: PhotoRect) => void }> = ({ shot, onRect }) => {
+/** One photo with the body (and sleeve) boxes; dragging redraws the box being edited. */
+const ShotView: React.FC<{ shot: Shot; area: Area; sleeves: boolean; onRect: (r: PhotoRect) => void }> = ({ shot, area, sleeves, onRect }) => {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const drag = useRef<{ x: number; y: number } | null>(null);
   const scale = Math.min(VIEW / shot.image.width, (VIEW * 1.25) / shot.image.height);
@@ -39,7 +44,14 @@ const ShotView: React.FC<{ shot: Shot; onRect: (r: PhotoRect) => void }> = ({ sh
       y: Math.max(0, Math.min(shot.image.height, (e.clientY - r.top) / scale)),
     };
   };
-  const r = shot.rect;
+  const box = (r: PhotoRect, active: boolean, colour: string, key: string) => (
+    <div
+      key={key}
+      className={`absolute border-2 pointer-events-none ${colour} ${active ? '' : 'border-dashed opacity-60'}`}
+      style={{ left: r.x * scale, top: r.y * scale, width: r.w * scale, height: r.h * scale }}
+    />
+  );
+  const dim = shot[area];
   return (
     <div
       className="relative cursor-crosshair mx-auto"
@@ -57,9 +69,12 @@ const ShotView: React.FC<{ shot: Shot; onRect: (r: PhotoRect) => void }> = ({ sh
     >
       <canvas ref={ref} className="block rounded" style={{ width: vw, height: vh }} />
       <div
-        className="absolute border-2 border-sky-400 pointer-events-none"
-        style={{ left: r.x * scale, top: r.y * scale, width: r.w * scale, height: r.h * scale, boxShadow: '0 0 0 9999px rgba(2,6,23,0.5)' }}
+        className="absolute pointer-events-none"
+        style={{ left: dim.x * scale, top: dim.y * scale, width: dim.w * scale, height: dim.h * scale, boxShadow: '0 0 0 9999px rgba(2,6,23,0.45)' }}
       />
+      {box(shot.rect, area === 'rect', 'border-sky-400', 'rect')}
+      {sleeves && box(shot.left, area === 'left', 'border-amber-400', 'left')}
+      {sleeves && box(shot.right, area === 'right', 'border-amber-400', 'right')}
     </div>
   );
 };
@@ -69,6 +84,8 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
   const [front, setFront] = useState<Shot | null>(null);
   const [back, setBack] = useState<Shot | null>(null);
   const [minShare, setMinShare] = useState(8);
+  const [withSleeves, setWithSleeves] = useState(true);
+  const [area, setArea] = useState<Area>('rect');
   const [result, setResult] = useState<{ front: PatternResult; texture: HTMLCanvasElement } | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const previewRef = useRef<HTMLCanvasElement | null>(null);
@@ -81,10 +98,13 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
     const t = setTimeout(() => {
       const f = extractPattern(front.image, front.rect, minShare / 100);
       const b = back ? extractPattern(back.image, back.rect, minShare / 100, f) : null;
-      setResult({ front: f, texture: buildKitTexture(f, b) });
+      // sleeves are read with the front's pattern colours, then straightened into upright bands
+      const sleevesOf = (shot: Shot) => extractSleeves(shot.image, shot.left, shot.right, f);
+      const sleeves = withSleeves ? { front: sleevesOf(front), back: back ? sleevesOf(back) : null } : null;
+      setResult({ front: f, texture: buildKitTexture(f, b, sleeves) });
     }, 200);
     return () => clearTimeout(t);
-  }, [isOpen, front, back, minShare]);
+  }, [isOpen, front, back, minShare, withSleeves]);
 
   // preview: the shirt pieces of the texture (front, back and sleeves)
   useEffect(() => {
@@ -107,7 +127,8 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
       const image = new Image();
       image.src = url;
       await image.decode();
-      set({ image, name: file.name, rect: guessTorso(image) });
+      const g = guessAreas(image);
+      set({ image, name: file.name, rect: g.body, left: g.left, right: g.right });
       setStatus(null);
     } catch {
       setStatus('Gambar gagal dibaca.');
@@ -134,8 +155,12 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
       </div>
       {shot ? (
         <>
-          <ShotView shot={shot} onRect={(rect) => set({ ...shot, rect })} />
-          <p className="text-[10px] text-slate-500 text-center">Tarik kotak di badan baju (tanpa lengan dan kerah).</p>
+          <ShotView shot={shot} area={withSleeves ? area : 'rect'} sleeves={withSleeves} onRect={(r) => set({ ...shot, [withSleeves ? area : 'rect']: r })} />
+          <p className="text-[10px] text-slate-500 text-center">
+            {area === 'rect' || !withSleeves
+              ? 'Tarik kotak di badan baju (tanpa lengan dan kerah).'
+              : 'Tarik kotak di lengan: dari bahu sampai ujung lengan.'}
+          </p>
         </>
       ) : (
         <button
@@ -184,6 +209,28 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto grid grid-cols-1 lg:grid-cols-[1fr_1fr_1.3fr] gap-5 p-5">
+          {(front || back) && withSleeves && (
+            <div className="lg:col-span-2 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400 -mb-2">
+              <span>Kotak yang ditarik:</span>
+              {(
+                [
+                  ['rect', 'Badan'],
+                  ['left', 'Lengan kiri gambar'],
+                  ['right', 'Lengan kanan gambar'],
+                ] as [Area, string][]
+              ).map(([k, label]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setArea(k)}
+                  className={`px-2 py-1 rounded border ${area === k ? 'border-sky-500 bg-sky-500/15 text-sky-200' : 'border-slate-700 hover:bg-slate-800'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          {(front || back) && withSleeves && <div className="hidden lg:block" />}
           {slot('Depan', front, setFront, frontInput, false)}
           {slot('Belakang', back, setBack, backInput, true)}
           <section className="space-y-2 min-w-0">
@@ -205,6 +252,10 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
                 ))}
               </div>
             )}
+            <label className="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer">
+              <input type="checkbox" checked={withSleeves} onChange={(e) => setWithSleeves(e.target.checked)} className="accent-sky-500" />
+              Lengan dan bahu dari foto (kotak kuning)
+            </label>
             <label className="flex items-center justify-between gap-2 text-[11px] text-slate-400">
               <span>{`Batas warna pola ${minShare}%`}</span>
               <input type="range" min={3} max={25} value={minShare} onChange={(e) => setMinShare(Number(e.target.value))} className="w-28 accent-sky-500" />

@@ -32,16 +32,31 @@ function draw(img: CanvasImageSource & { width: number; height: number }, rect: 
  * The body of the shirt in a mockup photo: the shirt is everything that differs from the plain background
  * (read at the border); the body leaves out the sleeves and the side folds (the outer 22 % on each side) and the collar.
  */
-export function guessTorso(img: CanvasImageSource & { width: number; height: number }): PhotoRect {
-  const full = { x: 0, y: 0, w: img.width, h: img.height };
-  const { c, d, k } = draw(img, full, 400);
-  const w = c.width, h = c.height;
+type Photo = CanvasImageSource & { width: number; height: number };
+
+/** The plain background of a mockup photo (median colour along its border) and a test for shirt pixels. */
+function inkTest(d: Uint8ClampedArray, w: number, h: number) {
   const border: number[] = [];
   for (let x = 0; x < w; x += 2) border.push(x, (h - 1) * w + x);
   for (let y = 0; y < h; y += 2) border.push(y * w, y * w + w - 1);
   const bg = [0, 1, 2].map((ch) => median(border.map((p) => d[p * 4 + ch])));
-  const ink = (p: number) =>
+  return (p: number) =>
     Math.abs(d[p * 4] - bg[0]) + Math.abs(d[p * 4 + 1] - bg[1]) + Math.abs(d[p * 4 + 2] - bg[2]) > 60 && d[p * 4 + 3] > 128;
+}
+
+export function guessTorso(img: Photo): PhotoRect {
+  return guessAreas(img).body;
+}
+
+/**
+ * The body and the two sleeves of a shirt in a mockup photo, as boxes. Sleeves are the outer 22 % on each side,
+ * from the shoulder down to the lowest shirt pixel near the outer edge (the cuff).
+ */
+export function guessAreas(img: Photo): { body: PhotoRect; left: PhotoRect; right: PhotoRect } {
+  const full = { x: 0, y: 0, w: img.width, h: img.height };
+  const { c, d, k } = draw(img, full, 400);
+  const w = c.width, h = c.height;
+  const ink = inkTest(d, w, h);
   const cols = Array.from({ length: w }, (_, x) => {
     let n = 0;
     for (let y = 0; y < h; y++) if (ink(y * w + x)) n++;
@@ -54,11 +69,185 @@ export function guessTorso(img: CanvasImageSource & { width: number; height: num
   });
   const x0 = cols.findIndex((n) => n > h * 0.05), x1 = w - 1 - [...cols].reverse().findIndex((n) => n > h * 0.05);
   const y0 = rows.findIndex((n) => n > w * 0.05), y1 = h - 1 - [...rows].reverse().findIndex((n) => n > w * 0.05);
-  if (x0 < 0 || y0 < 0 || x1 <= x0 || y1 <= y0) return full;
+  if (x0 < 0 || y0 < 0 || x1 <= x0 || y1 <= y0) return { body: full, left: full, right: full };
   const bw = x1 - x0, bh = y1 - y0;
-  // narrower than the body: the folds and shading at the sides (under the arms) stay out
-  const r = { x: x0 + bw * 0.22, y: y0 + bh * 0.17, w: bw * 0.56, h: bh * 0.81 };
-  return { x: r.x / k, y: r.y / k, w: r.w / k, h: r.h / k };
+  const back = (r: PhotoRect) => ({ x: r.x / k, y: r.y / k, w: r.w / k, h: r.h / k });
+  // the cuff: the lowest shirt pixel in a column near the outer edge
+  const cuff = (x: number) => {
+    const col = Math.round(x);
+    for (let y = y1; y > y0; y--) if (ink(y * w + col)) return y;
+    return y0 + bh * 0.45;
+  };
+  const top = y0 + bh * 0.08;
+  const sw = bw * 0.22;
+  return {
+    // narrower than the body: the folds and shading at the sides (under the arms) stay out
+    body: back({ x: x0 + bw * 0.22, y: y0 + bh * 0.17, w: bw * 0.56, h: bh * 0.81 }),
+    left: back({ x: x0, y: top, w: sw, h: Math.max(bh * 0.15, cuff(x0 + bw * 0.04) - top) }),
+    right: back({ x: x1 - sw, y: top, w: sw, h: Math.max(bh * 0.15, cuff(x1 - bw * 0.04) - top) }),
+  };
+}
+
+/**
+ * Both sleeves of a photo as straightened bands, read with the front's pattern colours. They are flattened in one
+ * pass over the shirt from sleeve to sleeve: the lighting is then measured over the same large area as the body
+ * (a small sleeve box alone would take the stripes themselves for shading).
+ */
+export function extractSleeves(img: Photo, left: PhotoRect, right: PhotoRect, palette: PatternResult): PhotoSleeves {
+  const x0 = Math.min(left.x, right.x), y0 = Math.min(left.y, right.y);
+  const area = { x: x0, y: y0, w: Math.max(left.x + left.w, right.x + right.w) - x0, h: Math.max(left.y + left.h, right.y + right.h) - y0 };
+  const flat = flattenWithPalette(img, area, palette);
+  const k = flat.width / area.w;
+  const band = (r: PhotoRect) => {
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(r.w * k));
+    c.height = Math.max(1, Math.round(r.h * k));
+    c.getContext('2d')!.drawImage(flat, (r.x - x0) * k, (r.y - y0) * k, r.w * k, r.h * k, 0, 0, c.width, c.height);
+    return straightenSleeve(img, r, c);
+  };
+  return { left: band(left), right: band(right) };
+}
+
+/**
+ * `rect` of a photo in the known pattern colours: every shirt pixel takes the nearest colour (lighting taken out
+ * as in extractPattern), the background and logos (far from every colour) take the colour of the nearest pattern
+ * pixel, and a majority filter cleans the speckles. Simpler than extractPattern, which expects a clean body area.
+ */
+function flattenWithPalette(img: Photo, rect: PhotoRect, palette: PatternResult): HTMLCanvasElement {
+  const { c, ctx, d } = draw(img, rect, 512);
+  const w = c.width, h = c.height, N = w * h;
+  const full = draw(img, { x: 0, y: 0, w: img.width, h: img.height }, 400);
+  const fullInk = inkTest(full.d, full.c.width, full.c.height);
+  const feats = new Float32Array(N * 3);
+  for (let p = 0; p < N; p++) feats.set(lab(d[p * 4], d[p * 4 + 1], d[p * 4 + 2]), p * 3);
+  const shirt = new Uint8Array(N);
+  for (let y = 0; y < h; y++) {
+    const py = Math.min(full.c.height - 1, Math.round((rect.y + ((y + 0.5) / h) * rect.h) * full.k));
+    for (let x = 0; x < w; x++) {
+      const px = Math.min(full.c.width - 1, Math.round((rect.x + ((x + 0.5) / w) * rect.w) * full.k));
+      shirt[y * w + x] = fullInk(py * full.c.width + px) ? 1 : 0;
+    }
+  }
+  if (palette.lightWeight > 0) {
+    // lighting: lightness against its local mean over the shirt (background and logos count as the typical value)
+    const ls: number[] = [];
+    for (let p = 0; p < N; p += 5) if (shirt[p]) ls.push(feats[p * 3]);
+    const lmed = median(ls);
+    const v = new Float32Array(N);
+    for (let p = 0; p < N; p++) v[p] = shirt[p] && Math.abs(feats[p * 3] - lmed) <= 25 ? feats[p * 3] : lmed;
+    const lc = document.createElement('canvas');
+    lc.width = w;
+    lc.height = h;
+    const lctx = lc.getContext('2d', { willReadFrequently: true })!;
+    const limg = lctx.createImageData(w, h);
+    for (let p = 0; p < N; p++) {
+      limg.data[p * 4] = Math.round(v[p] * 2.55);
+      limg.data[p * 4 + 3] = 255;
+    }
+    lctx.putImageData(limg, 0, 0);
+    const bc = document.createElement('canvas');
+    bc.width = w;
+    bc.height = h;
+    const bctx = bc.getContext('2d', { willReadFrequently: true })!;
+    bctx.fillStyle = `rgb(${Math.round(lmed * 2.55)},0,0)`;
+    bctx.fillRect(0, 0, w, h);
+    bctx.filter = `blur(${Math.max(w, h) * 0.08}px)`;
+    bctx.drawImage(lc, 0, 0);
+    const local = bctx.getImageData(0, 0, w, h).data;
+    for (let p = 0; p < N; p++) feats[p * 3] = feats[p * 3] - local[p * 4] / 2.55 + lmed;
+  }
+  const lw = palette.lightWeight;
+  let out = new Int16Array(N).fill(-1);
+  for (let p = 0; p < N; p++) {
+    if (!shirt[p]) continue;
+    const f = [feats[p * 3] * lw, feats[p * 3 + 1], feats[p * 3 + 2]];
+    let k = -1, best = 28;
+    palette.centres.forEach((cc, i) => {
+      const dd = fdist(f, cc);
+      if (dd < best) {
+        best = dd;
+        k = i;
+      }
+    });
+    out[p] = k;
+  }
+  // background and logos: the nearest pattern pixel
+  const queue = new Int32Array(N);
+  let head = 0, tail = 0;
+  for (let p = 0; p < N; p++) if (out[p] >= 0) queue[tail++] = p;
+  if (!tail) out.fill(0);
+  while (head < tail) {
+    const p = queue[head++];
+    const x = p % w;
+    for (const q of [p - w, p + w, x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1]) {
+      if (q >= 0 && q < N && out[q] < 0) {
+        out[q] = out[p];
+        queue[tail++] = q;
+      }
+    }
+  }
+  // majority filter (5×5, twice)
+  const votes = new Array(palette.centres.length).fill(0);
+  for (let pass = 0; pass < 2; pass++) {
+    const next = new Int16Array(N);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        votes.fill(0);
+        for (let yy = Math.max(0, y - 2); yy <= Math.min(h - 1, y + 2); yy++)
+          for (let xx = Math.max(0, x - 2); xx <= Math.min(w - 1, x + 2); xx++) votes[out[yy * w + xx]]++;
+        next[y * w + x] = votes.indexOf(Math.max(...votes));
+      }
+    }
+    out = next;
+  }
+  dropSpecks(out, w, h, Math.max(20, Math.round(N * 0.001)));
+  const rgb = palette.palette.map((hx) => [1, 3, 5].map((o) => parseInt(hx.slice(o, o + 2), 16)));
+  const im = ctx.createImageData(w, h);
+  for (let p = 0; p < N; p++) {
+    const [r, g, b] = rgb[out[p]];
+    im.data[p * 4] = r;
+    im.data[p * 4 + 1] = g;
+    im.data[p * 4 + 2] = b;
+    im.data[p * 4 + 3] = 255;
+  }
+  ctx.putImageData(im, 0, 0);
+  return c;
+}
+
+/**
+ * A flattened sleeve (`flat`, the pattern of `rect`) straightened: every row is stretched from the outer to the
+ * inner edge of the shirt in that row, so a slanted sleeve becomes an upright band (shoulder at the top, cuff at
+ * the bottom). Rows with hardly any shirt (below the cuff) repeat the nearest good row.
+ */
+export function straightenSleeve(img: Photo, rect: PhotoRect, flat: HTMLCanvasElement): HTMLCanvasElement {
+  const full = draw(img, { x: 0, y: 0, w: img.width, h: img.height }, 400);
+  const fullInk = inkTest(full.d, full.c.width, full.c.height);
+  const w = flat.width, h = flat.height;
+  const span: ([number, number] | null)[] = [];
+  for (let y = 0; y < h; y++) {
+    const py = Math.min(full.c.height - 1, Math.round((rect.y + ((y + 0.5) / h) * rect.h) * full.k));
+    let l = -1, r = -1;
+    for (let x = 0; x < w; x++) {
+      const px = Math.min(full.c.width - 1, Math.round((rect.x + ((x + 0.5) / w) * rect.w) * full.k));
+      if (fullInk(py * full.c.width + px)) {
+        if (l < 0) l = x;
+        r = x + 1;
+      }
+    }
+    span.push(r - l > w * 0.2 ? [l, r] : null);
+  }
+  const out = document.createElement('canvas');
+  out.width = w;
+  out.height = h;
+  const ctx = out.getContext('2d')!;
+  ctx.imageSmoothingEnabled = false;
+  for (let y = 0; y < h; y++) {
+    let s = span[y];
+    for (let t = 1; !s && t < h; t++) s = span[y - t] ?? span[y + t] ?? null;
+    const [l, r] = s ?? [0, w];
+    ctx.drawImage(flat, l, y, r - l, 1, 0, y, w, 1);
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------- colour
@@ -497,7 +686,43 @@ const BACK_BODY = { x: 380, y: 0, w: 264, h: 452 };
  * The 1024×1024 kit texture: shirt front, back and sleeves in the main pattern colour, the front and back bodies
  * filled with the flattened pattern; everything else stays transparent (shorts and socks are left alone).
  */
-export function buildKitTexture(front: PatternResult, back: PatternResult | null): HTMLCanvasElement {
+/** Straightened sleeves of one photo, by their side in that photo (see straightenSleeve). */
+export interface PhotoSleeves {
+  left: HTMLCanvasElement;
+  right: HTMLCanvasElement;
+}
+
+/**
+ * Sleeve pieces in the 1024 texture (measured on pes_kit.glb): the arm runs along x, shoulder at x 386 (right
+ * piece 638) and the cuff 147 px further out; y 471 is the top of the arm, the front half runs down to the underarm
+ * at 611, the back half up to 341. The shoulder strip up to the neck (x 512) continues the top of the sleeve.
+ */
+function drawSleeveHalf(
+  ctx: CanvasRenderingContext2D,
+  band: HTMLCanvasElement,
+  piece: 'leftSleeve' | 'rightSleeve',
+  half: 'front' | 'back',
+  /** the top of the arm is the band's left edge (else its right edge) */
+  outerLeft: boolean
+) {
+  const W = band.width, H = band.height;
+  const x0 = piece === 'leftSleeve' ? 386 : 638;
+  const dx = piece === 'leftSleeve' ? -147 : 147;
+  const len = half === 'front' ? 140 : -130;
+  // band (cx, cy) -> texture: cy runs shoulder -> cuff along x, cx runs top of arm -> underarm along y
+  ctx.setTransform(0, (outerLeft ? len : -len) / W, dx / H, 0, x0, 471 + (outerLeft ? 0 : len));
+  ctx.drawImage(band, 0, 0);
+  // shoulder strip up to the neck: the top row of the band, stretched
+  const k = 126 / 147;
+  ctx.drawImage(band, 0, 0, W, 1, 0, -H * k, W, H * k);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+export function buildKitTexture(
+  front: PatternResult,
+  back: PatternResult | null,
+  sleeves?: { front: PhotoSleeves; back: PhotoSleeves | null } | null
+): HTMLCanvasElement {
   const c = document.createElement('canvas');
   c.width = c.height = 1024;
   const ctx = c.getContext('2d')!;
@@ -523,5 +748,23 @@ export function buildKitTexture(front: PatternResult, back: PatternResult | null
   ctx.rotate(Math.PI);
   ctx.drawImage((back ?? front).canvas, 0, 0, BACK_BODY.w, BACK_BODY.h);
   ctx.restore();
+  if (sleeves) {
+    const f = sleeves.front, b = sleeves.back;
+    // the player's right sleeve (texture left piece) is on the left of the front photo and the right of the back
+    const pieces = [
+      { id: 'leftSleeve' as const, front: f.left, back: b ? b.right : f.left, backOuterLeft: !b },
+      { id: 'rightSleeve' as const, front: f.right, back: b ? b.left : f.right, backOuterLeft: !!b },
+    ];
+    for (const p of pieces) {
+      ctx.save();
+      ctx.beginPath();
+      // the short sleeve and its shoulder strip (the first outline); the long sleeve area keeps the main colour
+      tracePolygons(ctx, [partPolygons(PART_MAP[p.id])[0]]);
+      ctx.clip();
+      drawSleeveHalf(ctx, p.front, p.id, 'front', p.id === 'leftSleeve');
+      drawSleeveHalf(ctx, p.back, p.id, 'back', p.backOuterLeft);
+      ctx.restore();
+    }
+  }
   return c;
 }

@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Type, FolderDown, ImageDown, AlertCircle, ImagePlus, Trash2 } from 'lucide-react';
 import { FontPicker } from '@/components/ui/FontPicker';
+import { useI18n } from '@/i18n/I18nProvider';
 import { AssetLibrary } from '@/hooks/useAssetLibrary';
 import {
   FontsetLayout,
@@ -13,6 +14,7 @@ import {
 } from '@/constants/fontsetSlots';
 import {
   FontsetStyle,
+  OutlineAlign,
   GlyphSource,
   NumberLogo,
   FontPattern,
@@ -157,6 +159,9 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
   const [missing, setMissing] = useState<Record<Group, string[]>>({ number: [], name: [] });
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // characters of the shown texture that cross their slot box
+  const [overflow, setOverflow] = useState<string[]>([]);
+  const { t } = useI18n();
   // font sheet image
   const [sheet, setSheet] = useState<SheetState | null>(null);
   const [patterns, setPatterns] = useState<Record<Group, PatternState>>({ number: DEFAULT_PATTERN, name: DEFAULT_PATTERN });
@@ -240,7 +245,7 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
 
   const sheetCovers = (group: Group) => groupChars(group).some((ch) => sheetMap.has(ch));
 
-  const render = (kind: FileKind) => {
+  const render = (kind: FileKind, overflow?: Set<string>) => {
     const f = fileOf(kind);
     const style = styles[f.group];
     const sources: GlyphSource[] = [];
@@ -253,7 +258,7 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
     const pt = patterns[f.group];
     const fontPattern: FontPattern | null =
       pt.image && pt.url ? { image: pt.image, src: pt.url, color: pt.tint ? pt.color : null, scale: pt.scale, opacity: pt.opacity } : null;
-    return renderFontset(f.layout, sources, style.outlineWidth, numberLogo, fontPattern);
+    return renderFontset(f.layout, sources, style, numberLogo, fontPattern, overflow);
   };
 
   // preview of the selected texture, redrawn shortly after the last change
@@ -264,7 +269,9 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
       const style = styles[fileOf(view).group];
       await document.fonts.load(`${style.fontWeight} 40px ${style.fontFamily}`).catch(() => undefined);
       if (cancelled) return;
-      const atlas = render(view);
+      const over = new Set<string>();
+      const atlas = render(view, over);
+      setOverflow([...over]);
       const c = previewRef.current;
       if (!c) return;
       c.width = atlas.width;
@@ -277,8 +284,10 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
         ctx.lineWidth = (2 * layout.width) / 2048;
         layout.rows.forEach((row, r) => {
           const y = r * layout.rowHeight;
-          ctx.strokeStyle = 'rgba(56,189,248,0.8)';
-          row.forEach((s) => ctx.strokeRect(s.x0, y + 1, s.x1 - s.x0, layout.rowHeight - 2));
+          row.forEach((s) => {
+            ctx.strokeStyle = over.has(s.ch) ? 'rgba(251,191,36,0.95)' : 'rgba(56,189,248,0.8)';
+            ctx.strokeRect(s.x0, y + 1, s.x1 - s.x0, layout.rowHeight - 2);
+          });
           ctx.strokeStyle = 'rgba(244,63,94,0.7)';
           ctx.beginPath();
           ctx.moveTo(0, y + layout.top);
@@ -393,6 +402,18 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
   const save = async () => {
     const kinds = FILES.filter((f) => selected[f.kind]);
     if (!kinds.length) return setStatus('Pilih minimal satu file.');
+    const over = kinds.flatMap((f) => {
+      const set = new Set<string>();
+      render(f.kind, set);
+      return set.size ? [`${f.kind}: ${[...set].join(' ')}`] : [];
+    });
+    if (
+      over.length &&
+      !window.confirm(
+        t(`Beberapa karakter menyentuh garis slot dan akan dipadatkan atau terpotong di game (${over.join('; ')}). Tetap simpan?`)
+      )
+    )
+      return;
     setBusy(true);
     setStatus('Membuat file font…');
     try {
@@ -510,6 +531,20 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
             <input type="color" value={st.outline} onChange={(e) => setStyle(group, { outline: e.target.value.toUpperCase() })} className="w-8 h-6 bg-transparent cursor-pointer" />
           </label>
           {slider('Tebal outline', st.outlineWidth, 0, 20, 1, (v) => setStyle(group, { outlineWidth: v }))}
+          <label className="flex items-center justify-between gap-2">
+            Posisi outline
+            <select
+              value={st.outlineAlign ?? 'outside'}
+              onChange={(e) => setStyle(group, { outlineAlign: e.target.value as OutlineAlign })}
+              className={input}
+              title="Luar: di luar tepi huruf. Tengah: separuh di luar, separuh di dalam. Dalam: di dalam tepi huruf (inline)."
+            >
+              <option value="outside">Luar</option>
+              <option value="center">Tengah</option>
+              <option value="inside">Dalam</option>
+            </select>
+          </label>
+          {slider('Ukuran %', st.size ?? 100, 50, 150, 1, (v) => setStyle(group, { size: v }))}
         </div>
         {patternBlock(group)}
         {missing[group].length > 0 && (
@@ -770,6 +805,12 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
               {`${fileOf(view).layout.width}×${fileOf(view).layout.height} px · ${fileName(view)}.ftex · `}
               <span>kotak biru = slot karakter, garis merah = atas huruf dan garis dasar</span>
             </p>
+            {overflow.length > 0 && (
+              <p className="flex items-start gap-1.5 text-[11px] text-amber-300 leading-snug">
+                <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                <span>{`Huruf terlalu besar, menyentuh garis slot (kotak kuning): ${overflow.join(' ')}. Kecilkan Ukuran % agar tidak dipadatkan atau terpotong.`}</span>
+              </p>
+            )}
           </div>
         </div>
 

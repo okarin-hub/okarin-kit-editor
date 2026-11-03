@@ -151,6 +151,11 @@ letter top and baseline (red). *Save to kit folder…* writes `<prefix>_back`, `
 `.ftex` files and, with *Also write config.txt*, the config with those names filled in. The prefix defaults to the
 KitFile name.
 
+*Size %* makes the letters bigger or smaller (they stay on the baseline), and *Outline position* puts the outline
+outside the letter edge, across it (centre) or inside it (inline). A letter that crosses its slot box gets a yellow
+box and a warning under the preview: in the game it would be squeezed or cut off. Saving asks first while any letter
+does.
+
 *Import font sheet…* takes a picture of the letters and/or digits instead of a font (PNG, JPG…). A dialog first
 shows the picture: drag a box around the part to use, tick *See the separation* to check the cut-out, and on a busy
 background pick the background and letter colours. A sheet may run across (rows) or down (one character per row, read top to

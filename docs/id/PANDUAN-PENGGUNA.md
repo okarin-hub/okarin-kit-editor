@@ -151,6 +151,11 @@ untuk nomor dan untuk nama; pratinjau menampilkan setiap tekstur dengan slot kar
 garis dasar (merah). *Simpan ke folder kit…* menulis file `<awalan>_back`, `_chest`, `_leg`, `_name`, dan `_name_ex`
 `.ftex`, dan dengan *Tulis config.txt juga*, config yang sudah berisi nama-nama itu. Awalan bawaannya nama KitFile.
 
+*Ukuran %* membesarkan atau mengecilkan huruf (tetap di garis dasar), dan *Posisi outline* menaruh outline di luar
+tepi huruf, di tengah tepinya, atau di dalamnya (inline). Huruf yang melewati kotak slotnya diberi kotak kuning dan
+peringatan di bawah pratinjau: di game huruf itu akan dipadatkan atau terpotong. Menyimpan akan bertanya dulu selama
+masih ada huruf seperti itu.
+
 *Import gambar font…* memakai gambar huruf dan/atau angka sebagai pengganti font (PNG, JPG…). Jendela import
 menampilkan gambarnya dulu: tarik kotak di bagian yang dipakai, centang *Lihat hasil pemisahan* untuk mengecek
 potongannya, dan pada latar yang ramai pilih warna latar dan warna huruf. Gambar boleh mendatar (baris) atau menurun (satu karakter per

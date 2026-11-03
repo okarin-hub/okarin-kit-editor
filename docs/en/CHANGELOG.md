@@ -2,6 +2,23 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## 0.3.2 (experimental) — sleeves from a jersey photo, letter size and outline position in the fontset generator
+
+An experimental pre-release: the new parts work but still need refinement. Stay on 0.3.1 for a stable version.
+
+- **Sleeves and shoulders from a jersey photo:** *Pattern from a jersey photo* now also takes the pattern of the
+  sleeves and the shoulders (they only got the main colour before). Each photo gets two yellow sleeve boxes next to the
+  body box, guessed from the shirt's outline; pick *Left sleeve in the picture* / *Right sleeve in the picture* above
+  the photos to redraw one. The slanted sleeve is straightened (each row stretched from the outer to the inner edge of
+  the shirt), the front photo fills the front half of each sleeve and the back photo the back half (without a back
+  photo the front is used for both), and the shoulder strip up to the neck continues the top of the sleeve. The sleeves
+  are read in the body's pattern colours. *Sleeves and shoulders from the photo* turns it off.
+- **Letter size and outline position in the fontset generator:** *Size %* (50–150) makes the numbers or the name
+  letters bigger or smaller on the baseline, for fonts that come out small in their slots. *Outline position* puts the
+  outline outside the letter (as before), centred on its edge or inside it (inline). Letters that cross their slot box
+  are marked with a yellow box and listed under the preview, and *Save to kit folder…* asks before saving them (in the
+  game they would be squeezed or cut off).
+
 ## 0.3.1 — font sheets: vertical sheets and smoother letters
 
 - **Smoother letters from small font sheets:** the automatic background separation cut the anti-aliased edge into hard pixel steps (the edge kept 66 of about 300 partly covered pixels on a 145 px digit), and enlarged three times the steps showed as jagged edges. An edge pixel now keeps the share of letter it holds (the mix between the measured background and letter colours), so the traced outline follows the real edge, and its colour has the old background taken out (no dark rim). The traced curves also lost two sources of small dents: the two handles at a curve point now keep one direction (they were turned apart on long segments, a small kink at each point), and a small letter that will be enlarged is smoothed a little more, since its picture carries no detail under half a pixel. Near-level / near-upright sides are straightened only when the straight line still lies on the outline.

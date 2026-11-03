@@ -14,7 +14,13 @@ export interface FontsetStyle {
   outline: string;
   /** outline width in px at 2048 px texture width */
   outlineWidth: number;
+  /** where the outline sits on the letter edge (default outside) */
+  outlineAlign?: OutlineAlign;
+  /** letter size in % of the slot's top..baseline height (default 100) */
+  size?: number;
 }
+
+export type OutlineAlign = 'outside' | 'center' | 'inside';
 
 /** A character ready to place, with its outline already drawn. */
 export interface Glyph {
@@ -27,12 +33,15 @@ export interface Glyph {
   base: number;
   /** capital / digit height in canvas px, without outline: this maps to the layout's top..baseline */
   capH: number;
-  /** outline width in canvas px */
+  /** width of the outline outside the letter, in canvas px */
   pad: number;
 }
 
-/** Returns a character drawn with an outline of `outline` px at the final scale (where capH -> targetH). */
-export type GlyphSource = (ch: string, outline: number, targetH: number) => Glyph | null;
+/**
+ * Returns a character whose capital height will be `letterH` px, with `outer` px of outline outside its edge and
+ * `inner` px inside it (all at the final scale).
+ */
+export type GlyphSource = (ch: string, outer: number, inner: number, letterH: number) => Glyph | null;
 
 /** A logo drawn on every digit (club or league badge on the numbers). */
 export interface NumberLogo {
@@ -81,22 +90,82 @@ function alphaBounds(ctx: CanvasRenderingContext2D, w: number, h: number) {
 
 const BASE_Y = Math.round(SRC * 1.4);
 
-function drawFontGlyph(ch: string, font: string, style: FontsetStyle, strokeSrc: number) {
+const blank = (w: number, h: number) => {
   const c = document.createElement('canvas');
-  c.width = SRC * 3;
-  c.height = SRC * 2;
+  c.width = w;
+  c.height = h;
+  return c;
+};
+
+const tint = (src: HTMLCanvasElement, color: string) => {
+  const t = blank(src.width, src.height);
+  const tc = t.getContext('2d')!;
+  tc.drawImage(src, 0, 0);
+  tc.globalCompositeOperation = 'source-in';
+  tc.fillStyle = color;
+  tc.fillRect(0, 0, t.width, t.height);
+  return t;
+};
+
+/** Draws `img` at x, y shifted around circles up to radius `r` (rings from the inside out): grows its shape by r. */
+function stampAround(ctx: CanvasRenderingContext2D, img: HTMLCanvasElement, x: number, y: number, r: number) {
+  for (let ring = Math.min(1, r); ring <= r + 0.01; ring += Math.max(0.75, r / 4)) {
+    const steps = Math.max(12, Math.ceil(ring * 6));
+    for (let k = 0; k < steps; k++) {
+      const a = (k / steps) * Math.PI * 2;
+      ctx.drawImage(img, x + Math.cos(a) * ring, y + Math.sin(a) * ring);
+    }
+  }
+}
+
+/** The letter with a band of `r` px in `color` along the inside of its edge (an inline outline). */
+function withInnerOutline(letter: HTMLCanvasElement, color: string, r: number): HTMLCanvasElement {
+  if (r <= 0) return letter;
+  const { width: w, height: h } = letter;
+  // everything outside the letter, as a mask; stamped around the edge it cuts r px off the letter
+  const outside = blank(w, h);
+  const oc = outside.getContext('2d')!;
+  oc.fillRect(0, 0, w, h);
+  oc.globalCompositeOperation = 'destination-out';
+  oc.drawImage(letter, 0, 0);
+  const core = blank(w, h);
+  const cc = core.getContext('2d')!;
+  cc.drawImage(letter, 0, 0);
+  cc.globalCompositeOperation = 'destination-out';
+  stampAround(cc, outside, 0, 0, r);
+  const out = tint(letter, color);
+  const ctx = out.getContext('2d')!;
+  ctx.globalCompositeOperation = 'source-over'; // tint left its context on source-in
+  ctx.drawImage(core, 0, 0);
+  return out;
+}
+
+function drawFontGlyph(ch: string, font: string, style: FontsetStyle, outerSrc: number, innerSrc = 0) {
+  const c = blank(SRC * 3, SRC * 2);
   const ctx = c.getContext('2d', { willReadFrequently: true })!;
-  ctx.font = font;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'alphabetic';
-  if (strokeSrc > 0) {
+  const text = (cx: CanvasRenderingContext2D) => {
+    cx.font = font;
+    cx.textAlign = 'center';
+    cx.textBaseline = 'alphabetic';
+  };
+  text(ctx);
+  if (outerSrc > 0) {
     ctx.lineJoin = 'round';
-    ctx.lineWidth = strokeSrc * 2;
+    ctx.lineWidth = outerSrc * 2;
     ctx.strokeStyle = style.outline;
     ctx.strokeText(ch, c.width / 2, BASE_Y);
   }
-  ctx.fillStyle = style.fill;
-  ctx.fillText(ch, c.width / 2, BASE_Y);
+  if (innerSrc > 0) {
+    const letter = blank(c.width, c.height);
+    const lc = letter.getContext('2d')!;
+    text(lc);
+    lc.fillStyle = style.fill;
+    lc.fillText(ch, c.width / 2, BASE_Y);
+    ctx.drawImage(withInnerOutline(letter, style.outline, innerSrc), 0, 0);
+  } else {
+    ctx.fillStyle = style.fill;
+    ctx.fillText(ch, c.width / 2, BASE_Y);
+  }
   const b = alphaBounds(ctx, c.width, c.height);
   return b && { canvas: c, ...b };
 }
@@ -106,11 +175,11 @@ const fontOf = (style: FontsetStyle, family = style.fontFamily) => `${style.font
 /** Glyphs from a font; `reference` (H for names, 0 for numbers) sets the capital height. */
 export function fontGlyphSource(style: FontsetStyle, reference: string): GlyphSource {
   const ref = drawFontGlyph(reference, fontOf(style), style, 0);
-  return (ch, outline, targetH) => {
+  return (ch, outer, inner, letterH) => {
     if (!ref) return null;
     const capH = ref.y1 - ref.y0;
-    const strokeSrc = outline / ((targetH - 2 * outline) / capH);
-    const g = drawFontGlyph(ch, fontOf(style), style, strokeSrc);
+    const strokeSrc = outer / (letterH / capH);
+    const g = drawFontGlyph(ch, fontOf(style), style, strokeSrc, inner / (letterH / capH));
     // the reference bottom (not the font baseline) sits on the layout baseline, so round digits do not overshoot
     return g && { ...g, base: ref.y1, capH, pad: strokeSrc };
   };
@@ -493,40 +562,20 @@ function recolourMain(src: HTMLCanvasElement, fill: string): HTMLCanvasElement {
 
 /** Glyphs from a font sheet: `recolor` paints their main colour in the fill colour, else they keep the sheet's colours. */
 export function sheetGlyphSource(map: Map<string, SheetGlyph>, style: FontsetStyle, recolor: boolean): GlyphSource {
-  const tint = (src: HTMLCanvasElement, color: string) => {
-    const t = document.createElement('canvas');
-    t.width = src.width;
-    t.height = src.height;
-    const tc = t.getContext('2d')!;
-    tc.drawImage(src, 0, 0);
-    tc.globalCompositeOperation = 'source-in';
-    tc.fillStyle = color;
-    tc.fillRect(0, 0, t.width, t.height);
-    return t;
-  };
-  return (ch, outline, targetH) => {
+  return (ch, outer, inner, letterH) => {
     const raw = map.get(ch);
     if (!raw) return null;
-    const k = (targetH - 2 * outline) / raw.capH;
+    const k = letterH / raw.capH;
     const sg = k > 1.2 ? vectorUpscale(raw, k) : raw;
-    const oSrc = outline / ((targetH - 2 * outline) / sg.capH);
+    const toSrc = sg.capH / letterH;
+    const oSrc = outer * toSrc;
     const m = Math.ceil(oSrc) + 1;
-    const c = document.createElement('canvas');
-    c.width = sg.canvas.width + 2 * m;
-    c.height = sg.canvas.height + 2 * m;
+    const c = blank(sg.canvas.width + 2 * m, sg.canvas.height + 2 * m);
     const ctx = c.getContext('2d')!;
-    if (oSrc > 0) {
-      // outline: the shape stamped around a circle, rings from the inside out
-      const shape = tint(sg.canvas, style.outline);
-      for (let r = Math.min(1, oSrc); r <= oSrc + 0.01; r += Math.max(0.75, oSrc / 4)) {
-        const steps = Math.max(12, Math.ceil(r * 6));
-        for (let k = 0; k < steps; k++) {
-          const a = (k / steps) * Math.PI * 2;
-          ctx.drawImage(shape, m + Math.cos(a) * r, m + Math.sin(a) * r);
-        }
-      }
-    }
-    ctx.drawImage(recolor ? recolourMain(sg.canvas, style.fill) : sg.canvas, m, m);
+    // outline outside: the shape stamped around a circle
+    if (oSrc > 0) stampAround(ctx, tint(sg.canvas, style.outline), m, m, oSrc);
+    const letter = recolor ? recolourMain(sg.canvas, style.fill) : sg.canvas;
+    ctx.drawImage(withInnerOutline(letter, style.outline, inner * toSrc), m, m);
     return {
       canvas: c,
       x0: Math.floor(m - oSrc),
@@ -546,16 +595,22 @@ export function sheetGlyphSource(map: Map<string, SheetGlyph>, style: FontsetSty
 export function renderFontset(
   layout: FontsetLayout,
   sources: GlyphSource[],
-  outlineWidth: number,
+  style: Pick<FontsetStyle, 'outlineWidth' | 'outlineAlign' | 'size'>,
   logo?: NumberLogo | null,
-  pattern?: FontPattern | null
+  pattern?: FontPattern | null,
+  /** filled with the characters that cross their slot box or the row (squeezed or cut off) */
+  overflow?: Set<string>
 ): HTMLCanvasElement {
   const out = document.createElement('canvas');
   out.width = layout.width;
   out.height = layout.height;
   const ctx = out.getContext('2d')!;
-  const o = (outlineWidth * layout.width) / 2048;
-  const targetH = layout.baseline - layout.top;
+  const o = (style.outlineWidth * layout.width) / 2048;
+  // outline outside / inside the letter edge
+  const outer = style.outlineAlign === 'inside' ? 0 : style.outlineAlign === 'center' ? o / 2 : o;
+  const inner = o - outer;
+  // at 100 % the letter and its outer outline fill top..baseline; other sizes grow or shrink from the baseline
+  const letterH = Math.max(1, (layout.baseline - layout.top - 2 * outer) * ((style.size ?? 100) / 100));
   ctx.imageSmoothingQuality = 'high';
 
   let fill: CanvasPattern | null = null;
@@ -573,25 +628,28 @@ export function renderFontset(
     const rowTop = r * layout.rowHeight;
     row.forEach((slot) => {
       let g: Glyph | null = null;
-      for (const src of sources) if ((g = src(slot.ch, o, targetH))) break;
+      for (const src of sources) if ((g = src(slot.ch, outer, inner, letterH))) break;
       if (!g) return;
-      const s = Math.max(0.01, (targetH - 2 * o) / g.capH);
-      // glyph y -> texture y: its baseline lands on the layout baseline (minus the outline)
-      const destY = (y: number) => rowTop + layout.baseline - o + (y - g!.base) * s;
+      const s = Math.max(0.01, letterH / g.capH);
+      // glyph y -> texture y: its baseline lands on the layout baseline (minus the outer outline)
+      const destY = (y: number) => rowTop + layout.baseline - outer + (y - g!.base) * s;
       const boxW = slot.x1 - slot.x0;
       const dw = Math.min((g.x1 - g.x0) * s, boxW);
       const dx = (slot.x0 + slot.x1) / 2 - dw / 2;
       const dy = destY(g.y0);
       const dh = (g.y1 - g.y0) * s;
+      const room = rowTop + layout.top * 0.15;
+      const capSrc = g.base - g.capH - g.pad;
+      const capY = destY(capSrc);
+      if ((g.x1 - g.x0) * s > boxW * 1.02 + 0.5 || capY < rowTop - 0.5 || dy + dh > rowTop + layout.rowHeight + 0.5) {
+        overflow?.add(slot.ch);
+      }
       ctx.save();
       ctx.beginPath();
       ctx.rect(0, rowTop, layout.width, layout.rowHeight);
       ctx.clip();
-      const room = rowTop + layout.top * 0.15;
-      const capSrc = g.base - g.capH - g.pad;
-      if (dy < room && g.y1 > capSrc) {
+      if (dy < room && capY > room && g.y1 > capSrc) {
         // accent taller than the space above the capitals: keep the letter, squeeze only the part above it
-        const capY = destY(capSrc);
         ctx.drawImage(g.canvas, g.x0, g.y0, g.x1 - g.x0, capSrc - g.y0, dx, room, dw, capY - room);
         ctx.drawImage(g.canvas, g.x0, capSrc, g.x1 - g.x0, g.y1 - capSrc, dx, capY, dw, (g.y1 - capSrc) * s);
       } else {
