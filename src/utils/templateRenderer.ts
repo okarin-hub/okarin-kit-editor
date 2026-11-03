@@ -174,11 +174,15 @@ export function drawTemplateForPart(
   part: KitPartDefinition,
   template: KitTemplate,
   state: TemplateState,
-  fabricHex: string
+  fabricHex: string,
+  /** 'base' = only the base zones (drawn under the patterns); 'top' = the rest and the seams. */
+  which: 'base' | 'top' = 'top'
 ): void {
-  const zones = template.zones.filter((z) => zoneParts(z).includes(part.id) && state.zones[z.id]?.visible);
+  const zones = template.zones.filter(
+    (z) => zoneParts(z).includes(part.id) && state.zones[z.id]?.visible && !!z.base === (which === 'base')
+  );
   const extraSeams = (template.seams ?? []).filter((s) => s.part === part.id);
-  const seams = state.seams;
+  const seams = which === 'top' ? state.seams : { ...state.seams, enabled: false };
   if (zones.length === 0 && !(seams.enabled && part.regions.length)) return;
 
   ctx.save();

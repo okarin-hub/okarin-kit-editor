@@ -2,10 +2,14 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { X, Shirt, ImagePlus, Trash2 } from 'lucide-react';
-import { PhotoRect, PatternResult, guessAreas, extractPattern, buildKitTexture, extractSleeves } from '@/utils/photoPattern';
+import { PhotoRect, guessAreas } from '@/utils/photoPattern';
+import type { PhotoPatternRequest, PhotoPatternReply } from '@/workers/photoPattern.worker';
+import type { RecognisedPattern } from '@/utils/patternRecognise';
 
 interface Shot {
   image: HTMLImageElement;
+  /** the same picture for the worker */
+  bitmap: ImageBitmap;
   name: string;
   rect: PhotoRect;
   /** sleeve boxes, by their side in the photo */
@@ -20,9 +24,18 @@ interface PhotoPatternModalProps {
   onClose: () => void;
   /** the flat kit texture, ready for the PNG colour split */
   onDone: (file: File) => void;
+  /** a recognised regular pattern: set the part colours and add it as a pattern layer */
+  onApplyPattern: (pattern: RecognisedPattern) => void;
 }
 
 const VIEW = 300;
+
+/** Short name of a recognised pattern. */
+const patternName = (r: RecognisedPattern) => {
+  if (r.kind === 'plain') return 'Polos';
+  if (r.kind === 'stripes') return r.angle === 0 ? 'Strip vertikal' : r.angle === 90 ? 'Strip horizontal' : `Strip miring ${Math.round(r.angle)}°`;
+  return r.angle === 0 ? 'Satu strip tegak' : r.angle === 90 ? 'Satu pita mendatar' : `Satu pita miring ${Math.round(r.angle)}°`;
+};
 
 /** One photo with the body (and sleeve) boxes; dragging redraws the box being edited. */
 const ShotView: React.FC<{ shot: Shot; area: Area; sleeves: boolean; onRect: (r: PhotoRect) => void }> = ({ shot, area, sleeves, onRect }) => {
@@ -80,28 +93,70 @@ const ShotView: React.FC<{ shot: Shot; area: Area; sleeves: boolean; onRect: (r:
 };
 
 /** Pattern of a jersey photo (front, optional back) as a flat kit texture; logos are left out. */
-export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, onClose, onDone }) => {
+export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, onClose, onDone, onApplyPattern }) => {
   const [front, setFront] = useState<Shot | null>(null);
   const [back, setBack] = useState<Shot | null>(null);
   const [minShare, setMinShare] = useState(8);
   const [withSleeves, setWithSleeves] = useState(true);
   const [area, setArea] = useState<Area>('rect');
-  const [result, setResult] = useState<{ front: PatternResult; texture: HTMLCanvasElement } | null>(null);
+  const [result, setResult] = useState<{ palette: string[]; texture: HTMLCanvasElement; recognised: RecognisedPattern | null } | null>(null);
+  const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const worker = useRef<Worker | null>(null);
+  const lastRequest = useRef(0);
   const previewRef = useRef<HTMLCanvasElement | null>(null);
   const frontInput = useRef<HTMLInputElement | null>(null);
   const backInput = useRef<HTMLInputElement | null>(null);
 
+  // the pattern work runs in a worker (seconds on a big photo) so the editor stays responsive
+  useEffect(() => {
+    if (!isOpen) return;
+    const w = new Worker(new URL('../../workers/photoPattern.worker.ts', import.meta.url));
+    w.onmessage = (e: MessageEvent<PhotoPatternReply>) => {
+      const reply = e.data;
+      // an older request (a box was moved again meanwhile): drop it
+      if (reply.id !== lastRequest.current) {
+        if ('texture' in reply) reply.texture.close();
+        return;
+      }
+      setBusy(false);
+      if ('error' in reply) return setStatus(`Pola gagal dibuat: ${reply.error}`);
+      const texture = document.createElement('canvas');
+      texture.width = reply.texture.width;
+      texture.height = reply.texture.height;
+      texture.getContext('2d')!.drawImage(reply.texture, 0, 0);
+      reply.texture.close();
+      setResult({ palette: reply.palette, texture, recognised: reply.recognised });
+    };
+    // the worker itself failed (did not load, or crashed): say so instead of waiting for ever
+    w.onerror = (e) => {
+      setBusy(false);
+      setStatus(`Pola gagal dibuat: ${e.message || 'worker error'}`);
+    };
+    worker.current = w;
+    return () => {
+      w.terminate();
+      worker.current = null;
+    };
+  }, [isOpen]);
+
   // flatten the pattern again shortly after the last change
   useEffect(() => {
-    if (!isOpen || !front) return setResult(null);
+    if (!isOpen || !front) {
+      setBusy(false);
+      return setResult(null);
+    }
     const t = setTimeout(() => {
-      const f = extractPattern(front.image, front.rect, minShare / 100);
-      const b = back ? extractPattern(back.image, back.rect, minShare / 100, f) : null;
-      // sleeves are read with the front's pattern colours, then straightened into upright bands
-      const sleevesOf = (shot: Shot) => extractSleeves(shot.image, shot.left, shot.right, f);
-      const sleeves = withSleeves ? { front: sleevesOf(front), back: back ? sleevesOf(back) : null } : null;
-      setResult({ front: f, texture: buildKitTexture(f, b, sleeves) });
+      const shot = (s: Shot) => ({ image: s.bitmap, rect: s.rect, left: s.left, right: s.right });
+      const req: PhotoPatternRequest = {
+        id: ++lastRequest.current,
+        front: shot(front),
+        back: back ? shot(back) : null,
+        minShare: minShare / 100,
+        withSleeves,
+      };
+      setBusy(true);
+      worker.current?.postMessage(req);
     }, 200);
     return () => clearTimeout(t);
   }, [isOpen, front, back, minShare, withSleeves]);
@@ -128,7 +183,7 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
       image.src = url;
       await image.decode();
       const g = guessAreas(image);
-      set({ image, name: file.name, rect: g.body, left: g.left, right: g.right });
+      set({ image, bitmap: await createImageBitmap(image), name: file.name, rect: g.body, left: g.left, right: g.right });
       setStatus(null);
     } catch {
       setStatus('Gambar gagal dibaca.');
@@ -234,7 +289,10 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
           {slot('Depan', front, setFront, frontInput, false)}
           {slot('Belakang', back, setBack, backInput, true)}
           <section className="space-y-2 min-w-0">
-            <h4 className="text-xs font-semibold text-slate-200">Hasil</h4>
+            <h4 className="text-xs font-semibold text-slate-200 flex items-center gap-2">
+              Hasil
+              {busy && <span className="text-[10px] font-normal text-sky-300 animate-pulse">Memproses…</span>}
+            </h4>
             <div
               className="rounded-lg border border-slate-800 overflow-hidden"
               style={{ backgroundImage: 'repeating-conic-gradient(#64748b 0% 25%, #475569 0% 50%)', backgroundSize: '16px 16px' }}
@@ -244,12 +302,27 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
             {result && (
               <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
                 <span>Warna pola:</span>
-                {result.front.palette.map((c) => (
+                {result.palette.map((c) => (
                   <span key={c} className="flex items-center gap-1 font-mono text-[10px]">
                     <span className="w-4 h-4 rounded border border-slate-600" style={{ background: c }} />
                     {c}
                   </span>
                 ))}
+              </div>
+            )}
+            {result?.recognised && (
+              <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-2.5 space-y-1 text-[11px] text-emerald-200">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span>Pola dikenali:</span>
+                  <b>{patternName(result.recognised)}</b>
+                  {result.recognised.kind === 'stripes' && (
+                    <span>{`lebar ${Math.round(result.recognised.width)} px, jarak ${Math.round(result.recognised.period)} px`}</span>
+                  )}
+                  <span className="text-emerald-300/70">{`${Math.round(result.recognised.fit * 100)}% cocok`}</span>
+                </div>
+                <p className="text-[10px] text-emerald-200/70 leading-snug">
+                  Pakai sebagai layer pola: warna dasar baju dan lengan diganti, lalu polanya ditambahkan sebagai layer pola di grup Baju (bisa diubah lebar, jarak, dan warnanya; Ctrl+Z membatalkan).
+                </p>
               </div>
             )}
             <label className="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer">
@@ -274,10 +347,22 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
           <button
             onClick={finish}
             disabled={!result}
-            className="px-5 py-2 rounded-lg text-xs font-bold text-white bg-sky-600 hover:bg-sky-500 disabled:opacity-50"
+            className={
+              result?.recognised
+                ? 'px-4 py-2 rounded-lg text-xs font-semibold text-slate-300 border border-slate-700 hover:bg-slate-800 disabled:opacity-50'
+                : 'px-5 py-2 rounded-lg text-xs font-bold text-white bg-sky-600 hover:bg-sky-500 disabled:opacity-50'
+            }
           >
             Lanjut: jadikan layer warna
           </button>
+          {result?.recognised && (
+            <button
+              onClick={() => onApplyPattern(result.recognised!)}
+              className="px-5 py-2 rounded-lg text-xs font-bold text-white bg-sky-600 hover:bg-sky-500"
+            >
+              Pakai sebagai layer pola
+            </button>
+          )}
         </div>
       </div>
     </div>

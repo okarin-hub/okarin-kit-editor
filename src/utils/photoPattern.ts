@@ -17,11 +17,21 @@ export interface PhotoRect {
 
 const median = (v: number[]) => [...v].sort((a, b) => a - b)[Math.floor(v.length / 2)] ?? 0;
 
+/**
+ * A canvas that also works in a web worker (OffscreenCanvas there). shortcut: typed as HTMLCanvasElement because
+ * this file only uses what both have (getContext, width / height, drawing it); no toBlob / toDataURL here.
+ */
+function newCanvas(w: number, h: number): HTMLCanvasElement {
+  if (typeof document === 'undefined') return new OffscreenCanvas(w, h) as unknown as HTMLCanvasElement;
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  return c;
+}
+
 function draw(img: CanvasImageSource & { width: number; height: number }, rect: PhotoRect, maxSize: number) {
   const k = Math.min(1, maxSize / Math.max(rect.w, rect.h));
-  const c = document.createElement('canvas');
-  c.width = Math.max(1, Math.round(rect.w * k));
-  c.height = Math.max(1, Math.round(rect.h * k));
+  const c = newCanvas(Math.max(1, Math.round(rect.w * k)), Math.max(1, Math.round(rect.h * k)));
   const ctx = c.getContext('2d', { willReadFrequently: true })!;
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(img, rect.x, rect.y, rect.w, rect.h, 0, 0, c.width, c.height);
@@ -81,7 +91,8 @@ export function guessAreas(img: Photo): { body: PhotoRect; left: PhotoRect; righ
   const top = y0 + bh * 0.08;
   const sw = bw * 0.22;
   return {
-    // narrower than the body: the folds and shading at the sides (under the arms) stay out
+    // narrower than the body: the folds and shading at the sides (under the arms) stay out; a wider box makes
+    // the colour groups follow the lighting instead of the pattern
     body: back({ x: x0 + bw * 0.22, y: y0 + bh * 0.17, w: bw * 0.56, h: bh * 0.81 }),
     left: back({ x: x0, y: top, w: sw, h: Math.max(bh * 0.15, cuff(x0 + bw * 0.04) - top) }),
     right: back({ x: x1 - sw, y: top, w: sw, h: Math.max(bh * 0.15, cuff(x1 - bw * 0.04) - top) }),
@@ -99,9 +110,7 @@ export function extractSleeves(img: Photo, left: PhotoRect, right: PhotoRect, pa
   const flat = flattenWithPalette(img, area, palette);
   const k = flat.width / area.w;
   const band = (r: PhotoRect) => {
-    const c = document.createElement('canvas');
-    c.width = Math.max(1, Math.round(r.w * k));
-    c.height = Math.max(1, Math.round(r.h * k));
+    const c = newCanvas(Math.max(1, Math.round(r.w * k)), Math.max(1, Math.round(r.h * k)));
     c.getContext('2d')!.drawImage(flat, (r.x - x0) * k, (r.y - y0) * k, r.w * k, r.h * k, 0, 0, c.width, c.height);
     return straightenSleeve(img, r, c);
   };
@@ -135,9 +144,7 @@ function flattenWithPalette(img: Photo, rect: PhotoRect, palette: PatternResult)
     const lmed = median(ls);
     const v = new Float32Array(N);
     for (let p = 0; p < N; p++) v[p] = shirt[p] && Math.abs(feats[p * 3] - lmed) <= 25 ? feats[p * 3] : lmed;
-    const lc = document.createElement('canvas');
-    lc.width = w;
-    lc.height = h;
+    const lc = newCanvas(w, h);
     const lctx = lc.getContext('2d', { willReadFrequently: true })!;
     const limg = lctx.createImageData(w, h);
     for (let p = 0; p < N; p++) {
@@ -145,9 +152,7 @@ function flattenWithPalette(img: Photo, rect: PhotoRect, palette: PatternResult)
       limg.data[p * 4 + 3] = 255;
     }
     lctx.putImageData(limg, 0, 0);
-    const bc = document.createElement('canvas');
-    bc.width = w;
-    bc.height = h;
+    const bc = newCanvas(w, h);
     const bctx = bc.getContext('2d', { willReadFrequently: true })!;
     bctx.fillStyle = `rgb(${Math.round(lmed * 2.55)},0,0)`;
     bctx.fillRect(0, 0, w, h);
@@ -236,9 +241,7 @@ export function straightenSleeve(img: Photo, rect: PhotoRect, flat: HTMLCanvasEl
     }
     span.push(r - l > w * 0.2 ? [l, r] : null);
   }
-  const out = document.createElement('canvas');
-  out.width = w;
-  out.height = h;
+  const out = newCanvas(w, h);
   const ctx = out.getContext('2d')!;
   ctx.imageSmoothingEnabled = false;
   for (let y = 0; y < h; y++) {
@@ -296,9 +299,7 @@ export function extractPattern(
   // (radius 8 % of the area). Shading and folds change slowly over a large area and drop out; the pattern,
   // which changes over a short distance, stays. Two pattern colours a few shades apart then separate clearly.
   const feats = new Float32Array(N * 3);
-  const lc = document.createElement('canvas');
-  lc.width = w;
-  lc.height = h;
+  const lc = newCanvas(w, h);
   const lctx = lc.getContext('2d', { willReadFrequently: true })!;
   const limg = lctx.createImageData(w, h);
   let mean = 0;
@@ -319,9 +320,7 @@ export function extractPattern(
   }
   mean /= N;
   lctx.putImageData(limg, 0, 0);
-  const bc = document.createElement('canvas');
-  bc.width = w;
-  bc.height = h;
+  const bc = newCanvas(w, h);
   const bctx = bc.getContext('2d', { willReadFrequently: true })!;
   bctx.fillStyle = `rgb(${Math.round(mean * 2.55)},0,0)`; // edges blur into the mean, not into black
   bctx.fillRect(0, 0, w, h);
@@ -392,6 +391,27 @@ export function extractPattern(
     ? centres.map((_, i) => i)
     : centres.map((_, i) => i).filter((i) => count[i] / N >= minShare).sort((a, b) => count[b] - count[a]);
   if (!pattern.length) pattern.push(count.indexOf(Math.max(...count)));
+  // a colour that lies between two other pattern colours is their blend (the soft edge of a brush stroke, a
+  // print's dither), not a colour of its own: it is left out and its pixels take the colour around them
+  if (!palette && pattern.length > 2) {
+    const blend = (k: number) =>
+      pattern.some((i) =>
+        pattern.some((j) => {
+          if (i === j || i === k || j === k) return false;
+          const a = centres[i], b = centres[j], c = centres[k];
+          const ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+          const len2 = ab[0] ** 2 + ab[1] ** 2 + ab[2] ** 2;
+          if (!len2) return false;
+          const t = ((c[0] - a[0]) * ab[0] + (c[1] - a[1]) * ab[1] + (c[2] - a[2]) * ab[2]) / len2;
+          if (t < 0.15 || t > 0.85) return false;
+          const p = [a[0] + t * ab[0], a[1] + t * ab[1], a[2] + t * ab[2]];
+          // close to the line, and smaller than both ends
+          return fdist(c, p) < Math.max(6, Math.sqrt(len2) * 0.12) && count[k] < count[i] && count[k] < count[j];
+        })
+      );
+    const blends = pattern.filter(blend);
+    for (const k of blends) pattern.splice(pattern.indexOf(k), 1);
+  }
   const keep = new Int16Array(centres.length).fill(-1);
   pattern.forEach((k, i) => (keep[k] = i));
   const out = new Int16Array(N);
@@ -679,7 +699,7 @@ function dropSpecks(lab: Int16Array, w: number, h: number, min: number) {
 // ---------------------------------------------------------------- texture
 
 /** body area of the front and back pieces in the 1024 texture (the back is stored upside down) */
-const FRONT_BODY = { x: 380, y: 452, w: 264, h: 486 };
+export const FRONT_BODY = { x: 380, y: 452, w: 264, h: 486 };
 const BACK_BODY = { x: 380, y: 0, w: 264, h: 452 };
 
 /**
@@ -723,8 +743,7 @@ export function buildKitTexture(
   back: PatternResult | null,
   sleeves?: { front: PhotoSleeves; back: PhotoSleeves | null } | null
 ): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = c.height = 1024;
+  const c = newCanvas(1024, 1024);
   const ctx = c.getContext('2d')!;
   ctx.imageSmoothingEnabled = false; // keep the flat colours flat (no blended edge colours for the colour split)
   for (const id of ['front', 'back', 'leftSleeve', 'rightSleeve'] as const) {

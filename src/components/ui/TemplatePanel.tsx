@@ -89,7 +89,10 @@ interface TemplatePanelProps {
   onChangeSleeveShape: (shape: 'yoke' | 'short') => void;
   onDeleteSeam: (key: string) => void;
   onToggleSeamCurve: (key: string) => void;
-  onOpenPsdImport: () => void;
+  /** Copies a .psd into library/templates, where it is read as a template. */
+  onAddPsd: (file: File) => void;
+  /** Which tab shows the panel: the template tab (choice, kit base, save) or the layer tab. */
+  view: 'template' | 'layers';
   onOpenPngImport: () => void;
   editPoints: boolean;
   onToggleEditPoints: (zoneId: string) => void;
@@ -219,7 +222,8 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
   onChangeSleeveShape,
   onDeleteSeam,
   onToggleSeamCurve,
-  onOpenPsdImport,
+  onAddPsd,
+  view,
   onOpenPngImport,
   editPoints,
   onToggleEditPoints,
@@ -974,13 +978,13 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
 
   return (
     <div className="flex flex-col h-full select-none overflow-y-auto text-slate-300 p-3 space-y-2.5">
+      {view === 'template' && (<>
       {/* Template selector */}
       <PanelSection
         id="template"
         title="Template"
         icon={<LayoutGrid className="w-3.5 h-3.5 text-slate-400" />}
-        badge={template.name}
-        defaultOpen={false}
+        badge={library.psdBusy ? 'Membaca PSD…' : template.name}
         action={
           <button
             type="button"
@@ -1009,29 +1013,44 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
               </option>
             ))}
           </optgroup>
-          {library.templates.length > 0 && (
-            <optgroup label="Template saya (library/templates)">
-              {library.templates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </optgroup>
-          )}
+          {(
+            [
+              ['library', 'Template saya (library/templates)'],
+              ['psd', 'Baca PSD (file .psd di library/templates)'],
+            ] as const
+          ).map(([source, label]) => {
+            const list = library.templates.filter((t) => (t.source === 'psd') === (source === 'psd'));
+            return list.length > 0 ? (
+              <optgroup key={source} label={label}>
+                {list.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null;
+          })}
           {!all.some((t) => t.id === template.id) && <option value={template.id}>{template.name} (dari proyek)</option>}
         </select>
 
         <div className="grid grid-cols-2 gap-1.5">
-          <button
-            type="button"
-            onClick={onOpenPsdImport}
-            className="flex items-center justify-center gap-1.5 text-[11px] font-semibold py-1.5 rounded-lg border border-sky-700/70 bg-sky-900/30 text-sky-100 hover:bg-sky-800/40"
-            title="EKSPERIMENTAL: ubah file PSD menjadi template (setiap layer jadi zona). Hasil bisa kurang tepat."
+          <label
+            className="flex items-center justify-center gap-1.5 text-[11px] font-semibold py-1.5 rounded-lg border border-sky-700/70 bg-sky-900/30 text-sky-100 hover:bg-sky-800/40 cursor-pointer focus-within:ring-2 focus-within:ring-sky-500"
+            title="Salin file PSD ke library/templates. PSD itu langsung dibaca menjadi template (grup Baca PSD) dan ikut diperbarui saat file-nya disimpan ulang."
           >
             <FileUp className="w-3.5 h-3.5" />
-            Import PSD
-            <span className="text-[10px] font-bold uppercase px-1 py-px rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">Eksp.</span>
-          </button>
+            Tambah PSD
+            <input
+              type="file"
+              accept=".psd"
+              className="sr-only"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (file) onAddPsd(file);
+              }}
+            />
+          </label>
           <button
             type="button"
             onClick={onOpenPngImport}
@@ -1075,9 +1094,19 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           )}
         {template.description && <p className="text-[11px] text-slate-500 leading-snug">{template.description}</p>}
 
-        {library.templateErrors.length > 0 && (
+        {library.psdBusy && (
+          <div className="flex items-center gap-1.5 text-[10px] text-sky-200" role="status">
+            <RefreshCw className="w-3 h-3 animate-spin shrink-0" />
+            <span className="truncate">
+              Membaca PSD {library.psdBusy.name}
+              {library.psdBusy.total > 0 ? ` (${library.psdBusy.done}/${library.psdBusy.total})` : ''}…
+            </span>
+          </div>
+        )}
+
+        {library.templateErrors.length + library.psdErrors.length > 0 && (
           <div className="text-[10px] text-amber-300 bg-amber-950/30 border border-amber-900/50 rounded p-2 space-y-0.5">
-            {library.templateErrors.map((e) => (
+            {[...library.templateErrors, ...library.psdErrors].map((e) => (
               <div key={e.file}>
                 <strong>{e.file}</strong>: {e.error}
               </div>
@@ -1211,6 +1240,8 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
 
       </div>
       </PanelSection>
+      </>)}
+      {view === 'layers' && (<>
 
       {/* Layers */}
       <PanelSection
@@ -1233,6 +1264,76 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           ) : undefined
         }
       >
+
+        {(() => {
+          // colour slots and variant choices that came with the template (e.g. from a grey-coded PSD)
+          const slots = new Map<string, KitZoneDef[]>();
+          const sets = new Map<string, Map<string, KitZoneDef[]>>();
+          for (const z of template.zones) {
+            if (z.slot) slots.set(z.slot, [...(slots.get(z.slot) ?? []), z]);
+            if (z.variant) {
+              const opts = sets.get(z.variant.set) ?? new Map<string, KitZoneDef[]>();
+              opts.set(z.variant.option, [...(opts.get(z.variant.option) ?? []), z]);
+              sets.set(z.variant.set, opts);
+            }
+          }
+          if (!slots.size && !sets.size) return null;
+          const zoneState = (z: KitZoneDef) => state.zones[z.id] ?? { color: z.defaultColor, visible: z.defaultVisible };
+          return (
+            <div className="space-y-1.5 pb-2 mb-1 border-b border-slate-800/70">
+              {slots.size > 0 && (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-300">
+                    Slot warna
+                    <InfoTip text="Layer dengan abu-abu yang sama di file aslinya memakai satu warna. Ubah di sini atau di salah satu layernya, semua ikut berubah." />
+                  </div>
+                  <div className="grid grid-cols-2 gap-1">
+                    {[...slots].sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).map(([name, zs]) => (
+                      <label
+                        key={name}
+                        className="flex items-center gap-1.5 px-1.5 py-1 rounded-md border border-slate-700/70 bg-slate-900/60 text-[11px] text-slate-200 cursor-pointer"
+                        title={zs.map((z) => z.name).join('\n')}
+                      >
+                        <input
+                          type="color"
+                          value={zoneState(zs[0]).color}
+                          onChange={(e) => onUpdateZone(zs[0].id, { color: e.target.value })}
+                          className="w-5 h-5 rounded border border-slate-700 bg-transparent cursor-pointer p-0 shrink-0"
+                        />
+                        <span className="flex-1 min-w-0 truncate">{name}</span>
+                        <span className="text-[10px] text-slate-500">{zs.length}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {[...sets].map(([set, opts]) => {
+                const current = [...opts].find(([, zs]) => zs.some((z) => zoneState(z).visible))?.[0] ?? '';
+                return (
+                  <label key={set} className="flex items-center gap-2 text-[11px] text-slate-300">
+                    <span className="flex-1 min-w-0 truncate font-semibold">{set}</span>
+                    <select
+                      value={current}
+                      onChange={(e) => {
+                        const zs = opts.get(e.target.value);
+                        if (zs) onUpdateZone(zs[0].id, { visible: true });
+                        else for (const z of [...opts.values()].flat()) onUpdateZone(z.id, { visible: false });
+                      }}
+                      className="bg-slate-900 border border-slate-700 rounded-md px-1.5 py-0.5 text-[11px] text-white outline-none focus:border-sky-500"
+                    >
+                      <option value="">Tidak ada</option>
+                      {[...opts.keys()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map((o) => (
+                        <option key={o} value={o}>
+                          {o}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {template.zones.length > OPEN_GROUP_MAX && (
           <div className="relative">
@@ -1528,7 +1629,9 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           </div>
         )}
       </PanelSection>
+      </>)}
 
+      {view === 'template' && (<>
       {/* Save as library template */}
       <PanelSection id="save" title="Simpan sebagai template" defaultOpen={false}>
         <div className="flex gap-1.5">
@@ -1557,6 +1660,7 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           juga ditulis manual (JSON); lihat <code>library/templates/README.txt</code>.
         </p>
       </PanelSection>
+      </>)}
     </div>
   );
 };

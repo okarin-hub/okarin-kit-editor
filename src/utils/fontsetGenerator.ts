@@ -571,17 +571,17 @@ export function sheetGlyphSource(map: Map<string, SheetGlyph>, style: FontsetSty
     const oSrc = outer * toSrc;
     const m = Math.ceil(oSrc) + 1;
     const c = blank(sg.canvas.width + 2 * m, sg.canvas.height + 2 * m);
-    const ctx = c.getContext('2d')!;
+    const ctx = c.getContext('2d', { willReadFrequently: true })!;
     // outline outside: the shape stamped around a circle
     if (oSrc > 0) stampAround(ctx, tint(sg.canvas, style.outline), m, m, oSrc);
     const letter = recolor ? recolourMain(sg.canvas, style.fill) : sg.canvas;
     ctx.drawImage(withInnerOutline(letter, style.outline, inner * toSrc), m, m);
+    // the letter's own extent (the cut-out canvas has empty margins), like the font glyphs
+    const b = alphaBounds(ctx, c.width, c.height);
+    if (!b) return null;
     return {
       canvas: c,
-      x0: Math.floor(m - oSrc),
-      y0: Math.floor(m - oSrc),
-      x1: Math.ceil(m + sg.canvas.width + oSrc),
-      y1: Math.ceil(m + sg.canvas.height + oSrc),
+      ...b,
       base: m + sg.base,
       capH: sg.capH,
       pad: oSrc,

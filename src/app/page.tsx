@@ -41,11 +41,12 @@ import { DEFAULT_PART_CONFIG, DEFAULT_CREDIT_CONFIG, PRESET_KITS, KitPreset } fr
 import { PES_2021_PARTS, PART_MAP, CANVAS_TEXTURE_SIZE, SHORTS_NUMBER_POS, migrateMarkings } from '@/constants/pes2021Parts';
 import { bakeZone, moveZoneToPart, simplifyPath, zoneHitTest } from '@/utils/zoneGeometry';
 import DrawBar from '@/components/ui/DrawBar';
-import ImportPsdModal from '@/components/ui/ImportPsdModal';
 import ImportPngModal from '@/components/ui/ImportPngModal';
 import KitConfigModal from '@/components/ui/KitConfigModal';
 import FontsetModal from '@/components/ui/FontsetModal';
 import PhotoPatternModal from '@/components/ui/PhotoPatternModal';
+import { newPatternLayer } from '@/components/ui/PatternLayersPanel';
+import { PATTERN_LABEL } from '@/constants/patterns';
 import { DEFAULT_KIT_CONFIG } from '@/utils/kitConfig';
 import {
   saveAutosaveState,
@@ -76,7 +77,7 @@ import {
   DEFAULT_TEMPLATE_STATE,
   buildTemplateState,
 } from '@/constants/templates';
-import { Shirt, Shield, Hash, Type, LayoutGrid } from 'lucide-react';
+import { Shirt, Shield, Hash, Type, LayoutGrid, LayoutTemplate } from 'lucide-react';
 
 export default function Home() {
   const [partsConfig, setPartsConfig] = useState<
@@ -111,7 +112,7 @@ export default function Home() {
   const [fontsetSettings, setFontsetSettings] = useState<FontsetSettings | null>(null);
 
   // Active tab on right sidebar: 'properties' | 'logos' | 'markings'
-  const [rightTab, setRightTab] = useState<'properties' | 'template' | 'logos' | 'markings'>('template');
+  const [rightTab, setRightTab] = useState<'properties' | 'kitTemplate' | 'template' | 'logos' | 'markings'>('template');
 
   // Selected graphic item for transform/delete
   const [selectedGraphicId, setSelectedGraphicId] = useState<string | null>(null);
@@ -323,7 +324,8 @@ export default function Home() {
     setEditPoints(false);
   }, []);
 
-  const [isPsdImportOpen, setIsPsdImportOpen] = useState(false);
+  // template id of a PSD just added with "Tambah PSD": selected as soon as it has been read
+  const [pendingPsdId, setPendingPsdId] = useState<string | null>(null);
   const [isPngImportOpen, setIsPngImportOpen] = useState(false);
   const [isPhotoPatternOpen, setIsPhotoPatternOpen] = useState(false);
   const [pngImportFile, setPngImportFile] = useState<File | null>(null);
@@ -347,11 +349,23 @@ export default function Home() {
 
   const handleUpdateZone = useCallback((zoneId: string, update: Partial<TemplateZoneState>) => {
     setTplBundle((prev) => {
-      const current = prev.state.zones[zoneId] ?? { color: '#ffffff', visible: true };
-      return {
-        ...prev,
-        state: { ...prev.state, zones: { ...prev.state.zones, [zoneId]: { ...current, ...update } } },
+      const zones = { ...prev.state.zones };
+      const set = (id: string, patch: Partial<TemplateZoneState>) => {
+        zones[id] = { ...(zones[id] ?? { color: '#ffffff', visible: true }), ...patch };
       };
+      set(zoneId, update);
+      const def = prev.def.zones.find((z) => z.id === zoneId);
+      // a colour slot shares its colour; showing a variant option shows its zones and hides the other options
+      if (def?.slot && update.color) {
+        for (const z of prev.def.zones) if (z.slot === def.slot && z.id !== zoneId) set(z.id, { color: update.color });
+      }
+      if (def?.variant && update.visible === true) {
+        for (const z of prev.def.zones) {
+          if (z.id === zoneId || z.variant?.set !== def.variant.set) continue;
+          set(z.id, { visible: z.variant.option === def.variant.option });
+        }
+      }
+      return { ...prev, state: { ...prev.state, zones } };
     });
   }, []);
 
@@ -767,6 +781,49 @@ export default function Home() {
     },
     [tplBundle, library]
   );
+
+  const handleAddPsd = useCallback(
+    async (file: File) => {
+      try {
+        const res = await fetch('/api/library/psd', {
+          method: 'POST',
+          headers: { 'x-file-name': encodeURIComponent(file.name) },
+          body: file,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.error) throw new Error(data.error || `Server menjawab ${res.status}`);
+        setPendingPsdId(data.id);
+        library.reload();
+      } catch (e: any) {
+        alert(`Gagal menambah PSD: ${e?.message || e}`);
+      }
+    },
+    [library]
+  );
+
+  useEffect(() => {
+    if (!pendingPsdId) return;
+    const t = library.templates.find((x) => x.id === pendingPsdId);
+    if (!t) return;
+    setPendingPsdId(null);
+    handleSelectTemplate(t);
+  }, [pendingPsdId, library.templates, handleSelectTemplate]);
+
+  // The active template is a PSD read from the library that was saved again: take its new layers, keep the
+  // colours and choices of the layers that are still there (not when the user changed the layers in the editor).
+  useEffect(() => {
+    setTplBundle((prev) => {
+      if (prev.def.source !== 'psd' || prev.def.modified) return prev;
+      const fresh = library.templates.find((t) => t.id === prev.def.id);
+      if (!fresh || fresh.rev === prev.def.rev) return prev;
+      preloadTemplateMasks(fresh);
+      const zones: TemplateBundle['state']['zones'] = {};
+      fresh.zones.forEach((z) => {
+        zones[z.id] = prev.state.zones[z.id] ?? { color: z.defaultColor, visible: z.defaultVisible, ...(z.initial ?? {}) };
+      });
+      return { def: fresh, state: { ...prev.state, zones } };
+    });
+  }, [library.templates, preloadTemplateMasks]);
 
   // An edited built-in template whose definition changed since: take the new built-in zones (keeping the
   // colours and the user's own zones / seams), or just stop the notice.
@@ -1379,6 +1436,7 @@ export default function Home() {
             {(
               [
                 ['properties', 'Kain', <Shirt key="i" className="w-3.5 h-3.5" />, undefined],
+                ['kitTemplate', 'Template', <LayoutTemplate key="i" className="w-3.5 h-3.5" />, 'Pilih template, dasar kit, dan simpan sebagai template'],
                 ['template', 'Layer', <LayoutGrid key="i" className="w-3.5 h-3.5" />, 'Warna dasar, layer template, pola, dan garis jahitan'],
                 ['logos', 'Logo', <Shield key="i" className="w-3.5 h-3.5" />, undefined],
                 ['markings', 'Nama', <Type key="i" className="w-3.5 h-3.5" />, 'Pratinjau nama dan nomor punggung'],
@@ -1388,7 +1446,8 @@ export default function Home() {
                 key={id}
                 role="tab"
                 aria-selected={rightTab === id}
-                title={hint}
+                aria-label={label}
+                title={hint ?? label}
                 onClick={() => {
                   if (id === 'logos') {
                     if (!selectedGraphicId && graphicItems.length > 0) setSelectedGraphicId(graphicItems[0].id);
@@ -1397,12 +1456,13 @@ export default function Home() {
                   }
                   setRightTab(id);
                 }}
-                className={`flex-1 py-2.5 flex items-center justify-center gap-1.5 text-xs font-semibold transition-colors border-b-2 ${
+                // only the open tab shows its name: five names side by side do not fit
+                className={`${rightTab === id ? 'flex-[2.2]' : 'flex-1'} min-w-0 py-2.5 flex items-center justify-center gap-1.5 text-xs font-semibold transition-colors border-b-2 ${
                   rightTab === id ? 'border-sky-500 text-white bg-slate-800/40' : 'border-transparent text-slate-400 hover:text-slate-200'
                 }`}
               >
                 {icon}
-                <span>{label}</span>
+                {rightTab === id && <span className="truncate">{label}</span>}
                 {id === 'logos' && graphicItems.length > 0 && (
                   <span className="text-[11px] font-normal text-slate-400">{graphicItems.length}</span>
                 )}
@@ -1420,7 +1480,7 @@ export default function Home() {
               />
             )}
 
-            {rightTab === 'template' && (
+            {(rightTab === 'template' || rightTab === 'kitTemplate') && (
               <TemplatePanel
                 template={tplBundle.def}
                 state={tplBundle.state}
@@ -1451,7 +1511,8 @@ export default function Home() {
                 onChangeSleeveShape={handleChangeSleeveShape}
                 onDeleteSeam={handleDeleteSeam}
                 onToggleSeamCurve={handleToggleSeamCurve}
-                onOpenPsdImport={() => setIsPsdImportOpen(true)}
+                onAddPsd={handleAddPsd}
+                view={rightTab === 'kitTemplate' ? 'template' : 'layers'}
                 onOpenPngImport={() => setIsPngImportOpen(true)}
                 editPoints={editPoints}
                 onToggleEditPoints={handleToggleEditPoints}
@@ -1515,16 +1576,6 @@ export default function Home() {
         onSettingsChange={setFontsetSettings}
       />
 
-      {/* PSD template import */}
-      <ImportPsdModal
-        isOpen={isPsdImportOpen}
-        onClose={() => setIsPsdImportOpen(false)}
-        onImported={(t) => {
-          library.reload();
-          handleSelectTemplate(t);
-        }}
-      />
-
       <ImportPngModal
         isOpen={isPngImportOpen}
         initialFile={pngImportFile}
@@ -1536,6 +1587,7 @@ export default function Home() {
           library.reload();
           handleSelectTemplate(t);
         }}
+        onAddPsd={handleAddPsd}
       />
 
       <PhotoPatternModal
@@ -1545,6 +1597,21 @@ export default function Home() {
           setIsPhotoPatternOpen(false);
           setPngImportFile(file);
           setIsPngImportOpen(true);
+        }}
+        onApplyPattern={(r) => {
+          setIsPhotoPatternOpen(false);
+          setPartsConfig((prev) => ({
+            ...prev,
+            front: { ...prev.front, color: r.ground },
+            back: { ...prev.back, color: r.ground },
+            leftSleeve: { ...prev.leftSleeve, color: r.sleeve },
+            rightSleeve: { ...prev.rightSleeve, color: r.sleeve },
+          }));
+          if (r.layer) {
+            const parts: KitPartId[] = r.sleevesPatterned ? ['front', 'back', 'leftSleeve', 'rightSleeve'] : ['front', 'back'];
+            const layer = { ...newPatternLayer(parts), ...r.layer, name: `${PATTERN_LABEL[r.layer.pattern] ?? r.layer.pattern} (foto)` };
+            setTplBundle((prev) => ({ ...prev, state: { ...prev.state, patterns: [...(prev.state.patterns ?? []), layer] } }));
+          }
         }}
       />
 

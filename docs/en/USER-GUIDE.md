@@ -151,7 +151,7 @@ letter top and baseline (red). *Save to kit folder…* writes `<prefix>_back`, `
 `.ftex` files and, with *Also write config.txt*, the config with those names filled in. The prefix defaults to the
 KitFile name.
 
-*Size %* makes the letters bigger or smaller (they stay on the baseline), and *Outline position* puts the outline
+*Letter size %* makes the letters bigger or smaller (they stay on the baseline), and *Outline position* puts the outline
 outside the letter edge, across it (centre) or inside it (inline). A letter that crosses its slot box gets a yellow
 box and a warning under the preview: in the game it would be squeezed or cut off. Saving asks first while any letter
 does.
@@ -162,7 +162,8 @@ background pick the background and letter colours. A sheet may run across (rows)
 bottom as one row). Each character is recognised and the row
 is matched to the alphabet order; the row shows every piece with its reading (yellow = unsure or skipped). Fix a reading
 in the row's text: one character per piece, `_` to skip one. Characters the picture does not have
-(the full stop, accented letters) come from the font chosen below it. *Logo on the numbers* puts a badge on every digit.
+(the full stop, accented letters) come from the font chosen below it. *Logo on the numbers* puts a badge on every digit; *Logo colour* can turn it into one colour, traced as a sharp
+vector shape: the whole shape (*silhouette*) or only its dark parts (*detail*, with a brightness cut and *Invert*).
 
 ## 9. Projects, autosave, languages
 

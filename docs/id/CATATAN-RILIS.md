@@ -2,6 +2,70 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## Belum dirilis
+
+- **Import PNG: versi warna lain:** *Versi warna lain* menerima sampai dua gambar lagi dari template yang sama dalam
+  warna lain. Piksel yang berubah warna bersama menjadi satu layer, jadi area yang sewarna di satu versi (dua hijau
+  pada camo) tetap terpisah berkat versi lainnya.
+- **Import PNG: gradasi halus:** dengan *Gradasi halus*, centang hanya warna ujung dari desain bergradasi atau blur;
+  warna di antaranya menjadi campuran dua layer, jadi gradasinya tetap ada saat warnanya diganti (zigzag tosca yang
+  diganti merah tetap punya transisinya).
+- **Import PNG menghasilkan PSD:** *Pisah per warna* sekarang menyimpan warna yang dipilih sebagai PSD berlapis di
+  `library/templates` (satu layer polos per warna dan per grup bagian, jadi warna yang ada di baju dan celana muncul di grup Baju
+  dan grup Celana; warna terbesar menjadi *Base* dan mengisi seluruh grupnya di bawah warna lain; *Base* setiap grup punya slot warna sendiri, jadi warna dasar
+  baju, celana, dan kaos kaki bisa berbeda). Warna dipotong di 2048 px dengan
+  tepi halus yang diambil dari gambarnya (garis dan logo tetap mulus), dan piksel di antara dua warna dicampur,
+  bukan diberikan ke salah satunya, lalu dibaca seperti PSD lain:
+  setiap warna menjadi slot warna, Base ada di bawah pola, dan PSD-nya bisa dirapikan di Photoshop lalu disimpan
+  ulang. Warna yang hampir seluruhnya berada di area ban kapten atau kredit (watermark situs template) tidak
+  dicentang secara bawaan. *Satu file per layer* tetap langsung menjadi template.
+- **Layer PSD berwarna polos bisa diwarnai ulang:** layer yang satu warna (bukan hanya abu-abu) menjadi slot warna
+  dengan warna itu sebagai bawaannya.
+- **Tab panel lebih ringkas:** tab di kanan hanya menampilkan ikon; tab yang terbuka juga menampilkan namanya.
+- **Baca PSD: file PSD di library otomatis menjadi template:** taruh file `.psd` di mana saja di
+  `library/templates`. File itu dibaca di latar belakang saat app dibuka atau saat *Muat ulang* (statusnya tampil
+  sebagai *Membaca PSD … (12/30)*), lalu muncul di grup *Baca PSD* pada daftar template. Simpan ulang PSD-nya di
+  Photoshop, lalu *Muat ulang*: PSD dibaca lagi, dan template yang sedang terbuka mengambil layer barunya tanpa
+  mengubah warna dan pilihan yang sudah kamu buat. Salinan hasil konversinya disimpan di `library/templates/.psd`,
+  jadi PSD hanya dibaca ulang saat berubah.
+- **Tambah PSD menggantikan Import PSD:** *Tambah PSD* menyalin file yang dipilih ke `library/templates` (file
+  bernama sama ditimpa, sama seperti menyimpan ulang), lalu dibaca seperti PSD lain di sana dan langsung dibuka
+  begitu siap. Pilih layer dengan menyembunyikan atau menghapusnya di tab Layer; *Simpan sebagai template*
+  membuat salinan yang bisa diedit.
+- **Tab Template:** pilihan template, *Dasar kit*, dan *Simpan sebagai template* pindah ke tab *Template*
+  sendiri, jadi tab *Layer* hanya berisi layer, pola, dan garis jahitan.
+- **Layer Base dari PSD berada di bawah pola:** layer *Base* seukuran kanvas digambar bersama warna dasar bagian,
+  jadi layer pola tampil di atasnya (sebelumnya tertutup). Saat dasar kit memakai *Desain impor*, layer ini tidak
+  digambar, sama seperti warna bagian.
+- **Perbaikan:** layer yang menutupi seluruh kit (layer *Base* dari PSD) sekarang juga sampai ke lengan, celana, dan
+  kaos kaki. Sebelumnya sebuah bagian hanya ikut kalau memuat 15% piksel layer itu.
+- **Template PSD berkode abu-abu: slot warna dan varian:** pada PSD yang setiap layernya satu warna abu-abu polos
+  (set template adidas / Nike / Puma yang beredar di komunitas), layer dengan abu-abu yang sama kini berbagi satu
+  warna. *Slot warna* di atas daftar Layer mengubah semuanya sekaligus, dan mengubah salah satu layernya ikut
+  mengubah yang lain. Pilihan alternatif seperti *Collar 1 / 2 / 13*, *Seams / Seams v2*, atau *Authentic 1 / 2*
+  (satu tampil, sisanya disembunyikan) menjadi satu pilihan masing-masing, dengan *Tidak ada* untuk menyembunyikan
+  semuanya. Layer *Base* dan *Seams* seukuran kanvas tidak lagi dianggap latar, dan latar di sekitar layer Base
+  yang polos dibuang.
+- **Pola teratur dari foto jersey menjadi layer pola:** *Pola dari foto jersey* kini mengenali strip di sudut apa pun
+  (vertikal, horizontal / hoops, miring), satu pita (sash, strip tengah), dan baju polos. Muncul *Pola dikenali: …*
+  dengan lebar dan jarak stripnya, dan *Pakai sebagai layer pola* mengganti warna dasar baju dan lengan lalu menambah
+  polanya sebagai layer pola yang bisa diedit di grup Baju (juga di lengan bila lengannya bergaris di foto). Bayangan
+  dan lipatan yang memecah satu warna jadi versi terang dan gelap digabung dulu. Pola tidak teratur dan pola tiga warna
+  atau lebih tetap lewat jalur layer warna. Model juga harus menutupi piksel polanya sendiri, jadi baju yang hampir
+  polos dengan beberapa goresan tidak dikira satu pita. Warna yang hanya campuran dua warna lain (tepi lembut sapuan
+  kuas) tidak lagi dipakai sebagai warna pola.
+- **Logo satu warna di nomor:** *Warna logo* di *Logo di nomor* menjadikan badge satu warna pilihanmu, di-trace jadi
+  bentuk vektor yang tajam. *Satu warna – siluet* mengisi seluruh logo; *Satu warna – detail* mengambil bagian gelapnya
+  (bagian terang jadi bolong) dengan *Batas terang*, dan *Balik* mewarnai bagian terangnya. Logo JPG berlatar polos juga
+  bisa: hanya latar yang menyambung ke tepi gambar yang dibuang, jadi bagian tengah atau tulisan putih di dalam logo
+  tetap ikut.
+- Slider ukuran huruf di generator fontset kini bernama *Ukuran huruf %* (sebelumnya sama dengan ukuran logo).
+- **Pola dari foto jersey tidak lagi membekukan editor:** pola dikerjakan di latar belakang (web worker); selama itu
+  *Memproses…* tampil di samping *Hasil*, dan menggeser kotak lagi membatalkan proses yang lama.
+- **Huruf dari gambar font tetap selebar aslinya:** huruf diukur bersama margin kosong potongannya, jadi ditempatkan
+  dan dipadatkan seolah lebih lebar (hasilnya lebih ramping daripada di gambar). Kini huruf diukur dari bentuknya
+  sendiri, sama seperti huruf font; huruf yang lebih lebar dari slotnya ditandai peringatan ukuran.
+
 ## 0.3.2 (eksperimental) — lengan dari foto jersey, ukuran huruf dan posisi outline di generator fontset
 
 Pre-release eksperimental: bagian baru sudah berjalan tetapi masih perlu disempurnakan. Tetap pakai 0.3.1 untuk versi stabil.

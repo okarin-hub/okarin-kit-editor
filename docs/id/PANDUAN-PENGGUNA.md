@@ -151,7 +151,7 @@ untuk nomor dan untuk nama; pratinjau menampilkan setiap tekstur dengan slot kar
 garis dasar (merah). *Simpan ke folder kit…* menulis file `<awalan>_back`, `_chest`, `_leg`, `_name`, dan `_name_ex`
 `.ftex`, dan dengan *Tulis config.txt juga*, config yang sudah berisi nama-nama itu. Awalan bawaannya nama KitFile.
 
-*Ukuran %* membesarkan atau mengecilkan huruf (tetap di garis dasar), dan *Posisi outline* menaruh outline di luar
+*Ukuran huruf %* membesarkan atau mengecilkan huruf (tetap di garis dasar), dan *Posisi outline* menaruh outline di luar
 tepi huruf, di tengah tepinya, atau di dalamnya (inline). Huruf yang melewati kotak slotnya diberi kotak kuning dan
 peringatan di bawah pratinjau: di game huruf itu akan dipadatkan atau terpotong. Menyimpan akan bertanya dulu selama
 masih ada huruf seperti itu.
@@ -162,7 +162,8 @@ potongannya, dan pada latar yang ramai pilih warna latar dan warna huruf. Gambar
 baris, dibaca dari atas ke bawah sebagai satu baris). Setiap karakter dikenali dan barisnya
 dicocokkan dengan urutan alfabet; baris menampilkan setiap potongan dengan hasil bacaannya (kuning = kurang yakin atau
 dilewati). Koreksi lewat teks baris: satu karakter per potongan, `_` untuk melewati. Karakter yang tidak ada di gambar
-(titik, huruf beraksen) diambil dari font yang dipilih di bawahnya. *Logo di nomor* menaruh badge di setiap angka.
+(titik, huruf beraksen) diambil dari font yang dipilih di bawahnya. *Logo di nomor* menaruh badge di setiap angka; *Warna logo* bisa menjadikannya satu warna, di-trace jadi bentuk
+vektor yang tajam: seluruh bentuknya (*siluet*) atau hanya bagian gelapnya (*detail*, dengan batas terang dan *Balik*).
 
 ## 9. Proyek, autosave, bahasa
 

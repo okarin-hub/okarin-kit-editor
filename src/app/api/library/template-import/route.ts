@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
-import { TEMPLATE_DIR, parseTemplate } from '@/lib/templateLoader';
+import { TEMPLATE_DIR, PSD_CACHE_DIR, parseTemplate, psdFolder } from '@/lib/templateLoader';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -20,7 +20,8 @@ const slugify = (s: string) =>
 
 /** Resolves a folder name to a directory inside library/templates (never outside of it). */
 function folderPath(folder: unknown): string | null {
-  if (typeof folder !== 'string' || !/^[a-z0-9][a-z0-9-]{0,59}$/.test(folder)) return null;
+  // ".psd/<name>" = the converted copy of a PSD read straight from the folder
+  if (typeof folder !== 'string' || !/^(\.psd\/)?[a-z0-9][a-z0-9-]{0,59}$/.test(folder)) return null;
   const full = path.join(TEMPLATE_DIR, folder);
   return full.startsWith(TEMPLATE_DIR + path.sep) ? full : null;
 }
@@ -38,6 +39,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Permintaan terlalu besar.' }, { status: 413 });
     }
     const body = JSON.parse(text);
+
+    if (body.action === 'init' && typeof body.psd === 'string') {
+      // { action: 'init', psd: 'templates/x.psd' } -> a fresh .psd/<name> folder (replaces the old conversion)
+      const rel = body.psd.replace(/^templates\//, '');
+      const src = path.resolve(TEMPLATE_DIR, rel);
+      if (!/\.psd$/i.test(rel) || !src.startsWith(TEMPLATE_DIR + path.sep) || !fs.existsSync(src)) {
+        return NextResponse.json({ error: 'File PSD tidak ditemukan.' }, { status: 400 });
+      }
+      const name = psdFolder(rel);
+      const dir = path.join(PSD_CACHE_DIR, name);
+      fs.rmSync(dir, { recursive: true, force: true });
+      fs.mkdirSync(path.join(dir, 'masks'), { recursive: true });
+      return NextResponse.json({ folder: `.psd/${name}` });
+    }
 
     if (body.action === 'init') {
       const base = slugify(String(body.name || 'template-psd'));
@@ -77,8 +92,12 @@ export async function POST(req: NextRequest) {
       }
       const folder = path.basename(dir);
       // validate exactly like the library reader does before anything is written
-      const parsed = parseTemplate(body.template, [folder], `${folder}.json`);
+      const parsed = parseTemplate(body.template, String(body.folder).split('/'), `${folder}.json`);
       fs.writeFileSync(path.join(dir, 'template.json'), JSON.stringify(body.template, null, 2), 'utf8');
+      if (folder !== body.folder && typeof body.rev === 'string') {
+        // PSD conversion: remember which revision of the PSD this is (see listPsd)
+        fs.writeFileSync(path.join(dir, 'source.json'), JSON.stringify({ file: body.psd, rev: body.rev.slice(0, 40) }), 'utf8');
+      }
       return NextResponse.json({ ok: true, template: parsed });
     }
 

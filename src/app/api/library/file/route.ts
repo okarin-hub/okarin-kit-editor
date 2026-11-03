@@ -18,6 +18,8 @@ const CONTENT_TYPES: Record<string, string> = {
   '.otf': 'font/otf',
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
+  // PSD templates are read by the browser and converted there
+  '.psd': 'application/octet-stream',
 };
 
 /** Serves one file from the library folder (never anything outside of it). */

@@ -111,6 +111,8 @@ export function renderKitCanvas(
           part.regions.forEach((r) => c.fillRect(r.x, r.y, r.width, r.height));
         }
         c.restore();
+        // template layers that are part of the base (a PSD's Base layer) go under the patterns
+        if (templateBundle) drawTemplateForPart(c, part, templateBundle.def, templateBundle.state, config.color, 'base');
       }
 
       // Clip to the part's shape so patterns and sashes never spill onto other pieces

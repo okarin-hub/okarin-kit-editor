@@ -13,6 +13,18 @@ import { PES_2021_PARTS } from '@/constants/pes2021Parts';
 
 const SIZE = 1024;
 
+/** Written into the XMP of a PSD made by Import PNG (see parsePsd). */
+export const PNG_PSD_MARK = 'okarin-kit-editor:png-template';
+
+/** A canvas that also works inside a web worker (OffscreenCanvas there). */
+export function newCanvas(w: number, h: number): HTMLCanvasElement {
+  if (typeof document === 'undefined') return new OffscreenCanvas(w, h) as unknown as HTMLCanvasElement;
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  return c;
+}
+
 export interface PsdLayerInfo {
   key: string;
   name: string; // "Group / Layer"
@@ -25,6 +37,32 @@ export interface PsdLayerInfo {
   layer: any; // ag-psd layer (kept for conversion)
   /** Why the layer is probably not useful as a zone (guide, mesh, shadow, stitch line, ...). Unset = useful. */
   junk?: string;
+  /** One option of a set of alternative layers or groups (Collar 1 / Collar 2, Seams / Seams v2). */
+  variant?: { set: string; option: string };
+}
+
+/**
+ * Finds alternatives among sibling layers / groups: names that differ only by a trailing number
+ * ("Collar 1", "Collar 13") or a " v2" suffix ("Seams", "Seams v2"), of which exactly one is shown.
+ * Siblings that are all shown (Shirt Details 1 / 2) are separate layers, not alternatives.
+ */
+export function findVariants(siblings: { name?: string; hidden?: boolean }[]): Map<number, { set: string; option: string }> {
+  const sets = new Map<string, { i: number; option: string }[]>();
+  const names = siblings.map((l) => String(l.name ?? '').trim());
+  // "Seams v2" makes plain "Seams" its first option
+  const vBases = new Set(names.map((s) => /^(.*\S)\s+v\d+$/i.exec(s)?.[1]).filter(Boolean));
+  names.forEach((name, i) => {
+    const v = /^(.*\S)\s+v(\d+)$/i.exec(name);
+    const n = /^(.*\D)\s*(\d+)$/.exec(name);
+    const [set, option] = v ? [v[1], `v${v[2]}`] : vBases.has(name) || !n ? [name, 'v1'] : [n[1].trim(), n[2]];
+    sets.set(set, [...(sets.get(set) ?? []), { i, option }]);
+  });
+  const out = new Map<number, { set: string; option: string }>();
+  for (const [set, members] of sets) {
+    if (members.length < 2 || members.filter((m) => !siblings[m.i].hidden).length !== 1) continue;
+    for (const m of members) out.set(m.i, { set, option: m.option });
+  }
+  return out;
 }
 
 /**
@@ -52,7 +90,8 @@ export function junkReason(info: Pick<PsdLayerInfo, 'name' | 'opacity' | 'left' 
   if (byName) return byName;
   const w = info.right - info.left;
   const h = info.bottom - info.top;
-  if (w >= psdW * 0.95 && h >= psdH * 0.95) return 'seukuran kanvas';
+  // a full-size "Base" or "Seams" layer is the kit's base colour or its stitch lines, not a backdrop
+  if (w >= psdW * 0.95 && h >= psdH * 0.95 && !/^(base|seams?)\b/i.test(info.name.split(' / ').pop() ?? '')) return 'seukuran kanvas';
   if (Math.min(w, h) <= 8) return 'garis tipis';
   if (info.opacity < 0.15) return 'transparan';
   return undefined;
@@ -69,9 +108,13 @@ export interface ParsedPsd {
 export interface ConvertedZone {
   zone: Record<string, unknown>;
   maskFile: string;
+  /** Empty inside a worker (OffscreenCanvas has no toDataURL): encode maskCanvas there instead. */
   maskDataUrl: string;
+  maskCanvas: HTMLCanvasElement;
   parts: KitPartId[];
   pixels: number;
+  /** The one flat grey of a grey-coded layer (its colour slot), when the layer is that flat. */
+  flat?: string;
 }
 
 export async function parsePsd(file: File): Promise<ParsedPsd> {
@@ -91,12 +134,15 @@ export async function parsePsd(file: File): Promise<ParsedPsd> {
   const skipped: { name: string; reason: string }[] = [];
   let counter = 0;
 
-  const walk = (children: any[] | undefined, trail: string[], parentHidden: boolean) => {
-    (children ?? []).forEach((l) => {
+  const walk = (children: any[] | undefined, trail: string[], parentHidden: boolean, parentVariant?: PsdLayerInfo['variant']) => {
+    const variants = findVariants(children ?? []);
+    (children ?? []).forEach((l, i) => {
+      // a hidden option of a variant set is still imported (as a hidden choice)
+      const variant = parentVariant ?? variants.get(i);
       const hidden = parentHidden || !!l.hidden;
       const name = String(l.name ?? 'Layer');
       if (l.children) {
-        walk(l.children, [...trail, name], hidden);
+        walk(l.children, [...trail, name], hidden, variant);
         return;
       }
       const full = [...trail, name].join(' / ');
@@ -119,12 +165,15 @@ export async function parsePsd(file: File): Promise<ParsedPsd> {
         right: l.right,
         bottom: l.bottom,
         layer: l,
+        variant,
       });
     });
   };
   walk(psd.children, [], false);
+  // a PSD written by Import PNG has only real colour layers: none of them is a helper or a backdrop
+  const fromPng = String((psd as any).imageResources?.xmpMetadata ?? '').includes(PNG_PSD_MARK);
   layers.forEach((l) => {
-    l.junk = junkReason(l, psd.width, psd.height);
+    l.junk = fromPng ? undefined : junkReason(l, psd.width, psd.height);
   });
 
   return { fileName: file.name, width: psd.width, height: psd.height, layers, skipped };
@@ -172,6 +221,38 @@ export function finalizeMask(
   const d = img.data;
   const W = img.width, H = img.height;
 
+  // A layer that is one flat colour (grey-coded templates: the grey names the colour slot) keeps only that
+  // colour: leftovers such as the backdrop around a full-size Base layer are dropped.
+  let flat: string | undefined;
+  if (meta.mode !== 'keep') {
+    const hist = new Map<number, number>();
+    let n = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      // faint edge pixels come back with rounded colours: judge the layer by its solid pixels
+      if (d[i + 3] < 128) continue;
+      n++;
+      const k = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+      hist.set(k, (hist.get(k) ?? 0) + 1);
+    }
+    let dom = 0, domN = 0;
+    for (const [k, c] of hist) if (c > domN) { dom = k; domN = c; }
+    const r = dom >> 16, g = (dom >> 8) & 255, b = dom & 255;
+    // colours a step or two off (rounded by scaling) count as the same colour
+    domN = 0;
+    for (const [k, c] of hist) {
+      if (Math.max(Math.abs((k >> 16) - r), Math.abs(((k >> 8) & 255) - g), Math.abs((k & 255) - b)) <= 4) domN += c;
+    }
+    // a grey may carry leftovers (a backdrop); a coloured layer counts only when it is all one colour (a layer
+    // written from a PNG), so the white text of a mostly red badge is never thrown away
+    const grey = Math.max(r, g, b) - Math.min(r, g, b) <= 6;
+    if (n > 0 && domN / n >= (grey ? 0.75 : 0.97)) {
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3] >= 128 && Math.max(Math.abs(d[i] - r), Math.abs(d[i + 1] - g), Math.abs(d[i + 2] - b)) > 24) d[i + 3] = 0;
+      }
+      flat = `#${hex2(r)}${hex2(g)}${hex2(b)}`;
+    }
+  }
+
   // Statistics: bounding box, pixel count, mean colour, chroma
   let x0 = SIZE, y0 = SIZE, x1 = -1, y1 = -1, count = 0;
   let sr = 0, sg = 0, sb = 0, chroma = 0;
@@ -193,7 +274,8 @@ export function finalizeMask(
 
   const mean: [number, number, number] = [sr / count, sg / count, sb / count];
   const mode = meta.mode ?? 'auto';
-  const keepColor = mode === 'keep' || (mode === 'auto' && chroma / count > 22);
+  // a flat layer is a colour to choose (its slot), whatever colour it has
+  const keepColor = mode === 'keep' || (mode === 'auto' && !flat && chroma / count > 22);
 
   // Which parts does the layer cover? (pixel counts inside each part's regions)
   const perPart: { id: KitPartId; n: number }[] = PES_2021_PARTS.map((p) => {
@@ -216,7 +298,12 @@ export function finalizeMask(
   const sorted = [...perPart].sort((a, b) => b.n - a.n);
   const minShare = meta.minPartShare ?? 0.15;
   const minPixels = meta.minPartPixels ?? 0;
-  let parts: KitPartId[] = sorted.filter((p) => p.n > 0 && p.n >= minPixels && p.n / Math.max(1, covered) >= minShare).map((p) => p.id);
+  // a part also joins when the layer covers most of that part (a full-size Base layer spreads over every part,
+  // so none of them holds 15% of its pixels)
+  const area = (id: KitPartId) => PES_2021_PARTS.find((p) => p.id === id)!.regions.reduce((a, r) => a + r.width * r.height, 0);
+  let parts: KitPartId[] = sorted
+    .filter((p) => p.n > 0 && p.n >= minPixels && (p.n / Math.max(1, covered) >= minShare || p.n >= area(p.id) * 0.3))
+    .map((p) => p.id);
   if (parts.length === 0) parts = [sorted[0].n > 0 ? sorted[0].id : 'front'];
 
   // Tinted layers keep only their shading: grey levels scaled so the lightest pixel is white (a flat layer
@@ -254,11 +341,9 @@ export function finalizeMask(
     ...(opacity < 0.995 ? { initial: { opacity: Math.round(opacity * 100) / 100 } } : {}),
   };
 
-  const crop = document.createElement('canvas');
-  crop.width = x1 - x0 + 1;
-  crop.height = y1 - y0 + 1;
+  const crop = newCanvas(x1 - x0 + 1, y1 - y0 + 1);
   crop.getContext('2d')!.drawImage(canvas, x0, y0, crop.width, crop.height, 0, 0, crop.width, crop.height);
-  return { zone, maskFile: file, maskDataUrl: crop.toDataURL('image/png'), parts, pixels: count };
+  return { zone, maskFile: file, maskDataUrl: 'toDataURL' in crop ? crop.toDataURL('image/png') : '', maskCanvas: crop, parts, pixels: count, flat: keepColor ? undefined : flat };
 }
 
 /** Returns the zone with its parts replaced (first = main part, the rest go to `parts`). */
@@ -273,9 +358,7 @@ export function convertLayer(info: PsdLayerInfo, psdW: number, psdH: number, ind
   const sy = SIZE / psdH;
   const l = info.layer;
 
-  const canvas = document.createElement('canvas');
-  canvas.width = SIZE;
-  canvas.height = SIZE;
+  const canvas = newCanvas(SIZE, SIZE);
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return null;
   ctx.imageSmoothingQuality = 'high';
@@ -293,9 +376,7 @@ export function convertLayer(info: PsdLayerInfo, psdW: number, psdH: number, ind
   // User layer mask (grayscale): multiply it into the alpha
   const m = l.mask;
   if (m && m.canvas && !m.disabled) {
-    const mc = document.createElement('canvas');
-    mc.width = SIZE;
-    mc.height = SIZE;
+    const mc = newCanvas(SIZE, SIZE);
     const mctx = mc.getContext('2d', { willReadFrequently: true });
     if (mctx) {
       const dc = typeof m.defaultColor === 'number' ? m.defaultColor : 255;
@@ -307,5 +388,27 @@ export function convertLayer(info: PsdLayerInfo, psdW: number, psdH: number, ind
     }
   }
 
-  return finalizeMask(canvas, ctx, img, { name: info.name, hidden: info.hidden, opacity: info.opacity }, index, rx, ry);
+  const out = finalizeMask(canvas, ctx, img, { name: info.name, hidden: info.hidden, opacity: info.opacity }, index, rx, ry);
+  // a Base layer is the kit's base colour (drawn under the pattern layers); Import PNG writes one per part group
+  if (out && /^base\b/i.test(info.name.split(' / ').pop() ?? '')) out.zone.base = true;
+  return out;
+}
+
+/**
+ * Grey-coded templates: zones whose layer is the same flat grey share one colour slot. Slots are named
+ * "Warna 1", "Warna 2"... from the largest total area down. Needs at least two flat layers.
+ */
+export function assignSlots(zones: Record<string, unknown>[], flats: { flat?: string; pixels: number }[]): void {
+  const area = new Map<string, number>();
+  flats.forEach((f) => f.flat && area.set(f.flat, (area.get(f.flat) ?? 0) + f.pixels));
+  if (flats.filter((f) => f.flat).length < 2) return;
+  const order = [...area].sort((a, b) => b[1] - a[1]).map(([g]) => g);
+  zones.forEach((z, i) => {
+    const g = flats[i]?.flat;
+    if (!g) return;
+    // every Base layer (one per part group from Import PNG) is its own colour: shirt, shorts and socks can differ
+    z.slot = z.base
+      ? String(z.name).split(' / ').pop()!.replace(/\.[a-z]+$/i, '')
+      : `Warna ${order.indexOf(g) + 1}`;
+  });
 }

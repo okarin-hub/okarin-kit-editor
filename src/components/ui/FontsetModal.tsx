@@ -29,6 +29,7 @@ import {
   sheetInkColor,
 } from '@/utils/fontsetGenerator';
 import { readSheetRows } from '@/utils/glyphRecognition';
+import { LogoMonoMode, oneColourLogo } from '@/utils/logoMono';
 import { FontSheetCropDialog } from '@/components/ui/FontSheetCropDialog';
 import { encodeDDS } from '@/utils/ddsEncoder';
 import { encodeFtex } from '@/utils/ftexEncoder';
@@ -69,6 +70,12 @@ interface LogoState {
   files: Record<'back' | 'chest' | 'leg', boolean>;
   /** per-digit shift on top of x / y */
   offsets: Record<string, { x: number; y: number }>;
+  /** one-colour logo (traced): off, the whole shape, or its dark (or light) parts */
+  mono: LogoMonoMode;
+  monoColor: string;
+  /** brightness cut for 'detail', 0..100 */
+  monoCut: number;
+  monoInvert: boolean;
 }
 
 interface PatternState {
@@ -112,6 +119,10 @@ const DEFAULT_LOGO: LogoState = {
   clip: false,
   files: { back: true, chest: false, leg: false },
   offsets: {},
+  mono: 'none',
+  monoColor: '#FFFFFF',
+  monoCut: 50,
+  monoInvert: false,
 };
 
 /** What is kept of the generator between sessions and in project files (images are reloaded from their URL). */
@@ -243,6 +254,16 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
     return map;
   }, [sheet]);
 
+  // the logo as drawn on the digits: its own colours, or one colour traced as a vector shape
+  const logoImage = useMemo(() => {
+    if (!logo.image || logo.mono === 'none') return logo.image;
+    try {
+      return oneColourLogo(logo.image, logo.mono, logo.monoColor, logo.monoCut, logo.monoInvert);
+    } catch {
+      return logo.image;
+    }
+  }, [logo.image, logo.mono, logo.monoColor, logo.monoCut, logo.monoInvert]);
+
   const sheetCovers = (group: Group) => groupChars(group).some((ch) => sheetMap.has(ch));
 
   const render = (kind: FileKind, overflow?: Set<string>) => {
@@ -253,7 +274,7 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
     sources.push(fontGlyphSource(style, f.group === 'number' ? '0' : 'H'));
     const withLogo = f.group === 'number' && logo.image && logo.files[kind as 'back' | 'chest' | 'leg'];
     const numberLogo: NumberLogo | null = withLogo
-      ? { image: logo.image!, size: logo.size, y: logo.y, x: logo.x, opacity: logo.opacity, clip: logo.clip, offsets: logo.offsets }
+      ? { image: logoImage!, size: logo.size, y: logo.y, x: logo.x, opacity: logo.opacity, clip: logo.clip, offsets: logo.offsets }
       : null;
     const pt = patterns[f.group];
     const fontPattern: FontPattern | null =
@@ -544,7 +565,7 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
               <option value="inside">Dalam</option>
             </select>
           </label>
-          {slider('Ukuran %', st.size ?? 100, 50, 150, 1, (v) => setStyle(group, { size: v }))}
+          {slider('Ukuran huruf %', st.size ?? 100, 50, 150, 1, (v) => setStyle(group, { size: v }))}
         </div>
         {patternBlock(group)}
         {missing[group].length > 0 && (
@@ -594,6 +615,34 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
           {slider('Posisi Y %', logo.y, 0, 100, 1, (v) => setLogo((l) => ({ ...l, y: v })))}
           {slider('Geser X %', logo.x, -50, 50, 1, (v) => setLogo((l) => ({ ...l, x: v })))}
           {slider('Opasitas', logo.opacity, 0.1, 1, 0.05, (v) => setLogo((l) => ({ ...l, opacity: v })))}
+          <div className="flex items-center justify-between gap-2 text-[11px] text-slate-400">
+            <label className="flex items-center gap-2" title="Satu warna: logo dijadikan satu warna dan digambar ulang sebagai bentuk vektor yang tajam">
+              Warna logo
+              <select value={logo.mono} onChange={(e) => setLogo((l) => ({ ...l, mono: e.target.value as LogoMonoMode }))} className={input}>
+                <option value="none">Asli</option>
+                <option value="shape">Satu warna – siluet</option>
+                <option value="detail">Satu warna – detail</option>
+              </select>
+            </label>
+            {logo.mono !== 'none' && (
+              <input
+                type="color"
+                value={logo.monoColor}
+                onChange={(e) => setLogo((l) => ({ ...l, monoColor: e.target.value.toUpperCase() }))}
+                className="w-8 h-6 bg-transparent cursor-pointer"
+                title="Warna logo"
+              />
+            )}
+          </div>
+          {logo.mono === 'detail' && (
+            <>
+              {slider('Batas terang', logo.monoCut, 5, 95, 1, (v) => setLogo((l) => ({ ...l, monoCut: v })))}
+              <label className="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer" title="Bagian terang logo yang diberi warna, bagian gelap jadi bolong">
+                <input type="checkbox" checked={logo.monoInvert} onChange={(e) => setLogo((l) => ({ ...l, monoInvert: e.target.checked }))} className="accent-sky-500" />
+                Balik: bagian terang yang diwarnai
+              </label>
+            </>
+          )}
           <div className="space-y-1.5 rounded border border-slate-800 p-2">
             <div className="text-[11px] text-slate-400">Atur per angka</div>
             <div className="flex flex-wrap gap-1">
@@ -808,7 +857,7 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
             {overflow.length > 0 && (
               <p className="flex items-start gap-1.5 text-[11px] text-amber-300 leading-snug">
                 <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                <span>{`Huruf terlalu besar, menyentuh garis slot (kotak kuning): ${overflow.join(' ')}. Kecilkan Ukuran % agar tidak dipadatkan atau terpotong.`}</span>
+                <span>{`Huruf terlalu besar, menyentuh garis slot (kotak kuning): ${overflow.join(' ')}. Kecilkan Ukuran huruf % agar tidak dipadatkan atau terpotong.`}</span>
               </p>
             )}
           </div>

@@ -84,6 +84,12 @@ export function parseTemplate(json: any, relDirs: string[], fileName: string) {
       maskCropped: z.maskCropped === true && isBox(z.maskBox) ? true : undefined,
       keepColor: z.keepColor === true ? true : undefined,
       initial,
+      base: z.base === true ? true : undefined,
+      slot: typeof z.slot === 'string' && z.slot ? z.slot.slice(0, 40) : undefined,
+      variant:
+        z.variant && typeof z.variant.set === 'string' && typeof z.variant.option === 'string'
+          ? { set: z.variant.set.slice(0, 60), option: z.variant.option.slice(0, 20) }
+          : undefined,
       defaultColor: typeof z.defaultColor === 'string' ? z.defaultColor : '#ffffff',
       defaultVisible: z.defaultVisible !== false,
     };
@@ -122,6 +128,21 @@ export function readTemplates() {
   };
   visit(TEMPLATE_DIR, []);
 
+  // PSDs read straight from the folder: their converted copy lives in .psd/<folder>
+  const psd = listPsd();
+  for (const p of psd) {
+    if (!p.ready) continue;
+    try {
+      const json = JSON.parse(fs.readFileSync(path.join(PSD_CACHE_DIR, p.folder, 'template.json'), 'utf8'));
+      const t = parseTemplate(json, ['.psd', p.folder], `psd-${p.folder}.json`);
+      // the revision in the mask URLs so a PSD saved again is not drawn from the image cache
+      const zones = t.zones.map((z: any) => (z.mask ? { ...z, mask: `${z.mask}&v=${p.rev}` } : z));
+      templates.push({ ...t, id: `psd-${p.folder}`, zones, source: 'psd', rev: p.rev, psdFile: p.path });
+    } catch (e: any) {
+      errors.push({ file: p.path, error: e?.message || 'Hasil baca PSD tidak valid' });
+    }
+  }
+
   for (const f of files) {
     const fileName = path.basename(f.full);
     try {
@@ -133,5 +154,59 @@ export function readTemplates() {
       errors.push({ file: f.rel.length ? `${f.rel.join('/')}/${fileName}` : fileName, error: e?.message || 'JSON tidak valid' });
     }
   }
-  return { templates, errors };
+  return { templates, errors, psd };
+}
+
+/** Converted copies of the PSDs in library/templates (a dot folder, so the JSON reader skips it). */
+export const PSD_CACHE_DIR = path.join(TEMPLATE_DIR, '.psd');
+
+/** Cache folder name for a PSD path relative to library/templates. */
+export const psdFolder = (rel: string) =>
+  rel
+    .toLowerCase()
+    .replace(/\.psd$/i, '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60) || 'psd';
+
+export interface PsdEntry {
+  /** Path relative to the library root ("templates/adidas/adidas AUTH.psd"), for /api/library/file. */
+  path: string;
+  name: string;
+  folder: string;
+  /** Changes whenever the PSD is saved again (modified time + size). */
+  rev: string;
+  /** The cache holds a conversion of this exact revision. */
+  ready: boolean;
+}
+
+/** Every .psd under library/templates, with whether its converted copy is up to date. */
+export function listPsd(): PsdEntry[] {
+  const out: PsdEntry[] = [];
+  if (!fs.existsSync(TEMPLATE_DIR)) return out;
+  const visit = (dir: string, rel: string[]) => {
+    for (const d of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (d.name.startsWith('.')) continue;
+      const full = path.join(dir, d.name);
+      if (d.isDirectory()) visit(full, [...rel, d.name]);
+      else if (/\.psd$/i.test(d.name)) {
+        const st = fs.statSync(full);
+        const relPath = [...rel, d.name].join('/');
+        const folder = psdFolder(relPath);
+        const rev = `${Math.round(st.mtimeMs)}-${st.size}`;
+        let ready = false;
+        try {
+          const src = JSON.parse(fs.readFileSync(path.join(PSD_CACHE_DIR, folder, 'source.json'), 'utf8'));
+          ready = src.rev === rev && fs.existsSync(path.join(PSD_CACHE_DIR, folder, 'template.json'));
+        } catch {
+          ready = false;
+        }
+        out.push({ path: `templates/${relPath}`, name: d.name.replace(/\.psd$/i, ''), folder, rev, ready });
+      }
+    }
+  };
+  visit(TEMPLATE_DIR, []);
+  return out;
 }

@@ -2,6 +2,69 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## Unreleased
+
+- **Import PNG: other colourways:** *Other colourways* takes up to two more pictures of the same template in other
+  colours. Pixels that change colour together form one layer, so areas that share a colour in one version (two
+  greens of a camo) are still told apart by the others.
+- **Import PNG: smooth gradients:** with *Smooth gradient*, tick only the end colours of a gradient or blurred
+  design; the shades in between become a blend of the two layers, so the gradient stays when a colour is changed
+  (a teal zigzag turned red keeps its fades).
+- **Import PNG makes a PSD:** *Split by colour* now saves the chosen colours as a layered PSD in
+  `library/templates` (one flat layer per colour and part group, so a colour on the shirt and the shorts shows in both the Shirt
+  and the Shorts group; the largest colour is *Base* and fills its whole group under the others; every group's *Base* is its own colour slot, so the shirt, shorts
+  and socks can have different base colours). The colours are cut at 2048 px with
+  soft edges taken from the picture (stripes and logos stay smooth), and a pixel between two colours is blended
+  instead of being given to one of them, which is then read like any PSD:
+  every colour is a colour slot, the base sits under the patterns, and the PSD can be cleaned up in Photoshop and
+  saved again. Colours that sit almost only in the armband or credit area (template site watermarks) start
+  unticked. *One file per layer* still makes a template directly.
+- **Flat colour layers in a PSD are recolourable:** a layer that is one colour (not only a grey) becomes a colour
+  slot with that colour as its default.
+- **Smaller panel tabs:** the tabs on the right show only their icons; the open tab also shows its name.
+- **Read PSD: PSD files in the library become templates by themselves:** put a `.psd` anywhere in
+  `library/templates` and it is read in the background when the app opens or on *Reload* (the status shows
+  *Reading PSD … (12/30)*), then listed under *Read PSD* in the template list. Save the PSD again in Photoshop and
+  *Reload* reads it again; an open template takes the new layers and keeps its colours and choices. The converted
+  copy is kept in `library/templates/.psd`, so a PSD is only read again when it changes.
+- **Add PSD replaces Import PSD:** *Add PSD* copies the chosen file into `library/templates` (a file of the same
+  name is replaced, like saving it again); it is then read like any PSD there and opened once it is ready. Pick
+  layers by hiding or deleting them in the Layer tab, and *Save as template* makes an editable copy.
+- **Template tab:** the template choice, *Kit base* and *Save as template* moved to their own *Template* tab, so
+  the *Layer* tab holds only the layers, patterns and stitch lines.
+- **The Base layer of a PSD sits under the patterns:** a full-size *Base* layer is drawn with the base colour of
+  the parts, so pattern layers show on top of it (before, it covered them). With *Imported design* as the kit base
+  it is not drawn, like the part colours.
+- **Fix:** a layer that covers the whole kit (a PSD *Base* layer) now reaches the sleeves, shorts and socks too;
+  before, a part only joined when it held 15% of the layer.
+- **Grey-coded PSD templates: colour slots and variants:** in a PSD where every layer is one flat grey (the
+  adidas / Nike / Puma template sets shared in the community), layers of the same grey now share one colour.
+  *Colour slots* at the top of the Layer list changes them all at once, and changing one of those layers changes
+  the rest too. Alternatives such as *Collar 1 / 2 / 13*, *Seams / Seams v2* or *Authentic 1 / 2* (one shown, the
+  others hidden) become one choice each, with *None* to hide them all. Full-size *Base* and *Seams* layers are no
+  longer unticked as backdrops, and the backdrop around a flat Base layer is dropped.
+- **Regular patterns from a jersey photo become pattern layers:** *Pattern from a jersey photo* now recognises
+  stripes at any angle (vertical, horizontal / hoops, slanted), a single band (a sash, a centre stripe) and plain
+  shirts. It shows *Pattern recognised: …* with the stripe width and spacing, and *Use as a pattern layer* sets the
+  base colours of the shirt and sleeves and adds the pattern as an editable pattern layer in the Shirt group (on the
+  sleeves too when they are striped in the photo). Shading and folds that split a colour into a lit and a dark
+  shade are joined first. Irregular patterns and patterns of three or more colours keep the colour-layer route.
+  A model must also cover the pattern's own pixels, so a mostly plain shirt with a few strokes is not taken for a
+  band. A colour that is only the blend of two others (the soft edge of a brush stroke) is no longer kept as a
+  pattern colour.
+- **One-colour logo on the numbers:** *Logo colour* in *Logo on the numbers* turns the badge into one colour of your
+  choice, traced as a sharp vector shape. *One colour – silhouette* fills the whole logo; *One colour – detail* keeps
+  its dark parts (the light parts become holes) with a *Brightness cut*, and *Invert* colours the light parts instead.
+  A JPG logo on a plain background works too: only the background joined to the picture edge is left out, so a white
+  centre or white letters inside the logo stay part of it.
+- The letter size slider of the fontset generator is now called *Letter size %* (it had the same name as the logo
+  size).
+- **Pattern from a jersey photo no longer freezes the editor:** the pattern is worked out in the background (a web
+  worker); *Processing…* shows next to *Result* meanwhile, and moving a box again drops the older run.
+- **Letters from a font sheet keep their own width:** they were measured with the empty margin of their cut-out, so
+  they were placed and squeezed as if wider than they are (they came out slimmer than in the picture). They are now
+  measured by the letter itself, like font letters; letters wider than their slot are marked by the size warning.
+
 ## 0.3.2 (experimental) — sleeves from a jersey photo, letter size and outline position in the fontset generator
 
 An experimental pre-release: the new parts work but still need refinement. Stay on 0.3.1 for a stable version.

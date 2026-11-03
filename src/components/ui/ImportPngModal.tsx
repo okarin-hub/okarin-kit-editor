@@ -9,7 +9,12 @@ import {
   ColorAnalysis,
   clusterHex,
   clusterMask,
-  convertPieceMask,
+  masksToPsd,
+  analyzeColorways,
+  absorbIntoChosen,
+  ColourVector,
+  PSD_SIZE,
+  splitByGroup,
   convertPngFile,
   imageToData,
   splitComponents,
@@ -23,6 +28,8 @@ interface ImportPngModalProps {
   isOpen: boolean;
   onClose: () => void;
   onImported: (template: KitTemplate) => void;
+  /** The colour split is saved as a layered PSD and handed to "Tambah PSD" (read from library/templates). */
+  onAddPsd: (file: File) => Promise<void> | void;
   /** a picture to start the colour split with (e.g. the pattern made from a jersey photo) */
   initialFile?: File | null;
 }
@@ -46,7 +53,7 @@ interface ClusterItem {
   on: boolean;
 }
 
-export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose, onImported, initialFile }) => {
+export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose, onImported, onAddPsd, initialFile }) => {
   const [tab, setTab] = useState<Tab>('colors');
   const [templateName, setTemplateName] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
@@ -69,29 +76,41 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
   const [tolerance, setTolerance] = useState(22);
   const [splitPieces, setSplitPieces] = useState(false);
   const [minArea, setMinArea] = useState(300);
-  const [analysis, setAnalysis] = useState<ColorAnalysis | null>(null);
+  const [analysis, setAnalysis] = useState<(ColorAnalysis & { vectors: ColourVector[] }) | null>(null);
   const [clusters, setClusters] = useState<ClusterItem[]>([]);
   const previewRef = useRef<HTMLCanvasElement | null>(null);
+  // the same template in other colours (up to 2): areas are told apart by how they change between versions
+  const [extras, setExtras] = useState<{ name: string; img: HTMLImageElement; data: ImageData }[]>([]);
+  const extraRef = useRef<HTMLInputElement | null>(null);
+  // smooth gradients: the shades between the chosen colours become a blend of them instead of their own layers
+  const [gradient, setGradient] = useState(false);
 
-  // re-analyse when the tolerance changes
+  // re-analyse when the tolerance or the set of pictures changes
   useEffect(() => {
     if (!imageData) return;
     const timer = setTimeout(() => {
-      const a = analyzeColors(imageData, tolerance);
+      const a = extras.length
+        ? analyzeColorways([imageData, ...extras.map((e) => e.data)], tolerance)
+        : (() => {
+            const one = analyzeColors(imageData, tolerance);
+            return { ...one, vectors: one.clusters.map((c) => [...c.color]) };
+          })();
       setAnalysis(a);
       const opaque = a.clusters.reduce((n, c) => n + c.count, 0) || 1;
       const onParts = clusterPartShares(a.labels, a.clusters.length);
+      // template sites put their watermark / credit boxes in the armband and credit areas
+      const onBadges = clusterPartShares(a.labels, a.clusters.length, ['armband', 'credit']);
       setClusters(
         a.clusters.map((c, i) => ({
           id: c.id,
           name: `Warna ${i + 1}`,
           // the empty background (almost no pixels on a kit part) and tiny noise colours start off
-          on: onParts[i] >= 0.3 && c.count / opaque >= 0.003,
+          on: onParts[i] >= 0.3 && c.count / opaque >= 0.003 && onBadges[i] < 0.8 * onParts[i],
         }))
       );
     }, 150);
     return () => clearTimeout(timer);
-  }, [imageData, tolerance]);
+  }, [imageData, tolerance, extras]);
 
   // preview of the selected clusters
   useEffect(() => {
@@ -216,6 +235,23 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
     }
   };
 
+  const addExtra = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const url = URL.createObjectURL(file);
+      const img = await new Promise<HTMLImageElement>((res, rej) => {
+        const i = new Image();
+        i.onload = () => res(i);
+        i.onerror = () => rej(new Error('Tidak bisa membuka gambar.'));
+        i.src = url;
+      });
+      URL.revokeObjectURL(url);
+      setExtras((prev) => [...prev, { name: file.name, img, data: imageToData(img, fit).data }].slice(0, 2));
+    } catch (e: any) {
+      setError(e?.message || 'Gagal membaca gambar.');
+    }
+  };
+
   const runColors = async () => {
     if (!analysis) return;
     const chosen = clusters.filter((c) => c.on);
@@ -223,31 +259,38 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
     setBusy('Mengonversi...');
     setProgress({ done: 0, total: chosen.length * 2 });
     try {
-      const items: ConvertedZone[] = [];
-      const rep: { name: string; parts: string[] }[] = [];
-      let idx = 0;
-      for (const cl of chosen) {
+      // the largest colour is the kit's base (drawn under the patterns), at the bottom of the PSD
+      const ordered = [...chosen].sort((a, b) => analysis.clusters[b.id].count - analysis.clusters[a.id].count);
+      const datas = [imageData!, ...extras.map((e) => e.data)];
+      // gradient: the shades in between join the chosen colours, so their layers cover the whole gradient
+      const labels = gradient ? absorbIntoChosen(analysis.labels, datas, analysis.vectors, new Set(chosen.map((c) => c.id))) : analysis.labels;
+      const layers: { name: string; mask: Uint8Array; color: [number, number, number]; cluster: number }[] = [];
+      for (const [k, cl] of ordered.entries()) {
         await new Promise((r) => setTimeout(r, 0));
         const color = analysis.clusters[cl.id].color;
-        const masks = splitPieces
-          ? splitComponents(analysis.labels, cl.id, minArea)
-          : [clusterMask(analysis.labels, cl.id)];
-        let piece = 1;
-        for (const m of masks) {
-          if (items.length >= MAX_ZONES) break;
-          const nm = splitPieces && masks.length > 1 ? `${cl.name} ${piece}` : cl.name;
-          const out = convertPieceMask(m, color, nm, idx);
-          if (out) {
-            items.push(out);
-            rep.push({ name: nm, parts: out.parts.map(partName) });
-            idx++;
-            piece++;
-          }
+        // numbered by size, like the colour slots the PSD gets when it is read (see assignSlots)
+        const name = k === 0 ? 'Base' : /^Warna \d+$/.test(cl.name) ? `Warna ${k + 1}` : cl.name;
+        // one layer per part group (shirt, shorts, socks, details), so each shows in its own group of the Layer tab
+        // the base covers its whole part group (it is the colour under everything), the others their own pixels
+        const area = k === 0 ? new Uint8Array(labels.length).fill(1) : clusterMask(labels, cl.id);
+        for (const g of splitByGroup(area)) {
+          const label = `${name} – ${g.group}`;
+          const pieces = splitPieces && k > 0 ? splitComponents(Uint16Array.from(g.mask, (v) => (v ? 1 : 65535)), 1, minArea) : [g.mask];
+          pieces.slice(0, MAX_ZONES - layers.length).forEach((mask, i) =>
+            layers.push({ name: pieces.length > 1 ? `${label} ${i + 1}` : label, mask, color, cluster: cl.id })
+          );
         }
         setProgress((p) => (p ? { ...p, done: p.done + 1 } : p));
       }
-      if (items.length >= MAX_ZONES) rep.push({ name: `Dibatasi ${MAX_ZONES} zona. Naikkan "luas minimal" atau matikan pemisahan.`, parts: [] });
-      await save(items, rep, `Dipisah per warna dari ${colorFile?.name ?? 'gambar'} (${items.length} zona).`);
+      setBusy('Menyimpan PSD...');
+      // edges are cut again on the picture at the PSD size, softly (see masksToPsd)
+      const rank = new Int16Array(analysis.clusters.length).fill(-1);
+      ordered.forEach((cl, k) => (rank[cl.id] = k));
+      if (!colorImg.current) throw new Error('Gambar belum dibaca.');
+      const srcs = [colorImg.current, ...extras.map((e) => e.img)].map((img) => imageToData(img, fit, PSD_SIZE).data);
+      const buf = await masksToPsd(layers, srcs, analysis.vectors, rank, gradient);
+      await onAddPsd(new File([buf], `${(templateName.trim() || 'Template PNG').replace(/[\\/:*?"<>|]+/g, '_')}.psd`));
+      onClose();
     } catch (e: any) {
       setError(e?.message || 'Konversi gagal.');
     } finally {
@@ -368,6 +411,7 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
                           const next = e.target.value as ImageFit;
                           setFit(next);
                           if (colorImg.current) setImageData(imageToData(colorImg.current, next).data);
+                          setExtras((prev) => prev.map((x) => ({ ...x, data: imageToData(x.img, next).data })));
                         }}
                         className="bg-slate-900 border border-amber-500/50 rounded px-1.5 py-0.5 text-[11px] text-amber-200 outline-none"
                         title="Gambar tidak persegi: cara memasukkannya ke tekstur 1024 × 1024"
@@ -383,6 +427,7 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
                         setAnalysis(null);
                         setClusters([]);
                         setColorFile(null);
+                        setExtras([]);
                       }}
                       className="ml-auto text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
                     >
@@ -419,6 +464,56 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
                           <input type="range" min={20} max={3000} step={20} value={minArea} onChange={(e) => setMinArea(Number(e.target.value))} className="w-full accent-sky-500" />
                         </label>
                       )}
+                      <label className="flex items-start gap-1.5 text-[11px] text-slate-300 cursor-pointer">
+                        <input type="checkbox" checked={gradient} onChange={(e) => setGradient(e.target.checked)} className="mt-0.5 accent-sky-500" />
+                        <span>
+                          Gradasi halus
+                          <span className="block text-[10px] text-slate-500">
+                            Untuk desain bergradasi atau blur: centang hanya warna ujungnya, warna di antaranya menjadi
+                            campuran keduanya dan gradasinya tetap ada saat warnanya diganti.
+                          </span>
+                        </span>
+                      </label>
+                      <div className="space-y-1">
+                        <div className="text-[11px] text-slate-300">
+                          Versi warna lain <span className="text-slate-500">(opsional, maks. 2)</span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-snug">
+                          Template yang sama dalam warna lain. Bagian yang berubah warna bersama menjadi satu layer, jadi
+                          area yang kebetulan sewarna tetap terpisah.
+                        </p>
+                        {extras.map((x, i) => (
+                          <div key={`${x.name}-${i}`} className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                            <span className="truncate flex-1">{x.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => setExtras((prev) => prev.filter((_, k) => k !== i))}
+                              className="px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
+                            >
+                              Hapus
+                            </button>
+                          </div>
+                        ))}
+                        {extras.length < 2 && (
+                          <button
+                            type="button"
+                            onClick={() => extraRef.current?.click()}
+                            className="text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
+                          >
+                            + Tambah versi warna
+                          </button>
+                        )}
+                        <input
+                          ref={extraRef}
+                          type="file"
+                          accept="image/png,image/webp,image/jpeg"
+                          className="hidden"
+                          onChange={(e) => {
+                            addExtra(e.target.files?.[0]);
+                            e.target.value = '';
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
 

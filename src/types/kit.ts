@@ -228,6 +228,12 @@ export interface KitZoneDef {
   keepColor?: boolean;
   /** Starting position / size / rotation / opacity (e.g. imported from a PSD). */
   initial?: Partial<Pick<TemplateZoneState, 'dx' | 'dy' | 'sx' | 'sy' | 'rot' | 'opacity'>>;
+  /** Drawn with the base colour of the parts: under the pattern layers (the Base layer of a PSD). */
+  base?: boolean;
+  /** Colour slot ("Warna 2"): changing the colour of one zone changes every zone of the same slot. */
+  slot?: string;
+  /** One choice of a set of alternatives (collar 1 / 2 / 13): showing it hides the other options of the set. */
+  variant?: { set: string; option: string };
   defaultColor: string;
   defaultVisible: boolean;
 }
@@ -248,7 +254,9 @@ export interface KitTemplate {
   id: string;
   name: string;
   description?: string;
-  source?: 'builtin' | 'library';
+  source?: 'builtin' | 'library' | 'psd';
+  /** PSD read straight from library/templates: its path relative to the library root. */
+  psdFile?: string;
   /** True once the user added, deleted or re-assigned zones (so it is no longer refreshed from code). */
   modified?: boolean;
   /** Built-in templates: fingerprint of the definition (an edited copy keeps the one it was made from). */

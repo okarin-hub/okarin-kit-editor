@@ -657,6 +657,15 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
                         fill={replaceWithImport && !config.overDesign ? 'rgba(0,0,0,0.01)' : config.color}
                         opacity={replaceWithImport && config.overDesign ? config.overDesignOpacity ?? 1 : 1}
                       />
+                      {/* template layers that are part of the base (a PSD's Base layer): under the patterns */}
+                      {templateBundle && (!replaceWithImport || config.overDesign) && templateBundle.def.zones.some((z) => z.base) && (
+                        <Shape
+                          listening={false}
+                          sceneFunc={(context) =>
+                            drawTemplateForPart((context as any)._context as CanvasRenderingContext2D, part, templateBundle.def, templateBundle.state, config.color, 'base')
+                          }
+                        />
+                      )}
                     </Group>
                   );
                 })()}

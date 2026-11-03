@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { notifyAssetsChanged } from '@/utils/imageCache';
 import { KitTemplate } from '@/types/kit';
+import type { PsdSyncRequest, PsdSyncReply } from '@/workers/psdTemplate.worker';
 
 export interface LibraryEntry {
   id: string;
@@ -27,10 +28,16 @@ export interface AssetLibrary {
   loading: boolean;
   error: string | null;
   reload: () => Promise<void>;
+  /** The PSD in library/templates being read now (it becomes a template when done). */
+  psdBusy: { name: string; done: number; total: number } | null;
+  /** PSDs that could not be read (they are tried again once the file changes). */
+  psdErrors: { file: string; error: string }[];
   systemFonts: string[];
   systemFontStatus: SystemFontStatus;
   loadSystemFonts: () => Promise<void>;
 }
+
+type PsdItem = PsdSyncRequest;
 
 const SYSTEM_FONTS_KEY = 'pes_kit_creator_system_fonts';
 
@@ -66,6 +73,13 @@ export function useAssetLibrary(): AssetLibrary {
   const [systemFonts, setSystemFonts] = useState<string[]>([]);
   const [systemFontStatus, setSystemFontStatus] = useState<SystemFontStatus>('idle');
   const loadedFonts = useRef<Set<string>>(new Set());
+  const [psdQueue, setPsdQueue] = useState<PsdItem[]>([]);
+  const [psdBusy, setPsdBusy] = useState<AssetLibrary['psdBusy']>(null);
+  const [psdErrors, setPsdErrors] = useState<{ file: string; error: string }[]>([]);
+  // path + revision of every PSD already queued or failed, so a reload does not start it again
+  const psdSeen = useRef<Set<string>>(new Set());
+  // one PSD at a time (a ref: React may run the effect twice before the state update lands)
+  const psdRunning = useRef(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -80,6 +94,11 @@ export function useAssetLibrary(): AssetLibrary {
       setTextures(data.textures ?? []);
       setTemplates(data.templates ?? []);
       setTemplateErrors(data.templateErrors ?? []);
+      const fresh = ((data.psd ?? []) as (PsdItem & { ready: boolean })[]).filter(
+        (p) => !p.ready && !psdSeen.current.has(`${p.path}@${p.rev}`)
+      );
+      fresh.forEach((p) => psdSeen.current.add(`${p.path}@${p.rev}`));
+      if (fresh.length) setPsdQueue((q) => [...q, ...fresh.map(({ path, name, rev }) => ({ path, name, rev }))]);
       setRoot(data.root ?? '');
       const fontList: LibraryFont[] = data.fonts ?? [];
       setFonts(fontList);
@@ -92,6 +111,32 @@ export function useAssetLibrary(): AssetLibrary {
       setLoading(false);
     }
   }, []);
+
+  // PSDs dropped in library/templates are read one at a time in a worker, then the library is read again
+  useEffect(() => {
+    if (psdRunning.current || !psdQueue.length) return;
+    psdRunning.current = true;
+    const item = psdQueue[0];
+    setPsdBusy({ name: item.name, done: 0, total: 0 });
+    const w = new Worker(new URL('../workers/psdTemplate.worker.ts', import.meta.url));
+    const finish = (error?: string) => {
+      w.terminate();
+      psdRunning.current = false;
+      if (error) setPsdErrors((e) => [...e.filter((x) => x.file !== item.path), { file: item.path, error }]);
+      else setPsdErrors((e) => e.filter((x) => x.file !== item.path));
+      setPsdQueue((q) => q.slice(1));
+      setPsdBusy(null);
+      if (!error) reload();
+    };
+    w.onmessage = (e: MessageEvent<PsdSyncReply>) => {
+      const r = e.data;
+      if (r.type === 'progress') setPsdBusy({ name: item.name, done: r.done, total: r.total });
+      else finish(r.type === 'error' ? r.error : undefined);
+    };
+    w.onerror = (e) => finish(e.message || 'Worker gagal');
+    w.postMessage(item satisfies PsdSyncRequest);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [psdQueue]);
 
   const loadSystemFonts = useCallback(async () => {
     const api = (window as any).queryLocalFonts;
@@ -145,6 +190,8 @@ export function useAssetLibrary(): AssetLibrary {
     loading,
     error,
     reload,
+    psdBusy,
+    psdErrors,
     systemFonts,
     systemFontStatus,
     loadSystemFonts,

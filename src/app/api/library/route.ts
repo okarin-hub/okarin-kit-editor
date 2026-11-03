@@ -69,6 +69,7 @@ export async function GET() {
       {
         root: LIBRARY_ROOT,
         templates: tpl.templates,
+        psd: tpl.psd,
         templateErrors: tpl.errors,
         logos: walk('logos', IMAGE_EXT),
         patterns: walk('patterns', IMAGE_EXT),
