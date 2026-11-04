@@ -88,3 +88,10 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 | 44 | P3 | Pola tampil paling atas di grupnya tetapi selalu digambar di bawah layer template grup itu, jadi urutan daftar antara pola dan layer template bukan urutan gambarnya. |
 | 45 | P3 | Semua salinan objek kembar berukuran sama. Mengedit titik objek kembar yang diputar membuat arah kembarnya lurus lagi (mengikuti sumbu tekstur). |
 | 46 | P3 | **Baca PSD:** PSD dikonversi oleh app selama app terbuka (PSD 30 layer butuh sekitar 10 sampai 30 detik). Template baca-PSD yang sudah kamu ubah di editor (layer ditambah, dihapus, atau dipindah bagian) tidak diperbarui saat PSD disimpan ulang; pilih ulang dari daftar. Menghapus PSD meninggalkan salinan konversinya di `library/templates/.psd` (hapus manual). Slot warna menggabungkan layer berdasarkan abu-abu yang persis sama, jadi dua layer yang kebetulan abu-abunya sama juga berbagi warna, dan satu layer belum bisa dilepas dari slotnya. |
+
+## Ditambahkan di 0.4.0
+
+| # | Pri | Masalah |
+|---|---|---|
+| 47 | P3 | **Pembaruan dari aplikasi** baru ada mulai 0.4.0: pengguna 0.3.3 ke bawah perlu mengunduh 0.4.0 manual sekali. Fitur ini butuh internet ke GitHub dan hanya jalan di aplikasi Windows (tidak dari source, tidak di browser). Kalau penyalinan gagal di tengah (file dikunci program lain), unduh zip-nya manual; folder `library` tidak pernah disentuh. |
+| 48 | P3 | Kuas hapus menyimpan area hapus tiap layer di 1024 px dalam ruang layer itu sendiri; layer yang diperbesar jauh menampilkannya sedikit lebih lembut. *Simpan sebagai template* tidak membawa area hapusnya (tetap tersimpan di proyek). |

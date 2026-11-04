@@ -88,3 +88,10 @@ welcome (see [Contributing](CONTRIBUTING.md)).
 | 44 | P3 | Patterns are listed at the top of their group but are always drawn under the template layers of that group, so the list order between patterns and template layers is not the drawing order. |
 | 45 | P3 | All copies of a repeated object have the same size. Editing the points of a rotated repeated object straightens the repeat direction (it then follows the texture axes). |
 | 46 | P3 | **Read PSD:** the PSD is converted by the app while it is open (a 30-layer PSD takes about 10 to 30 seconds). A read-PSD template you changed in the editor (added, deleted or re-assigned layers) is not refreshed when the PSD is saved again; pick it again in the list. Deleting a PSD leaves its converted copy in `library/templates/.psd` (remove it by hand). Colour slots join layers by their exact grey, so two unrelated layers that happen to have the same flat grey also share a colour, and one layer cannot be taken out of its slot yet. |
+
+## Added in 0.4.0
+
+| # | Pri | Issue |
+|---|---|---|
+| 47 | P3 | **Update from the app** exists from 0.4.0 on: 0.3.3 and older must download 0.4.0 by hand once. It needs internet access to GitHub and only works in the Windows app (not from source, not in the browser). If the copy fails halfway (a file locked by another program), download the zip again by hand; the `library` folder is never touched. |
+| 48 | P3 | The eraser brush keeps a layer's erased spots at 1024 px in the layer's own space; a layer scaled up a lot shows them a little softer. *Save as template* does not take the erased spots along (they stay in the project). |

@@ -3,11 +3,13 @@
 [English](../en/TEMPLATES.md) · [Kembali ke README](../../README.id.md)
 
 **Template** menambah zona berwarna (piping kerah, panel samping, manset, strip …) dan garis jahit tambahan di atas
-warna bagian. Taruh file `.json` di `library/templates/` (boleh dalam sub-folder), tekan **Muat ulang** di tab Layer →
-kartu *Template*, lalu pilih dari *Template saya*.
+warna bagian. Taruh file `.json` di `library/templates/` (boleh dalam sub-folder), tekan **Muat ulang** di tab Template,
+lalu pilih dari *Template saya*.
 
 Kamu juga bisa membuatnya di aplikasi (tambah layer, edit, *Simpan sebagai template*) dan membiarkan aplikasi
-menulis filenya. Import template dari PSD / PNG masih eksperimental (lihat [Masalah yang diketahui](MASALAH-DIKETAHUI.md)).
+menulis filenya. File `.psd` di `library/templates/` dibaca sebagai template dengan sendirinya (*Baca PSD*), dan
+*Import PNG* membuat PSD seperti itu dari gambar; lihat [Panduan pengguna](PANDUAN-PENGGUNA.md#3-tab-template).
+Keduanya masih eksperimental (lihat [Masalah yang diketahui](MASALAH-DIKETAHUI.md)).
 
 ## Bentuk file
 

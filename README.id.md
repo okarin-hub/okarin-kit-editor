@@ -26,13 +26,18 @@ Folder `library` di sebelah exe awalnya **kosong**: tambahkan logo, pola, font, 
   bisa diseret antargrup; layer tekstur kain, lis, kerah, ban kapten, dan kotak kredit.
 - **Pilihan layer dasar:** warna bagian, atau desain kit jadi yang di-import (warna bisa ditumpuk di atasnya).
 - Bentuk lengan: sampai pundak (template PES) atau tanpa pundak.
-- Logo dan teks dengan kunci rasio, posisi X/Y, ganti warna, gradasi, dan outline. Pustaka logo milikmu sendiri.
-- Garis jahit (titik dengan opsi lengkung, atau bebas), bentuk bebas / titik, zona template, kuas hapus pola.
+- **Template:** bawaan, JSON milikmu, dan **file PSD yang dibaca langsung dari library** (slot warna dan varian dari
+  layer berkode abu-abu); *Import PNG* memisah gambar template per warna menjadi PSD berlayer (eksperimental).
+- Logo dan teks dengan kunci rasio, posisi X/Y, ganti warna, gradasi, dan outline (sudut tumpul atau tajam). Teks
+  dengan pratinjau langsung, font, outline, dan bayangan. Pustaka logo milikmu sendiri.
+- Garis jahit (titik dengan opsi lengkung, atau bebas, bisa dibentuk ulang), bentuk bebas / titik, zona template,
+  kuas hapus per layer atau untuk pola.
 - Nama dan nomor pemain, nomor celana.
 - Export: **PNG**, **DDS** (DXT1 / DXT5 / BGRA, mipmap), **FTEX** (ditulis langsung, sudah diuji di PES 2021),
   file proyek `.peskit`, kartu showcase. 1024 atau 2048 px.
 - Alat eksperimental: pola dari foto jersey, generator fontset dan editor config.txt kitserver.
 - Bahasa: English, Bahasa Indonesia, Português, Español. Pintasan keyboard, undo / redo, autosave, proyek tersimpan.
+- Aplikasi Windows bisa memperbarui dirinya dari rilis GitHub (*Bantuan → Cek pembaruan*).
 
 ## Menjalankan dari source
 

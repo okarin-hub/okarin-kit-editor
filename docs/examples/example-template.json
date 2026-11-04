@@ -1,7 +1,7 @@
 {
   "id": "example-side-panels",
   "name": "Example - side panels and collar (copy, then edit)",
-  "description": "A small hand-written template. Copy this file to library/templates/, rename it and change the zones, then press Reload in the Layer tab.",
+  "description": "A small hand-written template. Copy this file to library/templates/, rename it and change the zones, then press Reload in the Template tab.",
   "zones": [
     {
       "id": "side-front",

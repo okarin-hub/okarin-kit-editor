@@ -2,7 +2,13 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
-## Unreleased
+## 0.4.0 — Stable: eraser per layer, text editing, reshaping stitch lines, update from the app
+
+This release makes the 0.3.x features (PSD templates from the library, Import PNG, the Template tab) part of a
+stable version, together with the changes below.
+
+- **Guides:** the user guide (EN / ID), the README and *Help → Guide* describe the Template tab, Read PSD, Add PSD,
+  Import PNG, the eraser per layer, text editing, zoom speed and updating from the app.
 
 - **Eraser brush per layer:** select a layer first and the eraser (left bar, E) erases only that layer where you
   brush (a watermark, an unwanted logo in an imported PSD / PNG, or part of any other layer); with no layer

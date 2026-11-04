@@ -3,11 +3,13 @@
 [Bahasa Indonesia](../id/TEMPLATE.md) · [Back to README](../../README.md)
 
 A **template** adds coloured zones (collar piping, side panels, cuffs, stripes …) and extra stitch lines on top of the
-part colours. Put a `.json` file in `library/templates/` (sub-folders are fine), press **Reload** in the Layer tab →
-*Template* card and pick it from *My templates*.
+part colours. Put a `.json` file in `library/templates/` (sub-folders are fine), press **Reload** in the Template tab
+and pick it from *My templates*.
 
 You can also build one in the app (add layers, edit them, *Save as template*) and let the app write the file.
-Importing a template from PSD / PNG is experimental (see [Known issues](KNOWN-ISSUES.md)).
+A `.psd` in `library/templates/` is read as a template by itself (*Read PSD*), and *Import PNG* makes such a PSD from
+a picture; see the [User guide](USER-GUIDE.md#3-the-template-tab). Both are experimental (see
+[Known issues](KNOWN-ISSUES.md)).
 
 ## File shape
 

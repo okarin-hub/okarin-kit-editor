@@ -211,10 +211,13 @@ async function installUpdate(event, tag) {
     'utf8'
   );
   send({ phase: 'restart', done: 0, total: 0 });
-  spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', script], {
+  // started through cmd's `start`: a PowerShell spawned directly by Electron is ended when the app quits
+  // (checked: direct spawn 0 of 4 runs survived, `start` 4 of 4). Windows paths cannot hold a double quote.
+  spawn('cmd.exe', ['/d', '/s', '/c', `start "" /min powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "${script}"`], {
     detached: true,
     stdio: 'ignore',
     windowsHide: true,
+    windowsVerbatimArguments: true,
   }).unref();
   setTimeout(() => app.quit(), 500);
   return { ok: true };

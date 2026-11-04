@@ -17,6 +17,10 @@ const DOCS: { title: string; text: string }[] = [
     text: "Pilih preset dari menu Preset, atur warna tiap bagian di tab Layer, lalu tambahkan pola, lis, dan logo. Hasilnya terlihat langsung di canvas 2D dan model 3D. Ikon ? di samping judul panel menjelaskan pengaturan itu.",
   },
   {
+    title: 'Template',
+    text: "Tab Template berisi daftar template: bawaan, file .json milikmu, dan setiap file .psd di library/templates (Baca PSD), yang dibaca otomatis saat aplikasi dibuka atau lewat Muat ulang. Tambah PSD menyalin PSD ke library lalu membukanya. Import PNG mengubah gambar template menjadi PSD berlayer, dipisah per warna (eksperimental). Dasar kit dan Simpan sebagai template juga ada di tab ini.",
+  },
+  {
     title: 'Dasar kit',
     text: "Dasar kit bisa dari warna tiap bagian, atau dari desain yang kamu import (File, Import desain). Warna bagian bisa ditumpuk di atas desain impor dengan ikon mata. Bentuk lengan Sampai pundak mengikuti template PES (lengan menyambung ke area leher); Tanpa pundak memakai lengan yang lebih pendek dan berhenti di lubang lengan.",
   },
@@ -34,7 +38,7 @@ const DOCS: { title: string; text: string }[] = [
   },
   {
     title: 'Alat gambar',
-    text: "Bar alat di kiri canvas berisi pilih dan geser, gambar bentuk bebas atau titik, garis jahit titik (bisa melengkung) atau bebas, dan kuas hapus pola. Scroll untuk zoom dan seret untuk menggeser canvas.",
+    text: "Bar alat di kiri canvas berisi pilih dan geser, gambar bentuk bebas atau titik, garis jahit titik (bisa melengkung) atau bebas, dan kuas hapus. Pilih layer dulu agar kuas hapus hanya menghapus layer itu (misalnya watermark di PSD / PNG impor); tanpa layer yang dipilih, kuas menghapus pola. Scroll untuk zoom (kecepatannya di menu Tampilan) dan seret untuk menggeser canvas.",
   },
   {
     title: 'Garis jahitan',
@@ -42,7 +46,7 @@ const DOCS: { title: string; text: string }[] = [
   },
   {
     title: 'Logo dan teks',
-    text: "Di tab Logo kamu bisa upload logo, mencari logo klub dari football-logos.cc, lalu mengatur ukuran, posisi, warna, gradasi, dan outline. Logo milikmu disimpan di folder library/logos.",
+    text: "Di tab Logo kamu bisa upload logo, mencari logo klub dari football-logos.cc, lalu mengatur ukuran, posisi, warna, gradasi, dan outline (sudut tumpul atau tajam). Tambah Teks menampilkan pratinjau dulu; font, ukuran, warna, outline, dan bayangan teks bisa diubah kapan saja. Logo milikmu disimpan di folder library/logos.",
   },
   {
     title: 'Nama dan nomor',
@@ -59,6 +63,10 @@ const DOCS: { title: string; text: string }[] = [
   {
     title: 'Proyek',
     text: 'File, Simpan proyek menyimpan kit ke browser atau ke file .peskit. Pekerjaanmu juga disimpan otomatis.',
+  },
+  {
+    title: 'Pembaruan',
+    text: 'Bantuan, Cek pembaruan membandingkan versimu dengan rilis di GitHub. Di aplikasi Windows, Unduh dan pasang memasang versi baru lalu membuka aplikasi lagi; folder library tidak disentuh.',
   },
   {
     title: 'Folder library',

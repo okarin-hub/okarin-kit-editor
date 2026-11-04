@@ -26,13 +26,19 @@ The `library` folder next to the exe starts **empty**: add your own logos, patte
   between groups; fabric texture layers, trims, collar, captain's armband and credit box.
 - **Base layer choice:** part colours, or an imported finished kit design (colours can be stacked on top).
 - Sleeve shape: to the shoulder (PES template) or without shoulder.
-- Logos and text with ratio lock, X/Y position, colour override, gradient and outline. Your own logo library.
-- Stitch lines (by points with optional curve, or freehand), freehand / point shapes, template zones, pattern eraser.
+- **Templates:** built-in, your own JSON, and **PSD files read straight from the library** (colour slots and
+  variants from grey-coded layers); *Import PNG* splits a template picture by colour into a layered PSD
+  (experimental).
+- Logos and text with ratio lock, X/Y position, colour override, gradient and outline (round or sharp corners).
+  Text with a live preview, font, outline and shadow. Your own logo library.
+- Stitch lines (by points with optional curve, or freehand, reshaped afterwards), freehand / point shapes, template
+  zones, an eraser brush per layer or for patterns.
 - Player name and number, shorts number.
 - Export: **PNG**, **DDS** (DXT1 / DXT5 / BGRA, mipmaps), **FTEX** (written directly, tested in PES 2021),
   `.peskit` project file, showcase card. 1024 or 2048 px.
 - Experimental tools: pattern from a jersey photo, kitserver fontset generator and config.txt editor.
 - Languages: English, Bahasa Indonesia, Português, Español. Keyboard shortcuts, undo / redo, autosave, saved projects.
+- Windows app updates itself from the GitHub releases (*Help → Check for updates*).
 
 ## Run from source
 

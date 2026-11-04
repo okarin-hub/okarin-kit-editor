@@ -2,7 +2,13 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
-## Belum dirilis
+## 0.4.0 — Stabil: kuas hapus per layer, edit teks, garis jahit bisa dibentuk ulang, pembaruan dari aplikasi
+
+Rilis ini menjadikan fitur 0.3.x (template PSD dari library, Import PNG, tab Template) bagian dari versi stabil,
+bersama perubahan di bawah ini.
+
+- **Panduan:** panduan pengguna (EN / ID), README, dan *Bantuan → Panduan* menjelaskan tab Template, Baca PSD, Tambah
+  PSD, Import PNG, kuas hapus per layer, edit teks, kecepatan zoom, dan pembaruan dari aplikasi.
 
 - **Kuas hapus per layer:** pilih layer dulu, lalu kuas hapus (bar kiri, E) hanya menghapus layer itu di area yang
   disapu (watermark, logo yang tidak diinginkan di PSD / PNG impor, atau bagian layer lain); tanpa layer yang
