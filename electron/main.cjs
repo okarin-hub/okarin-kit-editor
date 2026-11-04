@@ -5,12 +5,17 @@
  * The `library` folder (logos, patterns, fonts, templates) lives next to the exe so it can be
  * edited by hand; it is created from the bundled template on first run.
  */
-const { app, BrowserWindow, shell, dialog } = require('electron');
-const { spawn } = require('node:child_process');
+const { app, BrowserWindow, shell, dialog, ipcMain } = require('electron');
+const { spawn, execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const http = require('node:http');
 const net = require('node:net');
+const os = require('node:os');
 const path = require('node:path');
+const { Readable } = require('node:stream');
+const { pipeline } = require('node:stream/promises');
+
+const REPO = 'okarin-hub/okarin-kit-editor';
 
 let serverProcess = null;
 let mainWindow = null;
@@ -102,7 +107,7 @@ async function createWindow() {
     backgroundColor: '#0b0e14',
     title: 'Okarin Kit Editor',
     autoHideMenuBar: true,
-    webPreferences: { contextIsolation: true, sandbox: true },
+    webPreferences: { contextIsolation: true, sandbox: true, preload: path.join(__dirname, 'preload.cjs') },
   });
   mainWindow.setMenuBarVisibility(false);
   mainWindow.loadURL(
@@ -140,6 +145,88 @@ if (!gotLock) {
   });
   app.whenReady().then(createWindow);
 }
+
+// ---------------------------------------------------------------- update in place
+
+/**
+ * Installs a release from GitHub: downloads its Windows zip, unpacks it, then a small PowerShell script waits
+ * for this app to close, copies the new files over the app folder (the library folder is not in the zip, so the
+ * user's logos, fonts and templates stay) and starts the app again.
+ */
+async function installUpdate(event, tag) {
+  if (!app.isPackaged || process.platform !== 'win32') throw new Error('Pembaruan otomatis hanya untuk aplikasi Windows.');
+  if (!/^v?\d+\.\d+\.\d+$/.test(tag)) throw new Error('Versi tidak valid.');
+  const send = (p) => event.sender.send('update:progress', p);
+
+  // the download address comes from GitHub, never from the page
+  const rel = await fetch(`https://api.github.com/repos/${REPO}/releases/tags/${tag}`, { headers: { Accept: 'application/vnd.github+json' } });
+  if (!rel.ok) throw new Error(`Rilis ${tag} tidak ditemukan (${rel.status}).`);
+  const info = await rel.json();
+  const asset = (info.assets || []).find((a) => /win-x64\.zip$/i.test(a.name));
+  const prefix = `https://github.com/${REPO}/releases/download/`;
+  if (!asset || !String(asset.browser_download_url).startsWith(prefix)) throw new Error('File Windows untuk rilis ini tidak ada.');
+
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'okarin-update-'));
+  const zip = path.join(work, 'update.zip');
+  const res = await fetch(asset.browser_download_url);
+  if (!res.ok || !res.body) throw new Error(`Unduhan gagal (${res.status}).`);
+  const total = Number(res.headers.get('content-length')) || asset.size || 0;
+  let done = 0;
+  let last = 0;
+  const body = Readable.fromWeb(res.body);
+  body.on('data', (chunk) => {
+    done += chunk.length;
+    if (done - last > 1024 * 1024 || done === total) {
+      last = done;
+      send({ phase: 'download', done, total });
+    }
+  });
+  await pipeline(body, fs.createWriteStream(zip));
+
+  send({ phase: 'extract', done: 0, total: 0 });
+  const unpacked = path.join(work, 'files');
+  fs.mkdirSync(unpacked);
+  const tar = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe');
+  execFileSync(tar, ['-x', '-f', zip, '-C', unpacked], { windowsHide: true });
+  const top = fs.readdirSync(unpacked).map((d) => path.join(unpacked, d)).find((d) => fs.existsSync(path.join(d, 'Okarin Kit Editor.exe')));
+  if (!top) throw new Error('Isi zip pembaruan tidak dikenali.');
+
+  const dest = appDir();
+  const q = (s) => `'${String(s).replace(/'/g, "''")}'`;
+  const script = path.join(work, 'apply-update.ps1');
+  fs.writeFileSync(
+    script,
+    // BOM: Windows PowerShell reads a script without one in the ANSI code page (folder names with accents)
+    '﻿' + [
+      `$src = ${q(top)}; $dst = ${q(dest)}; $work = ${q(work)}`,
+      '# wait until the app (and its server) has closed, so its files are no longer in use',
+      '$deadline = (Get-Date).AddSeconds(90)',
+      'while ((Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith($dst, [StringComparison]::OrdinalIgnoreCase) }) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }',
+      '# copy over the app folder; files only the user has (the library) are left alone',
+      'robocopy $src $dst /E /R:5 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null',
+      "Start-Process -FilePath (Join-Path $dst 'Okarin Kit Editor.exe')",
+      'Start-Sleep -Seconds 5',
+      'Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue',
+    ].join('\r\n'),
+    'utf8'
+  );
+  send({ phase: 'restart', done: 0, total: 0 });
+  spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', script], {
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true,
+  }).unref();
+  setTimeout(() => app.quit(), 500);
+  return { ok: true };
+}
+
+ipcMain.handle('update:install', async (event, tag) => {
+  try {
+    return await installUpdate(event, tag);
+  } catch (err) {
+    return { ok: false, error: err && err.message ? err.message : String(err) };
+  }
+});
 
 function stopServer() {
   app.isQuitting = true;

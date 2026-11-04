@@ -16,9 +16,10 @@ import {
 } from 'react-konva';
 import useImage from 'use-image';
 import { drawPatternLayersForPart, patternLayersForPart } from '@/utils/patternRenderer';
-import { subscribeAssets } from '@/utils/imageCache';
-import { drawTemplateForPart, SEAM_CURVE_TENSION } from '@/utils/templateRenderer';
-import { zoneBox } from '@/utils/zoneGeometry';
+import { preloadImage, subscribeAssets } from '@/utils/imageCache';
+import { drawTemplateForPart, setLiveErase, SEAM_CURVE_TENSION } from '@/utils/templateRenderer';
+import { zoomFactor } from '@/utils/uiPrefs';
+import { zoneBox, zoneMatrix } from '@/utils/zoneGeometry';
 import { drawCreditText } from '@/utils/creditRenderer';
 import { drawFabricForPart } from '@/utils/fabricRenderer';
 import { partPolygons, tracePolygons, polygonsBox } from '@/utils/partShape';
@@ -78,6 +79,11 @@ interface KitCanvasProps {
   onZonePointMove?: (zoneId: string, poly: number, idx: number, pt: Pt) => void;
   onZonePointInsert?: (zoneId: string, poly: number, afterIdx: number, pt: Pt) => void;
   onZonePointRemove?: (zoneId: string, poly: number, idx: number) => void;
+  /** Stitch line whose points are edited (key: its id or "seam-<index>"). */
+  editSeam?: string | null;
+  onSeamPointMove?: (key: string, idx: number, pt: Pt) => void;
+  onSeamPointInsert?: (key: string, afterIdx: number, pt: Pt) => void;
+  onSeamPointRemove?: (key: string, idx: number) => void;
   onPatternMaskChange?: (dataUrl: string | null) => void;
   brush?: PatternBrushState;
   isExportingClean?: boolean;
@@ -165,6 +171,10 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
   onZonePointMove,
   onZonePointInsert,
   onZonePointRemove,
+  editSeam,
+  onSeamPointMove,
+  onSeamPointInsert,
+  onSeamPointRemove,
   onPatternMaskChange,
   brush,
   isExportingClean = false,
@@ -258,6 +268,10 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
   const lastCommittedMask = useRef<string | null>(null);
   const strokeRef = useRef<{ x: number; y: number } | null>(null);
 
+  // eraser strokes of the selected layer: with a layer selected the brush erases only that layer
+  const zoneEraseRef = useRef<{ id: string; cv: HTMLCanvasElement; committed: string | undefined } | null>(null);
+  const staticLayerRef = useRef<Konva.Layer | null>(null);
+
   if (!maskCanvasRef.current && typeof document !== 'undefined') {
     const cv = document.createElement('canvas');
     cv.width = CANVAS_TEXTURE_SIZE;
@@ -294,10 +308,17 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
   }, [patternMask]);
 
   const paintSegment = (from: { x: number; y: number }, to: { x: number; y: number }) => {
-    const cv = maskCanvasRef.current;
+    const target = zoneEraseRef.current;
+    const cv = target?.cv ?? maskCanvasRef.current;
     const ctx = cv?.getContext('2d');
     if (!cv || !ctx || !brush) return;
     ctx.save();
+    if (target) {
+      // a layer's mask lives in the layer's own space: undo its move / turn / scale
+      const z = templateBundle?.def.zones.find((d) => d.id === target.id);
+      const zs = templateBundle?.state.zones[target.id];
+      if (z && zs) ctx.setTransform(zoneMatrix(z, zs).inverse());
+    }
     ctx.globalCompositeOperation = brush.mode === 'erase' ? 'source-over' : 'destination-out';
     ctx.strokeStyle = '#000';
     ctx.lineWidth = brush.size;
@@ -308,7 +329,8 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
     ctx.lineTo(to.x + 0.01, to.y);
     ctx.stroke();
     ctx.restore();
-    patternLayerRef.current?.batchDraw();
+    if (zoneEraseRef.current) staticLayerRef.current?.batchDraw();
+    else patternLayerRef.current?.batchDraw();
   };
 
   const pointerInTexture = (stage: Konva.Stage | null) => stage?.getRelativePointerPosition() ?? null;
@@ -336,8 +358,9 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
   const handleBrushUp = () => {
     if (!strokeRef.current) return;
     strokeRef.current = null;
-    const cv = maskCanvasRef.current;
-    if (!cv || !onPatternMaskChange) return;
+    const target = zoneEraseRef.current;
+    const cv = target?.cv ?? maskCanvasRef.current;
+    if (!cv || !(target ? onZoneTransform : onPatternMaskChange)) return;
     // An empty mask is stored as null so projects stay small
     const ctx = cv.getContext('2d');
     const data = ctx?.getImageData(0, 0, cv.width, cv.height).data;
@@ -351,8 +374,14 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
       }
     }
     const url = hasPaint ? cv.toDataURL('image/png') : null;
+    if (target) {
+      target.committed = url ?? undefined;
+      if (url) preloadImage(url);
+      onZoneTransform!(target.id, { erase: url ?? undefined });
+      return;
+    }
     lastCommittedMask.current = url;
-    onPatternMaskChange(url);
+    onPatternMaskChange!(url);
   };
 
   // ---- Template zone editing: a transformable box over the selected zone ----
@@ -364,6 +393,48 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
       : null;
   const selectedZoneState = selectedZone ? templateBundle!.state.zones[selectedZone.id] : undefined;
   const zBox = selectedZone ? zoneBox(selectedZone) : null;
+
+  // Load the selected layer's eraser mask into a canvas the brush paints on (again after undo / redo)
+  const eraseTargetId = brushActive && selectedZone ? selectedZone.id : null;
+  const eraseTargetUrl = selectedZoneState?.erase;
+  useEffect(() => {
+    const cur = zoneEraseRef.current;
+    if (cur && cur.id !== eraseTargetId) {
+      setLiveErase(cur.id, null);
+      zoneEraseRef.current = null;
+      staticLayerRef.current?.batchDraw();
+    }
+    if (!eraseTargetId) return;
+    const now = zoneEraseRef.current;
+    if (now && now.committed === eraseTargetUrl) return;
+    const id = eraseTargetId;
+    const cv = now?.cv ?? document.createElement('canvas');
+    zoneEraseRef.current = { id, cv, committed: eraseTargetUrl };
+    const show = (img?: HTMLImageElement) => {
+      cv.width = CANVAS_TEXTURE_SIZE;
+      cv.height = CANVAS_TEXTURE_SIZE;
+      if (img) cv.getContext('2d')!.drawImage(img, 0, 0, cv.width, cv.height);
+      setLiveErase(id, cv);
+      staticLayerRef.current?.batchDraw();
+    };
+    if (!eraseTargetUrl) {
+      show();
+      return;
+    }
+    let cancelled = false;
+    const img = new window.Image();
+    img.onload = () => !cancelled && show(img);
+    img.src = eraseTargetUrl;
+    return () => {
+      cancelled = true;
+    };
+  }, [eraseTargetId, eraseTargetUrl]);
+  useEffect(
+    () => () => {
+      if (zoneEraseRef.current) setLiveErase(zoneEraseRef.current.id, null);
+    },
+    []
+  );
 
   useEffect(() => {
     if (!zoneTrRef.current) return;
@@ -441,7 +512,7 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
       const rect = el.getBoundingClientRect();
       const px = ((e.clientX - rect.left) / rect.width) * CANVAS_TEXTURE_SIZE;
       const py = ((e.clientY - rect.top) / rect.height) * CANVAS_TEXTURE_SIZE;
-      const zoom = Math.min(8, Math.max(0.4, vs.zoom * Math.exp(-e.deltaY * 0.0015)));
+      const zoom = Math.min(8, Math.max(0.4, vs.zoom * Math.exp(-e.deltaY * 0.0015 * zoomFactor())));
       const s1 = tt.zoom * vs.zoom;
       const s2 = tt.zoom * zoom;
       const wx = (px - (tt.x + vs.panX)) / s1;
@@ -711,7 +782,7 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
 
         {/* Layer 1c: everything static over the patterns, in one canvas (fewer layers = less memory; Konva warns
             above 5): cuff / hem / collar accents, template zones and seams, fabric texture, imported overlay */}
-        <Layer id="static-layer" listening={false}>
+        <Layer id="static-layer" ref={staticLayerRef} listening={false}>
         <Group id="accent-group" listening={false}>
           {shapeParts.renderOrder.map((part) => {
             const config = partsConfig[part.id];
@@ -744,7 +815,7 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
                 shapeParts.renderOrder.forEach((part) => {
                   const cfg = partsConfig[part.id];
                   if (!cfg || !cfg.visible) return;
-                  drawTemplateForPart(c, part, templateBundle.def, templateBundle.state, cfg.color);
+                  drawTemplateForPart(c, part, templateBundle.def, templateBundle.state, cfg.color, 'top');
                 });
               }}
             />
@@ -1042,12 +1113,15 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
                   />
                   {poly.map((p, i) => {
                     const q = poly[(i + 1) % poly.length];
+                    // no "+" on a side too short to tell it from its points (screen px)
+                    if (Math.hypot(q[0] - p[0], q[1] - p[1]) * zoomK < 26) return null;
                     return (
                       <Circle
                         key={`m-${i}`}
                         x={(p[0] + q[0]) / 2}
                         y={(p[1] + q[1]) / 2}
-                        radius={3.5 / zoomK}
+                        radius={5 / zoomK}
+                        hitStrokeWidth={8}
                         fill="rgba(15,23,42,0.85)"
                         stroke="#38bdf8"
                         strokeWidth={1}
@@ -1066,10 +1140,12 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
                       key={`p-${i}`}
                       x={p[0]}
                       y={p[1]}
-                      radius={5.5 / zoomK}
+                      radius={8 / zoomK}
+                      // a wider invisible ring around the point is still a hit, so it is easy to grab
+                      hitStrokeWidth={10}
                       fill="#0284c7"
                       stroke="#ffffff"
-                      strokeWidth={1.2}
+                      strokeWidth={1.5}
                       strokeScaleEnabled={false}
                       draggable
                       onDragMove={(e) =>
@@ -1089,6 +1165,67 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
             })}
           </Group>
         )}
+
+        {/* Point editing of a stitch line: drag points, click a "+" to add, right-click to remove */}
+        {(() => {
+          if (!editSeam || locked || isExportingClean || !templateBundle) return null;
+          const seams = templateBundle.def.seams ?? [];
+          const idx = seams.findIndex((s, i) => (s.id ?? `seam-${i}`) === editSeam);
+          if (idx < 0) return null;
+          const pts = seams[idx].points;
+          const zoomK = Math.max(0.3, targetTransform.zoom * viewState.zoom);
+          const round = (v: number) => Math.round(v * 10) / 10;
+          return (
+            <Group id="seam-points-group">
+              <Line
+                points={pts.flat()}
+                stroke="#f472b6"
+                strokeWidth={1.5}
+                dash={[6, 4]}
+                tension={seams[idx].smooth ? SEAM_CURVE_TENSION : 0}
+                strokeScaleEnabled={false}
+                listening={false}
+              />
+              {pts.slice(0, -1).map((p, i) => {
+                const q = pts[i + 1];
+                if (Math.hypot(q[0] - p[0], q[1] - p[1]) * zoomK < 26) return null;
+                return (
+                  <Circle
+                    key={`sm-${i}`}
+                    x={(p[0] + q[0]) / 2}
+                    y={(p[1] + q[1]) / 2}
+                    radius={5 / zoomK}
+                    hitStrokeWidth={8}
+                    fill="rgba(15,23,42,0.85)"
+                    stroke="#f472b6"
+                    strokeWidth={1}
+                    strokeScaleEnabled={false}
+                    onClick={() => onSeamPointInsert?.(editSeam, i, [round((p[0] + q[0]) / 2), round((p[1] + q[1]) / 2)])}
+                  />
+                );
+              })}
+              {pts.map((p, i) => (
+                <Circle
+                  key={`sp-${i}`}
+                  x={p[0]}
+                  y={p[1]}
+                  radius={8 / zoomK}
+                  hitStrokeWidth={10}
+                  fill="#db2777"
+                  stroke="#ffffff"
+                  strokeWidth={1.5}
+                  strokeScaleEnabled={false}
+                  draggable
+                  onDragMove={(e) => onSeamPointMove?.(editSeam, i, [round(e.target.x()), round(e.target.y())])}
+                  onContextMenu={(e) => {
+                    e.evt.preventDefault();
+                    onSeamPointRemove?.(editSeam, i);
+                  }}
+                />
+              ))}
+            </Group>
+          );
+        })()}
 
         {/* Brush cursor */}
         {brushActive && brush && (

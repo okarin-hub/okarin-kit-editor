@@ -146,6 +146,8 @@ export interface LogoOutline {
   color: string;
   width: number;
   position: 'inside' | 'center' | 'outside';
+  /** Corners of the outline: rounded (default) or sharp (mitred). */
+  join?: 'round' | 'miter';
 }
 
 export interface KitGraphicItem {
@@ -175,6 +177,8 @@ export interface KitGraphicItem {
   strokeWidth?: number;
   fontSize?: number;
   fontFamily?: string;
+  /** Text: a soft drop shadow under the letters. */
+  textShadow?: boolean;
   visible?: boolean;
 }
 
@@ -295,6 +299,8 @@ export interface TemplateZoneState {
   repeatGap?: number;
   /** Copies go along the shape's own height ('y', e.g. hoops under a strip) or width ('x'); default: across the long side. */
   repeatDir?: 'x' | 'y';
+  /** Eraser brush strokes on this layer: PNG data URL, 1024 texture space, painted = hidden. */
+  erase?: string;
 }
 
 export interface SeamConfig {

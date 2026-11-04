@@ -292,6 +292,16 @@ export function zonePath(
   );
 }
 
+/** The zone's move / rotate / scale as a matrix in texture space (same as transformPoint, without the repeats). */
+export function zoneMatrix(zone: KitZoneDef, zs: Partial<TemplateZoneState>): DOMMatrix {
+  const box = zoneBox(zone);
+  return new DOMMatrix()
+    .translate(box.cx + (zs.dx ?? 0), box.cy + (zs.dy ?? 0))
+    .rotate(zs.rot ?? 0)
+    .scale(zs.sx ?? 1, zs.sy ?? 1)
+    .translate(-box.cx, -box.cy);
+}
+
 /** Draws a full-texture mask image with the zone's move / scale / rotate applied. */
 export function drawMaskTransformed(
   ctx: CanvasRenderingContext2D,

@@ -1,4 +1,8 @@
 import { KitGraphicItem, LogoFill, LogoOutline } from '@/types/kit';
+import { traceCoverage } from '@/utils/glyphTrace';
+
+/** How far a sharp corner of the outline may reach, in outline widths (sharper tips are cut off). */
+const MITER_LIMIT = 3;
 
 /**
  * Recolour / gradient / outline for image logos.
@@ -112,7 +116,9 @@ export function getStyledLogo(img: HTMLImageElement, item: KitGraphicItem, scale
   const ow = outline ? outline.width * scale : 0;
   const outsideR = !outline ? 0 : outline.position === 'outside' ? ow : outline.position === 'center' ? ow / 2 : 0;
   const insideR = !outline ? 0 : outline.position === 'inside' ? ow : outline.position === 'center' ? ow / 2 : 0;
-  const pad = Math.ceil(outsideR) + 2;
+  const sharp = outline?.join === 'miter';
+  // a mitred corner reaches further out than the outline width (up to the miter limit)
+  const pad = Math.ceil(outsideR * (sharp ? MITER_LIMIT : 1)) + 2;
 
   // the logo itself, recoloured
   const paintFn =
@@ -124,7 +130,30 @@ export function getStyledLogo(img: HTMLImageElement, item: KitGraphicItem, scale
   const body = silhouette(img, w, h, pad, paintFn);
 
   const [out, ox] = make(w + pad * 2, h + pad * 2);
-  if (outline) {
+  if (outline && sharp) {
+    // sharp corners: the logo's edge traced as a vector path and stroked with mitred joins
+    const alpha = silhouette(img, w, h, pad, null);
+    const d = alpha.getContext('2d')!.getImageData(0, 0, alpha.width, alpha.height).data;
+    const cov = new Float32Array(alpha.width * alpha.height);
+    for (let p = 0; p < cov.length; p++) cov[p] = d[p * 4 + 3] / 255;
+    const traced = traceCoverage(cov, alpha.width, alpha.height);
+    const path = traced ? new Path2D(traced) : null;
+    ox.lineJoin = 'miter';
+    ox.miterLimit = MITER_LIMIT;
+    ox.strokeStyle = outline.color;
+    if (path && outsideR > 0) {
+      ox.lineWidth = outsideR * 2;
+      ox.stroke(path);
+    }
+    ox.drawImage(body, 0, 0);
+    if (path && insideR > 0) {
+      ox.save();
+      ox.clip(path, 'evenodd');
+      ox.lineWidth = insideR * 2;
+      ox.stroke(path);
+      ox.restore();
+    }
+  } else if (outline) {
     const alpha = silhouette(img, w, h, pad, null);
     if (outsideR > 0) ox.drawImage(tint(dilate(alpha, outsideR), outline.color), 0, 0);
     ox.drawImage(body, 0, 0);

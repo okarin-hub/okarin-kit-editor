@@ -16,8 +16,6 @@ import {
   Unlock,
   Type,
   Plus,
-  Palette,
-  Check,
   FolderOpen,
   RefreshCw,
   Search,
@@ -28,7 +26,8 @@ import { KitGraphicItem, KitPartId } from '@/types/kit';
 import { LogoStylePanel } from '@/components/ui/LogoStylePanel';
 import { PES_2021_PARTS } from '@/constants/pes2021Parts';
 import { AssetLibrary, LibraryEntry } from '@/hooks/useAssetLibrary';
-import FontPicker from '@/components/ui/FontPicker';
+import { TextStyleEditor, TextStyleFields } from '@/components/ui/TextStyleEditor';
+import { DEFAULT_TEXT_FONT, fitTextBox } from '@/utils/textItem';
 import FootballLogosModal from '@/components/ui/FootballLogosModal';
 
 interface LogosPanelProps {
@@ -43,17 +42,6 @@ interface LogosPanelProps {
   library: AssetLibrary;
 }
 
-const PRESET_COLORS = [
-  { label: 'Putih', hex: '#ffffff' },
-  { label: 'Hitam', hex: '#111111' },
-  { label: 'Emas', hex: '#fbbf24' },
-  { label: 'Merah', hex: '#e11d48' },
-  { label: 'Biru Royal', hex: '#2563eb' },
-  { label: 'Biru Navy', hex: '#0f172a' },
-  { label: 'Kuning', hex: '#facc15' },
-  { label: 'Hijau', hex: '#16a34a' },
-  { label: 'Cyan Neon', hex: '#06b6d4' },
-];
 
 /** Number input that can be cleared and retyped; valid numbers apply as you type, blur restores the real value. */
 const NumberField: React.FC<{ value: number; min?: number; onCommit: (v: number) => void; className?: string }> = ({
@@ -113,9 +101,16 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [showTextModal, setShowTextModal] = useState(false);
-  const [customText, setCustomText] = useState('CUSTOM TEXT');
-  const [customTextColor, setCustomTextColor] = useState('#ffffff');
-  const [customTextFont, setCustomTextFont] = useState("'Impact', 'Arial Black', sans-serif");
+  // the text being written in the "Teks Baru" form (seen in its preview before it is added)
+  const [draft, setDraft] = useState<TextStyleFields>({
+    text: 'CUSTOM TEXT',
+    textColor: '#ffffff',
+    fontFamily: DEFAULT_TEXT_FONT,
+    fontSize: 28,
+    strokeColor: '#000000',
+    strokeWidth: 0,
+    textShadow: false,
+  });
 
   const [showFootballLogos, setShowFootballLogos] = useState(false);
   const [libraryCategory, setLibraryCategory] = useState<string>('all');
@@ -227,7 +222,7 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
 
   // Add custom text graphic
   const handleAddCustomText = () => {
-    if (!customText.trim()) return;
+    if (!draft.text?.trim()) return;
 
     let defaultX = 432;
     let defaultY = 690;
@@ -243,16 +238,13 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
       defaultRotation = 180;
     }
 
-    const newItem: KitGraphicItem = {
+    const newItem: KitGraphicItem = fitTextBox({
       id: `custom-text-${Date.now()}`,
-      name: `Teks: ${customText.slice(0, 10)}`,
+      name: `Teks: ${(draft.text ?? '').slice(0, 10)}`,
       partId: targetPart,
       type: 'text',
       category: 'custom',
-      text: customText,
-      textColor: customTextColor,
-      fontFamily: customTextFont,
-      fontSize: 28,
+      ...draft,
       x: defaultX,
       y: defaultY,
       width: 160,
@@ -261,7 +253,7 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
       opacity: 1,
       visible: true,
       locked: false,
-    };
+    });
 
     onAddGraphic(newItem);
     onSelectGraphic(newItem.id);
@@ -298,23 +290,7 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
     });
   };
 
-  // Apply color tint to selected SVG logo
-  const handleTintSelected = (colorHex: string) => {
-    if (!selectedItem) return;
 
-    if (selectedItem.type === 'text') {
-      onUpdateGraphic({
-        ...selectedItem,
-        textColor: colorHex,
-      });
-      return;
-    }
-
-    onUpdateGraphic({
-      ...selectedItem,
-      color: colorHex,
-    });
-  };
 
   return (
     <div className="flex flex-col h-full select-none overflow-y-auto text-slate-300 p-4 space-y-5">
@@ -362,39 +338,7 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
             </button>
           </div>
 
-          <input
-            type="text"
-            value={customText}
-            onChange={(e) => setCustomText(e.target.value)}
-            placeholder="Tulis teks..."
-            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-bold"
-          />
-
-          <div className="grid grid-cols-2 gap-2">
-            <div className="col-span-2">
-              <span className="text-[10px] text-slate-400">Pilihan Font</span>
-              <div className="mt-1">
-                <FontPicker
-                  value={customTextFont}
-                  onChange={setCustomTextFont}
-                  library={library}
-                  compact
-                />
-              </div>
-            </div>
-            <div>
-              <span className="text-[10px] text-slate-400">Warna Teks</span>
-              <div className="flex items-center gap-1.5 mt-1">
-                <input
-                  type="color"
-                  value={customTextColor}
-                  onChange={(e) => setCustomTextColor(e.target.value)}
-                  className="w-7 h-7 rounded border border-slate-700 cursor-pointer bg-transparent"
-                />
-                <span className="text-[10px] font-mono">{customTextColor}</span>
-              </div>
-            </div>
-          </div>
+          <TextStyleEditor value={draft} onChange={(p) => setDraft((d) => ({ ...d, ...p }))} library={library} />
 
           <button
             onClick={handleAddCustomText}
@@ -644,41 +588,16 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
 
           {selectedItem.type === 'text' && (
             <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold text-slate-400 flex items-center justify-between">
-                <span className="flex items-center gap-1">
-                  <Palette className="w-3 h-3 text-amber-400" />
-                  <span>Pilihan Warna Logo / Teks:</span>
-                </span>
-                <span className="font-mono text-[10px] text-slate-500">
-                  {selectedItem.color || selectedItem.textColor || '#ffffff'}
-                </span>
-              </label>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {PRESET_COLORS.map((c) => (
-                  <button
-                    key={c.hex}
-                    onClick={() => handleTintSelected(c.hex)}
-                    title={c.label}
-                    className="w-5 h-5 rounded-full border border-black/50 shadow-sm flex items-center justify-center transition-transform hover:scale-110"
-                    style={{ backgroundColor: c.hex }}
-                  >
-                    {(selectedItem.color === c.hex || selectedItem.textColor === c.hex) && (
-                      <Check
-                        className={`w-3 h-3 ${
-                          c.hex === '#ffffff' || c.hex === '#facc15' ? 'text-black' : 'text-white'
-                        }`}
-                      />
-                    )}
-                  </button>
-                ))}
-                <input
-                  type="color"
-                  value={selectedItem.color || selectedItem.textColor || '#ffffff'}
-                  onChange={(e) => handleTintSelected(e.target.value)}
-                  className="w-6 h-6 rounded border border-slate-700 cursor-pointer bg-transparent"
-                  title="Warna Kustom"
-                />
+              <div className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
+                <Type className="w-3 h-3 text-sky-400" />
+                <span>Teks</span>
               </div>
+              <TextStyleEditor
+                value={selectedItem}
+                // the box follows the text (size, font, outline), centred where it was
+                onChange={(p) => onUpdateGraphic(fitTextBox({ ...selectedItem, ...p, ...(p.text !== undefined ? { name: `Teks: ${p.text.slice(0, 10)}` } : {}) }))}
+                library={library}
+              />
             </div>
           )}
 

@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { zoomFactor, onPrefsChange } from '@/utils/uiPrefs';
 import { createLongSleeves, LongSleeveController } from '@/utils/longSleeves';
 
 /** Shorts UV island of the model (left side, texture px) and where it starts in the game's template. */
@@ -160,6 +161,9 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
 
     controls.autoRotate = autoRotate;
     controls.autoRotateSpeed = 2.0;
+    // wheel zoom speed from the View menu
+    controls.zoomSpeed = zoomFactor();
+    const offPrefs = onPrefsChange(() => (controls.zoomSpeed = zoomFactor()));
     controlsRef.current = controls;
 
     // Custom Pointer Drag: Left-click vertical movement moves model up & down (Vertical Panning)
@@ -423,6 +427,7 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
 
     return () => {
       disposed = true;
+      offPrefs();
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
       container.removeEventListener('pointerdown', onZonePointerDown, true);

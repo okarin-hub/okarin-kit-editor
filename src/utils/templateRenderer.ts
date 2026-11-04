@@ -4,7 +4,7 @@ import { partPolygons, tracePolygons, insetPolygon } from '@/utils/partShape';
 const hasShape = (z: KitZoneDef) => !!(z.rects?.length || z.polygons?.length || z.ellipses?.length);
 import { getCachedImage, preloadImage } from '@/utils/imageCache';
 import { tintedTile } from '@/utils/patternRenderer';
-import { zonePath, drawMaskTransformed, zoneParts } from '@/utils/zoneGeometry';
+import { zonePath, drawMaskTransformed, zoneParts, zoneMatrix } from '@/utils/zoneGeometry';
 
 /**
  * Draws template zones (colourable panels) and seam / stitch lines for one part.
@@ -169,6 +169,41 @@ export function traceSeamPath(ctx: CanvasRenderingContext2D, points: Pt[], smoot
   ctx.quadraticCurveTo(last[2], last[3], points[n - 1][0], points[n - 1][1]);
 }
 
+/** The eraser mask being painted right now (2D editor), shown before it is saved into the zone state. */
+const liveErase = new Map<string, HTMLCanvasElement>();
+export function setLiveErase(zoneId: string, mask: HTMLCanvasElement | null): void {
+  if (mask) liveErase.set(zoneId, mask);
+  else liveErase.delete(zoneId);
+}
+
+let eraseLayer: HTMLCanvasElement | null = null;
+
+/**
+ * A layer's eraser mask redrawn through a matrix, for when the layer's own shape is rebuilt (moved to another part,
+ * turned into editable points). null while the mask image is not decoded yet.
+ */
+export function remapErase(url: string, m: DOMMatrix): string | null {
+  const img = getCachedImage(url);
+  if (!img) return null;
+  const cv = document.createElement('canvas');
+  cv.width = 1024;
+  cv.height = 1024;
+  const g = cv.getContext('2d')!;
+  g.setTransform(m);
+  g.drawImage(img, 0, 0, 1024, 1024);
+  return cv.toDataURL('image/png');
+}
+
+/** A layer's eraser mask (texture space, painted = hidden), if it has one ready to draw. */
+function eraseMaskOf(zoneId: string, erase: string | undefined): CanvasImageSource | null {
+  const live = liveErase.get(zoneId);
+  if (live) return live;
+  if (!erase) return null;
+  const img = getCachedImage(erase);
+  if (!img) preloadImage(erase);
+  return img && img.complete && img.naturalWidth > 0 ? img : null;
+}
+
 export function drawTemplateForPart(
   ctx: CanvasRenderingContext2D,
   part: KitPartDefinition,
@@ -194,13 +229,27 @@ export function drawTemplateForPart(
   // 1. Coloured zones (move / scale / rotate / edge shaping / opacity come from the zone state)
   zones.forEach((zone) => {
     const zs = state.zones[zone.id];
+    // a layer with eraser strokes is drawn on its own layer first, then the strokes are cut out of it
+    const eraser = eraseMaskOf(zone.id, zs.erase);
+    let g = ctx;
+    if (eraser) {
+      if (!eraseLayer) eraseLayer = document.createElement('canvas');
+      if (eraseLayer.width !== ctx.canvas.width || eraseLayer.height !== ctx.canvas.height) {
+        eraseLayer.width = ctx.canvas.width;
+        eraseLayer.height = ctx.canvas.height;
+      }
+      g = eraseLayer.getContext('2d')!;
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.clearRect(0, 0, eraseLayer.width, eraseLayer.height);
+      g.setTransform(ctx.getTransform());
+    }
     if (hasShape(zone)) {
-      ctx.save();
-      ctx.globalAlpha = zs.opacity ?? 1;
-      ctx.fillStyle = zs.color;
-      zonePath(ctx, zone, zs);
-      ctx.fill('evenodd');
-      ctx.restore();
+      g.save();
+      g.globalAlpha = zs.opacity ?? 1;
+      g.fillStyle = zs.color;
+      zonePath(g, zone, zs);
+      g.fill('evenodd');
+      g.restore();
     }
     if (zone.mask) {
       const img = getCachedImage(zone.mask);
@@ -208,14 +257,28 @@ export function drawTemplateForPart(
         // masks keep the full 1024 px resolution (pattern tiles are downscaled to 512)
         const tinted = zone.keepColor ? img : tintedTile(zone.mask, img, zs.color, 1024, true);
         if (tinted) {
-          ctx.save();
-          ctx.globalAlpha = zs.opacity ?? 1;
-          drawMaskTransformed(ctx, tinted, zone, zs);
-          ctx.restore();
+          g.save();
+          g.globalAlpha = zs.opacity ?? 1;
+          drawMaskTransformed(g, tinted, zone, zs);
+          g.restore();
         }
       } else {
         preloadImage(zone.mask);
       }
+    }
+    if (eraser) {
+      // the mask is kept in the layer's own space, so it moves / turns / scales with the layer
+      const m = zoneMatrix(zone, zs);
+      g.save();
+      g.globalCompositeOperation = 'destination-out';
+      g.transform(m.a, m.b, m.c, m.d, m.e, m.f);
+      g.drawImage(eraser, 0, 0, 1024, 1024);
+      g.restore();
+      // the part clip of ctx still applies (it is kept in device space)
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(eraseLayer!, 0, 0);
+      ctx.restore();
     }
   });
 

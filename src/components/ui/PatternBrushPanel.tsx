@@ -3,22 +3,26 @@
 import React from 'react';
 import { Eraser, Brush, X, Trash2 } from 'lucide-react';
 import { PatternBrushState } from '@/types/kit';
+import { InfoTip } from '@/components/ui/InfoTip';
 
 interface PatternBrushPanelProps {
   brush: PatternBrushState;
   onChange: (update: Partial<PatternBrushState>) => void;
+  /** Name of the selected layer the brush erases; none = it erases the patterns. */
+  targetName?: string;
   hasMask: boolean;
   onClear: () => void;
 }
 
 /**
- * Compact bar shown above the 2D canvas while the pattern eraser brush is active (it is turned
- * on from the toolbar). Paint over areas to hide the part patterns, e.g. to keep a logo baked
- * into an imported design visible; switch to "Pulihkan" to bring the pattern back.
+ * Compact bar shown above the 2D canvas while the eraser brush is active (it is turned on from
+ * the toolbar). With a layer selected it erases only that layer, otherwise the part patterns;
+ * "Pulihkan" brings back what was erased.
  */
 export const PatternBrushPanel: React.FC<PatternBrushPanelProps> = ({
   brush,
   onChange,
+  targetName,
   hasMask,
   onClear,
 }) => {
@@ -28,7 +32,18 @@ export const PatternBrushPanel: React.FC<PatternBrushPanelProps> = ({
     <div className="w-full max-w-[720px] shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1.5 bg-[#121622]/95 border border-slate-700 rounded-xl shadow-lg px-3 py-2 select-none">
       <span className="flex items-center gap-1.5 text-[11px] font-bold text-white whitespace-nowrap">
         <Eraser className="w-3.5 h-3.5 text-rose-400" />
-        Kuas Hapus Pola
+        Kuas Hapus
+        <InfoTip text="Pilih layer dulu untuk menghapus layer itu saja di area yang disapu (misalnya watermark atau logo yang tidak diinginkan). Tanpa layer yang dipilih, kuas menghapus pola. Pulihkan mengembalikannya." />
+      </span>
+
+      <span className="text-[11px] text-slate-400 whitespace-nowrap max-w-[200px] truncate">
+        {targetName ? (
+          <>
+            Layer: <span className="text-rose-300 font-semibold">{targetName}</span>
+          </>
+        ) : (
+          'Pola'
+        )}
       </span>
 
       <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg p-0.5">
@@ -71,7 +86,7 @@ export const PatternBrushPanel: React.FC<PatternBrushPanelProps> = ({
           onClick={onClear}
           disabled={!hasMask}
           className="flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-medium text-slate-300 border border-slate-700/60 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          title="Kembalikan semua pola yang dihapus"
+          title={targetName ? 'Kembalikan bagian layer ini yang dihapus' : 'Kembalikan semua pola yang dihapus'}
         >
           <Trash2 className="w-3 h-3" />
           Reset

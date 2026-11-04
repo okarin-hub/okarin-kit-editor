@@ -39,7 +39,8 @@ import {
 import { KitProject, ExportSettings, ExportTextureResolution, ExportDdsFormat } from '@/types/project';
 import { DEFAULT_PART_CONFIG, DEFAULT_CREDIT_CONFIG, PRESET_KITS, KitPreset } from '@/constants/presets';
 import { PES_2021_PARTS, PART_MAP, CANVAS_TEXTURE_SIZE, SHORTS_NUMBER_POS, migrateMarkings } from '@/constants/pes2021Parts';
-import { bakeZone, moveZoneToPart, simplifyPath, zoneHitTest } from '@/utils/zoneGeometry';
+import { bakeZone, moveZoneToPart, simplifyPath, zoneBox, zoneHitTest, zoneMatrix } from '@/utils/zoneGeometry';
+import { remapErase } from '@/utils/templateRenderer';
 import DrawBar from '@/components/ui/DrawBar';
 import ImportPngModal from '@/components/ui/ImportPngModal';
 import KitConfigModal from '@/components/ui/KitConfigModal';
@@ -342,6 +343,7 @@ export default function Home() {
     (t: KitTemplate) => {
       preloadTemplateMasks(t);
       setSelectedZoneId(null);
+      setEditSeam(null);
       setTplBundle((prev) => ({ def: t, state: { ...buildTemplateState(t, prev.state.seams), patterns: prev.state.patterns, background: prev.state.background, sleeveShape: prev.state.sleeveShape } }));
     },
     [preloadTemplateMasks]
@@ -479,6 +481,13 @@ export default function Home() {
       const srcState = prev.state.zones[zoneId] ?? { color: src.defaultColor, visible: true };
       const { zone, scale } = moveZoneToPart(src, part, PART_MAP[src.part].bounds, PART_MAP[part].bounds);
       const moved: KitZoneDef = { ...zone, id, group: PART_MAP[part].category };
+      // the shape is rebuilt on the new part (shifted and scaled), the eraser mask follows it
+      let erase = srcState.erase;
+      if (erase && (src.rects?.length || src.polygons?.length || src.ellipses?.length)) {
+        const a = zoneBox(src);
+        const b = zoneBox(moved);
+        erase = remapErase(erase, new DOMMatrix().translate(b.cx, b.cy).scale(scale).translate(-a.cx, -a.cy)) ?? erase;
+      }
       return {
         def: {
           ...prev.def,
@@ -487,7 +496,7 @@ export default function Home() {
         },
         state: {
           ...prev.state,
-          zones: { ...prev.state.zones, [id]: { ...srcState, dx: (srcState.dx ?? 0) * scale, dy: (srcState.dy ?? 0) * scale } },
+          zones: { ...prev.state.zones, [id]: { ...srcState, dx: (srcState.dx ?? 0) * scale, dy: (srcState.dy ?? 0) * scale, erase } },
         },
       };
     });
@@ -510,6 +519,7 @@ export default function Home() {
     (kind: 'free' | 'poly' | 'stitch' | 'stitchFree') => {
       setBrush((prev) => ({ ...prev, active: false }));
       setSelectedZoneId(null);
+      setEditSeam(null);
       setDrawPts([]);
       setDrawTool(kind);
       setViewMode((m) => (m === '3d' ? 'split' : m));
@@ -526,7 +536,34 @@ export default function Home() {
         seams: (prev.def.seams ?? []).filter((s, i) => (s.id ?? `seam-${i}`) !== key),
       },
     }));
+    setEditSeam((cur) => (cur === key ? null : cur));
   }, []);
+
+  // stitch line whose points are being edited on the 2D canvas (its key: id or "seam-<index>")
+  const [editSeam, setEditSeam] = useState<string | null>(null);
+  const updateSeamPoints = useCallback((key: string, fn: (pts: Pt[]) => Pt[]) => {
+    setTplBundle((prev) => ({
+      ...prev,
+      def: {
+        ...prev.def,
+        modified: true,
+        seams: (prev.def.seams ?? []).map((s, i) => ((s.id ?? `seam-${i}`) === key ? { ...s, points: fn(s.points) } : s)),
+      },
+    }));
+  }, []);
+  const handleSeamPointMove = useCallback(
+    (key: string, idx: number, pt: Pt) => updateSeamPoints(key, (pts) => pts.map((p, i) => (i === idx ? pt : p))),
+    [updateSeamPoints]
+  );
+  const handleSeamPointInsert = useCallback(
+    (key: string, afterIdx: number, pt: Pt) => updateSeamPoints(key, (pts) => [...pts.slice(0, afterIdx + 1), pt, ...pts.slice(afterIdx + 1)]),
+    [updateSeamPoints]
+  );
+  // a line keeps at least its two ends
+  const handleSeamPointRemove = useCallback(
+    (key: string, idx: number) => updateSeamPoints(key, (pts) => (pts.length > 2 ? pts.filter((_, i) => i !== idx) : pts)),
+    [updateSeamPoints]
+  );
 
   const handleToggleSeamCurve = useCallback((key: string) => {
     setTplBundle((prev) => ({
@@ -568,7 +605,7 @@ export default function Home() {
 
       // stitch line: an open polyline kept as a layer of the template (can be deleted again)
       if (kind === 'stitch' || kind === 'stitchFree') {
-        const line = kind === 'stitchFree' ? simplifyPath(pts, 2) : pts;
+        const line = kind === 'stitchFree' ? simplifyPath(pts, 3) : pts;
         if (line.length < 2) return;
         const mx = line.reduce((a, p) => a + p[0], 0) / line.length;
         const my = line.reduce((a, p) => a + p[1], 0) / line.length;
@@ -596,7 +633,8 @@ export default function Home() {
       if (pts.length < 3) return;
 
       // freehand strokes are simplified; the outline is then smoothed so it reads as a curve
-      const path = kind === 'free' ? simplifyPath(pts, 2.5) : pts;
+      // (4 px: few enough points to grab one by one when editing, the smoothing keeps the stroke's curve)
+      const path = kind === 'free' ? simplifyPath(pts, 4) : pts;
       if (path.length < 3) return;
 
       // main part: the part under the shape's centre (else the active part, else the front)
@@ -645,6 +683,8 @@ export default function Home() {
         if (!z) return prev;
         const zs = prev.state.zones[zoneId] ?? { color: z.defaultColor, visible: true };
         const baked = bakeZone(z, { ...zs, smooth: 0, edge: 'sharp' });
+        // the move / turn / scale goes into the points, so the eraser mask takes it too
+        const erase = zs.erase ? remapErase(zs.erase, zoneMatrix(z, zs)) ?? zs.erase : undefined;
         return {
           def: { ...prev.def, modified: true, zones: prev.def.zones.map((x) => (x.id === zoneId ? baked : x)) },
           state: {
@@ -660,6 +700,7 @@ export default function Home() {
                 repeat: zs.repeat,
                 repeatGap: zs.repeatGap,
                 repeatDir: zs.repeatDir,
+                erase,
               },
             },
           },
@@ -880,6 +921,7 @@ export default function Home() {
     if (baseTexture) pending.push(preloadImage(baseTexture.src));
     if (patternMask) pending.push(preloadImage(patternMask));
     tplBundle.def.zones.forEach((z) => z.mask && pending.push(preloadImage(z.mask)));
+    Object.values(tplBundle.state.zones).forEach((zs) => zs.erase && pending.push(preloadImage(zs.erase)));
     if (pending.length) {
       Promise.all(pending).then(run);
     } else {
@@ -1373,8 +1415,16 @@ export default function Home() {
                 <PatternBrushPanel
                   brush={brush}
                   onChange={(u) => setBrush((prev) => ({ ...prev, ...u }))}
-                  hasMask={!!patternMask}
-                  onClear={() => setPatternMask(null)}
+                  {...(() => {
+                    const z = selectedZoneId ? tplBundle?.def.zones.find((d) => d.id === selectedZoneId) : undefined;
+                    return z
+                      ? {
+                          targetName: t(z.name),
+                          hasMask: !!tplBundle?.state.zones[z.id]?.erase,
+                          onClear: () => handleUpdateZone(z.id, { erase: undefined }),
+                        }
+                      : { hasMask: !!patternMask, onClear: () => setPatternMask(null) };
+                  })()}
                 />
                 <KitCanvasWrapper
                   partsConfig={partsConfig}
@@ -1406,6 +1456,10 @@ export default function Home() {
                   onZonePointMove={handleZonePointMove}
                   onZonePointInsert={handleZonePointInsert}
                   onZonePointRemove={handleZonePointRemove}
+                  editSeam={editSeam}
+                  onSeamPointMove={handleSeamPointMove}
+                  onSeamPointInsert={handleSeamPointInsert}
+                  onSeamPointRemove={handleSeamPointRemove}
                   onPatternMaskChange={setPatternMask}
                   brush={brush}
                   isExportingClean={isExportingClean}
@@ -1511,6 +1565,8 @@ export default function Home() {
                 onChangeSleeveShape={handleChangeSleeveShape}
                 onDeleteSeam={handleDeleteSeam}
                 onToggleSeamCurve={handleToggleSeamCurve}
+                editSeam={editSeam}
+                onToggleEditSeam={(key) => setEditSeam((cur) => (cur === key ? null : key))}
                 onAddPsd={handleAddPsd}
                 view={rightTab === 'kitTemplate' ? 'template' : 'layers'}
                 onOpenPngImport={() => setIsPngImportOpen(true)}

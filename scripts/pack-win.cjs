@@ -36,7 +36,8 @@ function cp(from, to) {
 
   // 1. the Electron app itself (tiny: main process only)
   const appDir = path.join(stage, 'app');
-  cp(path.join(root, 'electron', 'main.cjs'), path.join(appDir, 'electron', 'main.cjs'));
+  // main process + the preload (the update bridge)
+  ['main.cjs', 'preload.cjs'].forEach((f) => cp(path.join(root, 'electron', f), path.join(appDir, 'electron', f)));
   fs.writeFileSync(
     path.join(appDir, 'package.json'),
     JSON.stringify({ name: 'okarin-kit-editor', version: pkg.version, main: 'electron/main.cjs', description: pkg.description, author: pkg.author }, null, 2)

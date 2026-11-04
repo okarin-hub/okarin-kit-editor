@@ -90,6 +90,9 @@ interface TemplatePanelProps {
   onChangeSleeveShape: (shape: 'yoke' | 'short') => void;
   onDeleteSeam: (key: string) => void;
   onToggleSeamCurve: (key: string) => void;
+  /** Stitch line whose points are edited on the canvas, and the switch for it. */
+  editSeam: string | null;
+  onToggleEditSeam: (key: string) => void;
   /** Copies a .psd into library/templates, where it is read as a template. */
   onAddPsd: (file: File) => void;
   /** Which tab shows the panel: the template tab (choice, kit base, save) or the layer tab. */
@@ -223,6 +226,8 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
   onChangeSleeveShape,
   onDeleteSeam,
   onToggleSeamCurve,
+  editSeam,
+  onToggleEditSeam,
   onAddPsd,
   view,
   onOpenPngImport,
@@ -1567,6 +1572,17 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
                     Lengkung
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => onToggleEditSeam(key)}
+                  aria-pressed={editSeam === key}
+                  className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
+                    editSeam === key ? 'bg-pink-600/30 border-pink-500 text-pink-100' : 'border-slate-700 text-slate-400 hover:bg-slate-800'
+                  }`}
+                  title="Ubah bentuk di canvas 2D: seret titik, klik + di tengah sisi untuk menambah titik, klik kanan titik untuk menghapusnya"
+                >
+                  {editSeam === key ? 'Selesai' : 'Edit titik'}
+                </button>
                 <button
                   type="button"
                   onClick={() => onDeleteSeam(key)}

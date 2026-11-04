@@ -133,6 +133,19 @@ export const LogoStylePanel: React.FC<LogoStylePanelProps> = ({ item, onChange }
                 </button>
               ))}
             </div>
+            <div className="flex items-center gap-1">
+              <span className="w-12 text-[11px] text-slate-400">Sudut</span>
+              {(
+                [
+                  ['round', 'Tumpul', 'Sudut outline membulat'],
+                  ['miter', 'Tajam', 'Sudut outline lancip mengikuti sudut logo'],
+                ] as const
+              ).map(([id, label, hint]) => (
+                <button key={id} type="button" title={hint} onClick={() => setOutline({ join: id })} className={seg((outline.join ?? 'round') === id)}>
+                  {label}
+                </button>
+              ))}
+            </div>
             <div className="flex items-center gap-2 text-[11px] text-slate-400">
               <span className="w-12">Warna</span>
               <input type="color" value={outline.color} onChange={(e) => setOutline({ color: e.target.value })} className="w-8 h-6 rounded border border-slate-700 bg-transparent cursor-pointer" />

@@ -8,9 +8,12 @@ export const PROJECT_URL = 'https://github.com/okarin-hub/okarin-kit-editor';
 export const UPDATE_FEED_URL =
   process.env.NEXT_PUBLIC_UPDATE_FEED_URL || 'https://api.github.com/repos/okarin-hub/okarin-kit-editor/releases/latest';
 
+/** All releases, pre-releases included (for the "experimental" update channel). */
+const RELEASES_URL = 'https://api.github.com/repos/okarin-hub/okarin-kit-editor/releases?per_page=15';
+
 export type UpdateResult =
   | { status: 'latest'; current: string }
-  | { status: 'available'; current: string; latest: string; notes: string; url: string }
+  | { status: 'available'; current: string; latest: string; tag: string; experimental: boolean; notes: string; url: string }
   | { status: 'error' };
 
 /** Compares dotted versions: positive when a is newer than b. */
@@ -24,22 +27,35 @@ export function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-/** Reads the release feed and tells whether a newer version exists. A private or unreachable feed gives 'error'. */
-export async function checkForUpdate(): Promise<UpdateResult> {
+/**
+ * Reads the release feed and tells whether a newer version exists. With `experimental`, pre-releases count too
+ * (the newest version of all releases). A private or unreachable feed gives 'error'.
+ */
+export async function checkForUpdate(experimental = false): Promise<UpdateResult> {
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 8000);
-    const res = await fetch(UPDATE_FEED_URL, { signal: ctrl.signal, headers: { Accept: 'application/vnd.github+json' } });
+    const res = await fetch(experimental ? RELEASES_URL : UPDATE_FEED_URL, {
+      signal: ctrl.signal,
+      headers: { Accept: 'application/vnd.github+json' },
+    });
     clearTimeout(timer);
     if (!res.ok) return { status: 'error' };
-    const data = await res.json();
-    const latest = String(data.tag_name ?? data.version ?? '').trim();
+    const json = await res.json();
+    const data = experimental
+      ? (Array.isArray(json) ? json : [])
+          .filter((r: any) => !r.draft && r.tag_name)
+          .sort((a: any, b: any) => compareVersions(b.tag_name, a.tag_name))[0]
+      : json;
+    const latest = String(data?.tag_name ?? data?.version ?? '').trim();
     if (!latest) return { status: 'error' };
     if (compareVersions(latest, APP_VERSION) > 0) {
       return {
         status: 'available',
         current: APP_VERSION,
         latest: latest.replace(/^v/i, ''),
+        tag: latest,
+        experimental: !!data.prerelease,
         notes: String(data.body ?? '').slice(0, 800),
         url: String(data.html_url ?? PROJECT_URL),
       };

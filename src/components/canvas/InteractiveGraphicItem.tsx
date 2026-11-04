@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useMemo, useRef } from 'react';
-import { Image as KonvaImage, Text as KonvaText, Group, Rect } from 'react-konva';
+import { Image as KonvaImage, Shape, Group, Rect } from 'react-konva';
 import useImage from 'use-image';
 import { KitGraphicItem } from '@/types/kit';
 import { getStyledLogo } from '@/utils/logoStyle';
+import { drawTextItem, fitTextBox } from '@/utils/textItem';
 
 interface InteractiveGraphicItemProps {
   item: KitGraphicItem;
@@ -76,6 +77,19 @@ export const InteractiveGraphicItem: React.FC<InteractiveGraphicItemProps> = ({
         node.scaleX(1);
         node.scaleY(1);
 
+        // a text box scales its letters: the font size follows, and the box is fitted to the text again
+        if (item.type === 'text') {
+          const k = Math.max(Math.abs(scaleX), Math.abs(scaleY));
+          const cx = node.x(), cy = node.y();
+          const sized = fitTextBox({ ...item, fontSize: Math.max(6, Math.round((item.fontSize || 32) * k)) });
+          onChange({
+            ...sized,
+            x: Math.round(cx - sized.width / 2),
+            y: Math.round(cy - sized.height / 2),
+            rotation: Math.round(node.rotation()),
+          });
+          return;
+        }
         // the offset point is the box centre, so node.x() / node.y() stay the centre while it scales
         const width = Math.max(12, Math.round(node.width() * scaleX));
         const height = Math.max(12, Math.round(node.height() * scaleY));
@@ -116,23 +130,17 @@ export const InteractiveGraphicItem: React.FC<InteractiveGraphicItemProps> = ({
       )}
 
       {item.type === 'text' && (
-        <KonvaText
-          text={item.text || ''}
-          fontSize={item.fontSize || 32}
-          fontFamily={item.fontFamily || "'Impact', 'Arial Black', sans-serif"}
-          fontStyle="bold"
-          fill={item.textColor || '#ffffff'}
-          stroke={item.strokeColor || undefined}
-          strokeWidth={item.strokeWidth || 0}
-          width={item.width}
-          height={item.height}
-          align="center"
-          verticalAlign="middle"
+        // the same drawing as the 3D texture and the export (one line, outline behind, optional shadow)
+        <Shape
+          listening={false}
           opacity={item.opacity}
-          shadowColor="rgba(0,0,0,0.8)"
-          shadowBlur={4}
-          shadowOffsetX={2}
-          shadowOffsetY={2}
+          sceneFunc={(context) => {
+            const c = (context as any)._context as CanvasRenderingContext2D;
+            c.save();
+            c.translate(item.width / 2, item.height / 2);
+            drawTextItem(c, item);
+            c.restore();
+          }}
         />
       )}
     </Group>

@@ -2,6 +2,34 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## Unreleased
+
+- **Eraser brush per layer:** select a layer first and the eraser (left bar, E) erases only that layer where you
+  brush (a watermark, an unwanted logo in an imported PSD / PNG, or part of any other layer); with no layer
+  selected it erases the patterns, as before. The bar shows what it erases; *Restore* and *Reset* work on that
+  layer only. The erased spots stick to the layer: they move, turn and scale with it, also when it is turned into
+  editable points or dragged to another part. The strokes are saved in the project and can be undone. Same in 2D,
+  3D and the export.
+- **Easier points:** the edit points of a shape are bigger and easier to grab, the "+" on very short sides is
+  hidden, and a freehand shape keeps fewer points.
+- **Stitch lines can be reshaped:** *Edit points* on a stitch line (Layer tab, Stitch lines): drag a point, click
+  a "+" to add one, right-click a point to remove it.
+- **Zoom speed:** View, *Zoom speed (scroll)*: slow, normal or fast, for the 2D canvas, the 3D view and the fontset
+  preview.
+- **Logo outline corners:** *Corners* round or sharp; sharp follows the logo's corners (traced as a vector).
+- **Text:** *Add text* shows a live preview before it is added, and a text can be edited afterwards: the words,
+  font, letter size, colour, outline and shadow. Dragging the corner of a text box scales the letters. The 2D view
+  now shows exactly what the export draws (before, it always added a shadow, drew the outline over the letters
+  and wrapped long text onto a second line, which the 3D view and the export did not).
+- **Fontset generator:** the preview zooms (−, +, Fit, and the mouse wheel). Picking or moving a logo on the numbers
+  is much quicker (the letters are no longer made again for every change), and a picked logo no longer jumps back
+  to "(no logo)" (the cause of the flickering list).
+- **Update from the app (Windows):** Help, *Check for updates*: *Download and install* fetches the new version from
+  GitHub, closes the app, puts the new files in place (the library folder is left alone) and opens it again.
+  *Include experimental releases* also offers pre-releases.
+- **Translations:** the remaining Indonesian texts in English / Portuguese / Spanish were translated (fontset
+  "Brightness cut", the shape end hints, a few labels).
+
 ## 0.3.3 (experimental) — PSD templates read from the library, PNG import that writes a PSD
 
 - **No more Indonesian in the other languages:** missing translations were added (server messages, fontset

@@ -44,7 +44,7 @@ const GROUPS: { id: ToolId; icon: React.ReactNode; title: string; key: string }[
     {
       id: 'eraser',
       icon: <Eraser className="w-4 h-4" />,
-      title: 'Kuas hapus pola (agar logo bawaan desain tidak tertimpa)',
+      title: 'Kuas hapus: layer yang dipilih, atau pola',
       key: 'E',
     },
   ],

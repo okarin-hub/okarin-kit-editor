@@ -44,6 +44,10 @@ interface KitCanvasWrapperProps {
   onZonePointMove?: (zoneId: string, poly: number, idx: number, pt: Pt) => void;
   onZonePointInsert?: (zoneId: string, poly: number, afterIdx: number, pt: Pt) => void;
   onZonePointRemove?: (zoneId: string, poly: number, idx: number) => void;
+  editSeam?: string | null;
+  onSeamPointMove?: (key: string, idx: number, pt: Pt) => void;
+  onSeamPointInsert?: (key: string, afterIdx: number, pt: Pt) => void;
+  onSeamPointRemove?: (key: string, idx: number) => void;
   onSelectZone?: (zoneId: string | null) => void;
   onZoneTransform?: (zoneId: string, patch: Partial<TemplateZoneState>) => void;
   onPatternMaskChange?: (dataUrl: string | null) => void;

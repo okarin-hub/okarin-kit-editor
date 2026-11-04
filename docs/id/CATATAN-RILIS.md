@@ -2,6 +2,34 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## Belum dirilis
+
+- **Kuas hapus per layer:** pilih layer dulu, lalu kuas hapus (bar kiri, E) hanya menghapus layer itu di area yang
+  disapu (watermark, logo yang tidak diinginkan di PSD / PNG impor, atau bagian layer lain); tanpa layer yang
+  dipilih, kuas menghapus pola seperti sebelumnya. Bar kuas menampilkan apa yang dihapus; *Pulihkan* dan *Reset*
+  hanya berlaku untuk layer itu. Area yang dihapus menempel ke layer: ikut tergeser, terputar, dan berubah ukuran
+  bersama layernya, juga saat layer diubah menjadi titik edit atau dipindah ke part lain. Hapusan tersimpan di
+  proyek dan bisa di-undo. Sama di 2D, 3D, dan export.
+- **Titik lebih mudah diklik:** titik edit bentuk lebih besar dan mudah dipegang, tanda "+" di sisi yang sangat
+  pendek disembunyikan, dan bentuk gambar bebas punya lebih sedikit titik.
+- **Garis jahit bisa dibentuk ulang:** *Edit titik* di garis jahit (tab Layer, Garis Jahitan): seret titik, klik
+  "+" untuk menambah, klik kanan titik untuk menghapusnya.
+- **Kecepatan zoom:** Tampilan, *Kecepatan zoom (scroll)*: pelan, normal, atau cepat, untuk canvas 2D, tampilan 3D,
+  dan pratinjau fontset.
+- **Sudut outline logo:** *Sudut* tumpul atau tajam; tajam mengikuti sudut logo (ditelusuri sebagai vektor).
+- **Teks:** *Tambah teks* menampilkan pratinjau sebelum ditambahkan, dan teks bisa diedit setelahnya: isi, font,
+  ukuran huruf, warna, outline, dan bayangan. Menarik sudut kotak teks mengubah ukuran hurufnya. Tampilan 2D kini
+  sama persis dengan hasil export (sebelumnya selalu memberi bayangan, menggambar outline di atas huruf, dan
+  memindah teks panjang ke baris kedua, yang tidak terjadi di 3D dan export).
+- **Generator fontset:** pratinjau bisa di-zoom (−, +, Pas, dan scroll). Memilih atau menggeser logo di nomor jauh
+  lebih cepat (huruf tidak dibuat ulang di setiap perubahan), dan logo yang dipilih tidak lagi kembali ke
+  "(tanpa logo)" (penyebab daftarnya berkedip).
+- **Pembaruan dari aplikasi (Windows):** Bantuan, *Cek pembaruan*: *Unduh dan pasang* mengambil versi baru dari
+  GitHub, menutup aplikasi, memasang file baru (folder library tidak disentuh), lalu membukanya lagi. *Ikut rilis
+  eksperimental* juga menawarkan rilis eksperimental.
+- **Terjemahan:** sisa teks Indonesia di bahasa Inggris / Portugis / Spanyol sudah diterjemahkan ("Batas terang" di
+  fontset, petunjuk ujung bentuk, beberapa label).
+
 ## 0.3.3 (eksperimental) — template PSD dibaca dari library, Import PNG menghasilkan PSD
 
 - **Tidak ada lagi bahasa Indonesia di bahasa lain:** terjemahan yang kurang ditambahkan (pesan server, slider

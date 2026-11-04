@@ -25,6 +25,7 @@ import {
 import { PRESET_KITS, KitPreset } from '@/constants/presets';
 import { CanvasViewState } from '@/types/kit';
 import { MenuHeading, MenuItem, MenuSeparator, TopMenu } from '@/components/ui/Menus';
+import { getZoomSpeed, setZoomSpeed, ZoomSpeed } from '@/utils/uiPrefs';
 import type { HelpKind } from '@/components/ui/HelpDialogs';
 
 interface NavbarProps {
@@ -70,6 +71,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenHelp,
 }) => {
   const [openId, setOpenId] = useState<string | null>(null);
+  // wheel zoom speed (kept in this browser / app, read after mount)
+  const [zoomSpeed, setZoomSpeedState] = useState<ZoomSpeed>('normal');
+  useEffect(() => setZoomSpeedState(getZoomSpeed()), []);
   const barRef = useRef<HTMLDivElement | null>(null);
 
   // close on an outside click or Escape
@@ -208,6 +212,26 @@ export const Navbar: React.FC<NavbarProps> = ({
                 checked={viewState.showOriginalTemplate}
                 onClick={() => onToggleView('showOriginalTemplate')}
               />
+              <MenuSeparator />
+              <MenuHeading>Kecepatan zoom (scroll)</MenuHeading>
+              {(
+                [
+                  ['slow', 'Pelan'],
+                  ['normal', 'Normal'],
+                  ['fast', 'Cepat'],
+                ] as const
+              ).map(([id, label]) => (
+                <MenuItem
+                  key={id}
+                  label={label}
+                  title="Seberapa jauh satu putaran scroll memperbesar atau memperkecil canvas 2D, 3D, dan pratinjau fontset"
+                  checked={zoomSpeed === id}
+                  onClick={() => {
+                    setZoomSpeed(id);
+                    setZoomSpeedState(id);
+                  }}
+                />
+              ))}
             </>
           )}
         </TopMenu>

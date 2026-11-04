@@ -16,6 +16,7 @@ import {
   FontsetStyle,
   OutlineAlign,
   GlyphSource,
+  Glyph,
   NumberLogo,
   FontPattern,
   SheetGlyph,
@@ -30,6 +31,7 @@ import {
 } from '@/utils/fontsetGenerator';
 import { readSheetRows } from '@/utils/glyphRecognition';
 import { LogoMonoMode, oneColourLogo } from '@/utils/logoMono';
+import { zoomFactor } from '@/utils/uiPrefs';
 import { FontSheetCropDialog } from '@/components/ui/FontSheetCropDialog';
 import { encodeDDS } from '@/utils/ddsEncoder';
 import { encodeFtex } from '@/utils/ftexEncoder';
@@ -184,7 +186,8 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
   const previewRef = useRef<HTMLCanvasElement | null>(null);
   const sheetInput = useRef<HTMLInputElement | null>(null);
   const logoInput = useRef<HTMLInputElement | null>(null);
-  const lastEmitted = useRef<FontsetSettings | null>(null);
+  // every settings object this dialog sent out: when one comes back (sent a moment later) it is not new input
+  const emitted = useRef(new WeakSet<FontsetSettings>());
 
   // settings out (autosave / project): a picked file's blob URL does not survive a reload, so it is not kept
   useEffect(() => {
@@ -204,14 +207,16 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
       patterns: { number: strip(patterns.number), name: strip(patterns.name) },
       logo: strip(logo),
     };
-    lastEmitted.current = s;
-    onSettingsChange?.(s);
+    emitted.current.add(s);
+    // a moment after the last change: dragging a slider does not re-render the whole editor on every step
+    const t = setTimeout(() => onSettingsChange?.(s), 300);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [styles, prefix, selected, writeConfig, format, useSheet, recolor, patterns, logo]);
 
   // settings in (autosave on start, or an opened project); our own echo is ignored
   useEffect(() => {
-    if (!settings || settings === lastEmitted.current) return;
+    if (!settings || emitted.current.has(settings)) return;
     let cancelled = false;
     const img = async (url: string | null) => {
       if (!url) return null;
@@ -266,12 +271,63 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
 
   const sheetCovers = (group: Group) => groupChars(group).some((ch) => sheetMap.has(ch));
 
+  // preview zoom: 1 = fitted to the panel width; the wheel zooms towards the cursor
+  const [previewZoom, setPreviewZoom] = useState(1);
+  const previewBoxRef = useRef<HTMLDivElement | null>(null);
+  const zoomPreview = (k: number, at?: { x: number; y: number }) => {
+    const box = previewBoxRef.current;
+    setPreviewZoom((z) => {
+      const next = Math.min(8, Math.max(1, z * k));
+      if (box) {
+        // keep the point under the cursor (or the centre) where it is
+        const px = at?.x ?? box.clientWidth / 2, py = at?.y ?? box.clientHeight / 2;
+        const f = next / z;
+        requestAnimationFrame(() => {
+          box.scrollLeft = (box.scrollLeft + px) * f - px;
+          box.scrollTop = (box.scrollTop + py) * f - py;
+        });
+      }
+      return next;
+    });
+  };
+  useEffect(() => {
+    const box = previewBoxRef.current;
+    if (!isOpen || !box) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const r = box.getBoundingClientRect();
+      zoomPreview(Math.exp(-e.deltaY * 0.0015 * zoomFactor()), { x: e.clientX - r.left, y: e.clientY - r.top });
+    };
+    box.addEventListener('wheel', onWheel, { passive: false });
+    return () => box.removeEventListener('wheel', onWheel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, view]);
+
+  // finished letters by source + style + size; emptied when the font sheet changes (its letters are new)
+  const glyphCache = useRef<{ sheet: unknown; map: Map<string, Glyph | null> }>({ sheet: null, map: new Map() });
+  const cachedGlyphs = (src: GlyphSource, key: string): GlyphSource => {
+    const c = glyphCache.current;
+    if (c.sheet !== sheetMap || c.map.size > 3000) {
+      c.sheet = sheetMap;
+      c.map = new Map();
+    }
+    return (ch, outer, inner, letterH) => {
+      const k = `${key}|${ch}|${outer}|${inner}|${letterH}`;
+      if (c.map.has(k)) return c.map.get(k)!;
+      const g = src(ch, outer, inner, letterH);
+      c.map.set(k, g);
+      return g;
+    };
+  };
+
   const render = (kind: FileKind, overflow?: Set<string>) => {
     const f = fileOf(kind);
     const style = styles[f.group];
     const sources: GlyphSource[] = [];
-    if (useSheet[f.group] && sheetCovers(f.group)) sources.push(sheetGlyphSource(sheetMap, style, recolor[f.group]));
-    sources.push(fontGlyphSource(style, f.group === 'number' ? '0' : 'H'));
+    // the letters only depend on the style: kept between redraws, so moving the logo or a pattern is quick
+    const styleKey = `${f.group}|${JSON.stringify(style)}|${recolor[f.group]}`;
+    if (useSheet[f.group] && sheetCovers(f.group)) sources.push(cachedGlyphs(sheetGlyphSource(sheetMap, style, recolor[f.group]), `sheet|${styleKey}`));
+    sources.push(cachedGlyphs(fontGlyphSource(style, f.group === 'number' ? '0' : 'H'), `font|${styleKey}`));
     const withLogo = f.group === 'number' && logo.image && logo.files[kind as 'back' | 'chest' | 'leg'];
     const numberLogo: NumberLogo | null = withLogo
       ? { image: logoImage!, size: logo.size, y: logo.y, x: logo.x, opacity: logo.opacity, clip: logo.clip, offsets: logo.offsets }
@@ -844,11 +900,26 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
                 Garis slot
               </label>
             </div>
+            <div className="flex items-center gap-1 text-[11px] text-slate-400">
+              <span>Zoom</span>
+              <button type="button" onClick={() => zoomPreview(1 / 1.25)} className="px-1.5 rounded border border-slate-700 hover:bg-slate-800" aria-label="Perkecil pratinjau">
+                −
+              </button>
+              <span className="font-mono w-11 text-center">{Math.round(previewZoom * 100)}%</span>
+              <button type="button" onClick={() => zoomPreview(1.25)} className="px-1.5 rounded border border-slate-700 hover:bg-slate-800" aria-label="Perbesar pratinjau">
+                +
+              </button>
+              <button type="button" onClick={() => setPreviewZoom(1)} className="px-1.5 rounded border border-slate-700 hover:bg-slate-800" title="Pas selebar panel">
+                Pas
+              </button>
+              <span className="text-slate-500">· scroll di pratinjau untuk zoom</span>
+            </div>
             <div
-              className="rounded-lg border border-slate-800 overflow-hidden"
+              ref={previewBoxRef}
+              className="rounded-lg border border-slate-800 overflow-auto max-h-[60vh]"
               style={{ backgroundImage: 'repeating-conic-gradient(#64748b 0% 25%, #475569 0% 50%)', backgroundSize: '16px 16px' }}
             >
-              <canvas ref={previewRef} className="w-full h-auto block" />
+              <canvas ref={previewRef} className="h-auto block" style={{ width: `${previewZoom * 100}%`, maxWidth: 'none' }} />
             </div>
             <p className="text-[10px] text-slate-500">
               {`${fileOf(view).layout.width}×${fileOf(view).layout.height} px · ${fileName(view)}.ftex · `}

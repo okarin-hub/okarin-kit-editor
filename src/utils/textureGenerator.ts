@@ -14,6 +14,7 @@ import { drawCreditText } from '@/utils/creditRenderer';
 import { partPolygons, pointInPolygons, tracePolygons } from '@/utils/partShape';
 import { drawFabricForPart } from '@/utils/fabricRenderer';
 import { getStyledLogo } from '@/utils/logoStyle';
+import { drawTextItem } from '@/utils/textItem';
 import { getCachedImage, preloadImage } from '@/utils/imageCache';
 import {
   PART_MAP,
@@ -138,7 +139,8 @@ export function renderKitCanvas(
 
     // Template zones (collar trim, side panels, cuffs ...) and seam / stitch lines
     if (templateBundle) {
-      drawTemplateForPart(c, part, templateBundle.def, templateBundle.state, config.color);
+      // where the eraser brush painted (withPatterns = false) the imported PSD / PNG layers are left out too
+      drawTemplateForPart(c, part, templateBundle.def, templateBundle.state, config.color, 'top');
     }
 
     // Fabric texture on top of the colours, patterns and zones (and of an imported design), so it is never covered
@@ -238,16 +240,7 @@ export function renderKitCanvas(
         preloadImage(item.src);
       }
     } else if (item.type === 'text' && item.text) {
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.font = `bold ${item.fontSize || 32}px ${item.fontFamily || "'Impact', 'Arial Black', sans-serif"}`;
-      if (item.strokeColor && item.strokeWidth) {
-        ctx.strokeStyle = item.strokeColor;
-        ctx.lineWidth = item.strokeWidth;
-        ctx.strokeText(item.text, 0, 0);
-      }
-      ctx.fillStyle = item.textColor || '#ffffff';
-      ctx.fillText(item.text, 0, 0);
+      drawTextItem(ctx, item);
     }
 
     ctx.restore();
@@ -381,6 +374,8 @@ export async function generateShowcaseCard(
   await Promise.all(graphicItems.filter((g) => g.src).map((g) => preloadImage(g.src!)));
   if (baseTexture) await preloadImage(baseTexture.src);
   if (patternMask) await preloadImage(patternMask);
+  if (templateBundle)
+    await Promise.all(Object.values(templateBundle.state.zones).flatMap((zs) => (zs.erase ? [preloadImage(zs.erase)] : [])));
 
   const texSize = 2048;
   const texUrl = generateKitTexture(

@@ -624,6 +624,22 @@ export function renderFontset(
     fill?.setTransform(new DOMMatrix().scale(k, k));
   }
 
+  // the logo scaled down once (a large picture scaled down for every digit took most of the time)
+  let logoBmp: CanvasImageSource | null = null;
+  if (logo && logo.image.width > 0) {
+    const h = Math.min(logo.image.height, Math.ceil(layout.rowHeight * 1.5));
+    const w = Math.max(1, Math.round((h * logo.image.width) / logo.image.height));
+    if (h < logo.image.height) {
+      const lc = document.createElement('canvas');
+      lc.width = w;
+      lc.height = h;
+      const lx = lc.getContext('2d')!;
+      lx.imageSmoothingQuality = 'high';
+      lx.drawImage(logo.image, 0, 0, w, h);
+      logoBmp = lc;
+    } else logoBmp = logo.image;
+  }
+
   layout.rows.forEach((row, r) => {
     const rowTop = r * layout.rowHeight;
     row.forEach((slot) => {
@@ -671,7 +687,7 @@ export function renderFontset(
         if (logo.clip) ctx.globalCompositeOperation = 'source-atop';
         const off = logo.offsets?.[slot.ch] ?? { x: 0, y: 0 };
         ctx.drawImage(
-          logo.image,
+          logoBmp!,
           dx + dw / 2 + ((logo.x + off.x) / 100) * dw - lw / 2,
           dy + ((logo.y + off.y) / 100) * dh - lh / 2,
           lw,

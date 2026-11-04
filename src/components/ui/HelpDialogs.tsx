@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { X, ExternalLink, RefreshCw, BookOpen, Keyboard, Info, Heart, DownloadCloud, Settings } from 'lucide-react';
+import { X, ExternalLink, RefreshCw, BookOpen, Keyboard, Info, Heart, DownloadCloud, Settings, Download } from 'lucide-react';
 import { APP_VERSION, PROJECT_URL, UpdateResult, checkForUpdate } from '@/lib/updateCheck';
 import { LANGUAGES, Lang } from '@/i18n/engine';
 import { useI18n } from '@/i18n/I18nProvider';
+import { InfoTip } from '@/components/ui/InfoTip';
+import { getUpdateExperimental, setUpdateExperimental } from '@/utils/uiPrefs';
 import { LayerEditorMode, useLayerEditorMode } from '@/hooks/useLayerEditorMode';
 
 export type HelpKind = 'docs' | 'shortcuts' | 'update' | 'credits' | 'about' | 'settings';
@@ -80,7 +82,7 @@ const SHORTCUTS: { keys: string; text: string }[] = [
   { keys: 'V', text: 'Alat pilih dan geser' },
   { keys: 'B / P', text: 'Gambar bentuk bebas / titik' },
   { keys: 'S / J', text: 'Garis jahit titik / bebas' },
-  { keys: 'E', text: 'Kuas hapus pola' },
+  { keys: 'E', text: 'Kuas hapus (layer yang dipilih, atau pola)' },
   { keys: '1 / 2 / 3', text: 'Tampilan 2D / Split / 3D' },
   { keys: '?', text: 'Daftar pintasan ini' },
 ];
@@ -163,19 +165,46 @@ const SettingsBody: React.FC = () => {
   );
 };
 
+/** The update bridge of the Windows app (electron/preload.cjs); absent in a browser. */
+interface OkarinUpdater {
+  install: (tag: string) => Promise<{ ok: boolean; error?: string }>;
+  onProgress: (cb: (p: { phase: 'download' | 'extract' | 'restart'; done: number; total: number }) => void) => () => void;
+}
+const updater = (): OkarinUpdater | undefined => (typeof window !== 'undefined' ? (window as any).okarinUpdater : undefined);
+
 const UpdateBody: React.FC = () => {
   const [state, setState] = useState<'checking' | 'done'>('checking');
   const [result, setResult] = useState<UpdateResult | null>(null);
+  const [experimental, setExperimental] = useState(false);
+  const [install, setInstall] = useState<{ phase: string; done: number; total: number } | null>(null);
+  const [installError, setInstallError] = useState<string | null>(null);
 
-  const run = async () => {
+  const run = async (exp = experimental) => {
     setState('checking');
-    setResult(await checkForUpdate());
+    setResult(await checkForUpdate(exp));
     setState('done');
   };
 
   useEffect(() => {
-    run();
+    const exp = getUpdateExperimental();
+    setExperimental(exp);
+    run(exp);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const startInstall = async (tag: string) => {
+    const u = updater();
+    if (!u) return;
+    setInstallError(null);
+    setInstall({ phase: 'download', done: 0, total: 0 });
+    const off = u.onProgress((p) => setInstall(p));
+    const r = await u.install(tag);
+    off();
+    if (!r.ok) {
+      setInstall(null);
+      setInstallError(r.error || 'Pembaruan gagal.');
+    }
+  };
 
   return (
     <>
@@ -204,11 +233,35 @@ const UpdateBody: React.FC = () => {
           <p className="text-sky-100 font-semibold">
             Versi baru tersedia: <span data-no-i18n>{result.latest}</span>
           </p>
+          {result.experimental && <p className="text-[11px] text-amber-300">Ini rilis eksperimental.</p>}
           {result.notes && (
-            <p className="whitespace-pre-wrap text-[11px] text-slate-300" data-no-i18n>
+            <p className="whitespace-pre-wrap text-[11px] text-slate-300 max-h-40 overflow-y-auto" data-no-i18n>
               {result.notes}
             </p>
           )}
+          {updater() && !install && (
+            <button
+              type="button"
+              onClick={() => startInstall(result.tag)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Unduh dan pasang
+            </button>
+          )}
+          {install && (
+            <p className="flex items-center gap-2 text-sky-100" role="status">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              {install.phase === 'download'
+                ? install.total
+                  ? `Mengunduh ${Math.round((install.done / install.total) * 100)}%`
+                  : 'Mengunduh...'
+                : install.phase === 'extract'
+                ? 'Membuka file pembaruan...'
+                : 'Aplikasi akan ditutup dan dibuka lagi...'}
+            </p>
+          )}
+          {installError && <p className="text-[11px] text-rose-300">{installError}</p>}
           <a
             href={result.url}
             target="_blank"
@@ -218,6 +271,11 @@ const UpdateBody: React.FC = () => {
             <ExternalLink className="w-3.5 h-3.5" />
             Buka halaman rilis
           </a>
+          {updater() && (
+            <p className="text-[10px] text-slate-500">
+              Folder library (logo, font, template) tidak disentuh. Proyek yang belum disimpan sebaiknya disimpan dulu.
+            </p>
+          )}
         </div>
       )}
 
@@ -227,10 +285,25 @@ const UpdateBody: React.FC = () => {
         </p>
       )}
 
+      <label className="flex items-center gap-2 text-[11px] text-slate-300 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={experimental}
+          onChange={(e) => {
+            setExperimental(e.target.checked);
+            setUpdateExperimental(e.target.checked);
+            run(e.target.checked);
+          }}
+          className="accent-sky-500"
+        />
+        Ikut rilis eksperimental
+        <InfoTip text="Rilis eksperimental berisi fitur terbaru yang belum sepenuhnya diuji. Matikan untuk hanya menerima rilis stabil." />
+      </label>
+
       <div className="flex items-center gap-2 pt-1">
         <button
           type="button"
-          onClick={run}
+          onClick={() => run()}
           disabled={state === 'checking'}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 disabled:opacity-50"
         >
