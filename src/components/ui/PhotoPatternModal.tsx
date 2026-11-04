@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { X, Shirt, ImagePlus, Trash2 } from 'lucide-react';
+import { InfoTip } from '@/components/ui/InfoTip';
 import { PhotoRect, guessAreas } from '@/utils/photoPattern';
 import type { PhotoPatternRequest, PhotoPatternReply } from '@/workers/photoPattern.worker';
 import type { RecognisedPattern } from '@/utils/patternRecognise';
@@ -330,12 +331,12 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
               Lengan dan bahu dari foto (kotak kuning)
             </label>
             <label className="flex items-center justify-between gap-2 text-[11px] text-slate-400">
-              <span>{`Batas warna pola ${minShare}%`}</span>
+              <span className="flex items-center gap-1">
+                {`Batas warna pola ${minShare}%`}
+                <InfoTip text="Warna yang menutupi kurang dari batas ini dianggap logo atau tulisan dan diisi dari pola di sekitarnya. Turunkan kalau ada warna pola tipis yang hilang." />
+              </span>
               <input type="range" min={3} max={25} value={minShare} onChange={(e) => setMinShare(Number(e.target.value))} className="w-28 accent-sky-500" />
             </label>
-            <p className="text-[10px] text-slate-500 leading-snug">
-              Warna yang menutupi kurang dari batas ini dianggap logo atau tulisan dan diisi dari pola di sekitarnya. Turunkan kalau ada warna pola tipis yang hilang.
-            </p>
           </section>
         </div>
 

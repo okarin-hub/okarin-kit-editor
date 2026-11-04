@@ -175,11 +175,9 @@ export const PatternLayerEditor: React.FC<PatternLayerEditorProps> = ({ layer: l
                       onChange={(e) => update(l.id, { patternTint: e.target.checked })}
                       className="mt-0.5 accent-sky-500"
                     />
-                    <span>
+                    <span className="flex items-center gap-1">
                       Warnai dengan Warna Pola
-                      <span className="block text-[10px] text-slate-500">
-                        {tintAuto ? 'Gambar ini satu warna, jadi otomatis bisa diwarnai.' : 'Gambar ini berwarna; matikan agar warna aslinya dipakai.'}
-                      </span>
+                      <InfoTip text={tintAuto ? 'Gambar ini satu warna, jadi otomatis bisa diwarnai.' : 'Gambar ini berwarna; matikan agar warna aslinya dipakai.'} />
                     </span>
                   </label>
                 )}
@@ -209,13 +207,15 @@ export const PatternLayerEditor: React.FC<PatternLayerEditorProps> = ({ layer: l
                       onChange={(e) => update(l.id, { patternRepeat: e.target.checked })}
                       className="mt-0.5 accent-sky-500"
                     />
-                    <span>
+                    <span className="flex items-center gap-1">
                       Berulang (Kontinu)
-                      <span className="block text-[10px] text-slate-500">
-                        {l.patternRepeat !== false
-                          ? 'Pola diulang memenuhi bagian. Matikan agar muncul sekali saja.'
-                          : 'Pola muncul sekali di tengah bagian; geser X/Y untuk memindahkannya.'}
-                      </span>
+                      <InfoTip
+                        text={
+                          l.patternRepeat !== false
+                            ? 'Pola diulang memenuhi bagian. Matikan agar muncul sekali saja.'
+                            : 'Pola muncul sekali di tengah bagian; geser X/Y untuk memindahkannya.'
+                        }
+                      />
                     </span>
                   </label>
                 )}

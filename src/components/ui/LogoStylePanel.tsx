@@ -4,6 +4,7 @@ import React from 'react';
 import { Palette, PenLine } from 'lucide-react';
 import { KitGraphicItem, LogoFill, LogoOutline } from '@/types/kit';
 import { DEFAULT_LOGO_FILL, DEFAULT_LOGO_OUTLINE } from '@/utils/logoStyle';
+import { InfoTip } from '@/components/ui/InfoTip';
 
 const SWATCHES = ['#ffffff', '#000000', '#fbbf24', '#e11d48', '#2563eb', '#0f172a', '#facc15', '#16a34a', '#06b6d4'];
 
@@ -43,6 +44,7 @@ export const LogoStylePanel: React.FC<LogoStylePanelProps> = ({ item, onChange }
         <label className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
           <Palette className="w-3 h-3 text-amber-400" />
           <span>Warna Logo:</span>
+          <InfoTip text="Warna menimpa isi logo; bagian transparan tetap transparan." />
         </label>
         <div className="flex gap-1">
           {FILL_MODES.map((m) => (
@@ -107,9 +109,6 @@ export const LogoStylePanel: React.FC<LogoStylePanelProps> = ({ item, onChange }
             </div>
             <div className="h-4 rounded border border-slate-700" style={{ background: `linear-gradient(${fill.angle + 90}deg, ${fill.color}, ${fill.color2})` }} />
           </div>
-        )}
-        {fill.mode !== 'original' && (
-          <p className="text-[10px] text-slate-500 leading-snug">Warna menimpa isi logo; bagian transparan tetap transparan.</p>
         )}
       </div>
 

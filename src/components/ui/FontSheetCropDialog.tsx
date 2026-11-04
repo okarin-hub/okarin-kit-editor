@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { X, Crop, Pipette, Maximize } from 'lucide-react';
+import { InfoTip } from '@/components/ui/InfoTip';
 import { Rect, InkOptions, extractInk, colorAt } from '@/utils/inkExtract';
 
 interface FontSheetCropDialogProps {
@@ -206,7 +207,10 @@ export const FontSheetCropDialog: React.FC<FontSheetCropDialogProps> = ({ image,
                 )}
               </div>
               <label className="flex items-center justify-between gap-2">
-                <span>{`Toleransi ${opts.tolerance}`}</span>
+                <span className="flex items-center gap-1">
+                  {`Toleransi ${opts.tolerance}`}
+                  <InfoTip text="Latar polos dikenali otomatis. Untuk latar bergradasi atau berwarna-warni, pilih warna latar dan warna huruf, lalu atur toleransi." />
+                </span>
                 <input
                   type="range"
                   min={0}
@@ -220,9 +224,6 @@ export const FontSheetCropDialog: React.FC<FontSheetCropDialogProps> = ({ image,
                 <input type="checkbox" checked={opts.useAlpha} onChange={(e) => setOpts((o) => ({ ...o, useAlpha: e.target.checked }))} className="accent-sky-500" />
                 Pakai transparansi gambar
               </label>
-              <p className="text-[10px] text-slate-500 leading-snug">
-                Latar polos dikenali otomatis. Untuk latar bergradasi atau berwarna-warni, pilih warna latar dan warna huruf, lalu atur toleransi.
-              </p>
             </section>
 
             <label className="flex items-center gap-1.5 cursor-pointer text-slate-300">

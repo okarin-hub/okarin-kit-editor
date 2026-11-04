@@ -45,6 +45,7 @@ import {
 import { AssetLibrary } from '@/hooks/useAssetLibrary';
 import { PatternLayerEditor, groupPartIds, newPatternLayer } from '@/components/ui/PatternLayersPanel';
 import { PanelSection } from '@/components/ui/PanelSection';
+import { useI18n } from '@/i18n/I18nProvider';
 import { InfoTip } from '@/components/ui/InfoTip';
 import { LayerSidePanel } from '@/components/ui/LayerSidePanel';
 import { useLayerEditorMode } from '@/hooks/useLayerEditorMode';
@@ -249,6 +250,7 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
   const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({});
   const [helpersOpen, setHelpersOpen] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState('');
+  const { t } = useI18n();
   const q = query.trim().toLowerCase();
 
   // Pattern layers sit in the groups of the layer list: drag a row to another group to move it there (Ctrl / Alt = copy)
@@ -891,11 +893,9 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
               onChange={(e) => onUpdateZoneDef(z.id, { keepColor: e.target.checked || undefined })}
               className="mt-0.5 accent-sky-500"
             />
-            <span>
+            <span className="flex items-center gap-1">
               Pakai warna asli gambar
-              <span className="block text-[10px] text-slate-500">
-                Matikan agar layer diwarnai dengan warna zona (cocok untuk layer satu warna).
-              </span>
+              <InfoTip text="Matikan agar layer diwarnai dengan warna zona (cocok untuk layer satu warna)." />
             </span>
           </label>
         )}
@@ -1292,7 +1292,8 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
                       <label
                         key={name}
                         className="flex items-center gap-1.5 px-1.5 py-1 rounded-md border border-slate-700/70 bg-slate-900/60 text-[11px] text-slate-200 cursor-pointer"
-                        title={zs.map((z) => z.name).join('\n')}
+                        // one layer name per line: translated one by one (the page translator sees the whole title)
+                        title={zs.map((z) => t(z.name)).join('\n')}
                       >
                         <input
                           type="color"

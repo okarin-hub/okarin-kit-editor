@@ -2,14 +2,28 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
-## Unreleased
+## 0.3.3 (experimental) — PSD templates read from the library, PNG import that writes a PSD
 
+- **No more Indonesian in the other languages:** missing translations were added (server messages, fontset
+  sliders, the name and number preview on the canvas, drop-down group headings, layer names written by Import
+  PNG such as "Colour 2 – Shorts", the default colour names in Import PNG). Checked by scanning the source and the
+  English interface.
+- **Explanations behind a ?:** the short explanations under options (Import PNG, the font sheet crop, the photo
+  pattern, logo colour, pattern repeat and tint, the original-colour switch of a layer) moved into a ? next to
+  the option; hover or click it to read.
+- **Import PNG: merge colours, pick from the preview, clean up noise:** each colour has *Merge into…* (a shade that
+  split off joins its colour instead of tuning the tolerance for everything); a click on the preview highlights
+  the colour under it in the list and dims the rest, and *Enlarge preview* shows it full width. *Clean up noise*
+  (on by default for WebP / JPG) smooths compression speckles before the colours are grouped. The conversion runs
+  in the background, so the app stays usable meanwhile (three colourways at 2048 take about a minute and a half).
 - **Import PNG: other colourways:** *Other colourways* takes up to two more pictures of the same template in other
   colours. Pixels that change colour together form one layer, so areas that share a colour in one version (two
   greens of a camo) are still told apart by the others.
 - **Import PNG: smooth gradients:** with *Smooth gradient*, tick only the end colours of a gradient or blurred
   design; the shades in between become a blend of the two layers, so the gradient stays when a colour is changed
-  (a teal zigzag turned red keeps its fades).
+  (a teal zigzag turned red keeps its fades). Ticking *Smooth gradient* unticks the colours that are only a
+  blend of two others, and each colour may now reach its whole part group, so a long fade is no longer cut into
+  blocks halfway.
 - **Import PNG makes a PSD:** *Split by colour* now saves the chosen colours as a layered PSD in
   `library/templates` (one flat layer per colour and part group, so a colour on the shirt and the shorts shows in both the Shirt
   and the Shorts group; the largest colour is *Base* and fills its whole group under the others; every group's *Base* is its own colour slot, so the shirt, shorts

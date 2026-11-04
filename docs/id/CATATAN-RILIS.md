@@ -2,14 +2,29 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
-## Belum dirilis
+## 0.3.3 (eksperimental) — template PSD dibaca dari library, Import PNG menghasilkan PSD
 
+- **Tidak ada lagi bahasa Indonesia di bahasa lain:** terjemahan yang kurang ditambahkan (pesan server, slider
+  generator fontset, pratinjau nama dan nomor di canvas, judul grup di daftar pilihan, nama layer dari Import PNG
+  seperti "Warna 2 – Celana", nama warna bawaan di Import PNG). Diperiksa dengan memindai kode dan tampilan
+  bahasa Inggris.
+- **Penjelasan di balik tanda ?:** keterangan singkat di bawah pilihan (Import PNG, potong sheet font, pola dari
+  foto, warna logo, pengulangan dan pewarnaan pola, pilihan warna asli layer) dipindah ke tanda ? di samping
+  pilihannya; arahkan kursor atau klik untuk membacanya.
+- **Import PNG: gabung warna, pilih dari pratinjau, bersihkan noise:** setiap warna punya *Gabung ke…* (bayangan
+  yang terpisah digabung ke warnanya, tanpa mengubah toleransi untuk semua warna); klik di pratinjau menyorot warna
+  di bawahnya pada daftar dan meredupkan yang lain, dan *Perbesar pratinjau* menampilkannya selebar dialog.
+  *Bersihkan noise* (menyala otomatis untuk WebP / JPG) menghaluskan bintik kompresi sebelum warna dikelompokkan.
+  Konversi berjalan di latar belakang, jadi app tetap bisa dipakai (tiga versi warna di 2048 butuh sekitar satu
+  setengah menit).
 - **Import PNG: versi warna lain:** *Versi warna lain* menerima sampai dua gambar lagi dari template yang sama dalam
   warna lain. Piksel yang berubah warna bersama menjadi satu layer, jadi area yang sewarna di satu versi (dua hijau
   pada camo) tetap terpisah berkat versi lainnya.
 - **Import PNG: gradasi halus:** dengan *Gradasi halus*, centang hanya warna ujung dari desain bergradasi atau blur;
   warna di antaranya menjadi campuran dua layer, jadi gradasinya tetap ada saat warnanya diganti (zigzag tosca yang
-  diganti merah tetap punya transisinya).
+  diganti merah tetap punya transisinya). Mencentang *Gradasi halus* otomatis mematikan warna yang hanya campuran
+  dua warna lain, dan setiap warna kini boleh menjangkau seluruh grup bagiannya, jadi transisi panjang tidak lagi
+  terpotong menjadi blok di tengah.
 - **Import PNG menghasilkan PSD:** *Pisah per warna* sekarang menyimpan warna yang dipilih sebagai PSD berlapis di
   `library/templates` (satu layer polos per warna dan per grup bagian, jadi warna yang ada di baju dan celana muncul di grup Baju
   dan grup Celana; warna terbesar menjadi *Base* dan mengisi seluruh grupnya di bawah warna lain; *Base* setiap grup punya slot warna sendiri, jadi warna dasar

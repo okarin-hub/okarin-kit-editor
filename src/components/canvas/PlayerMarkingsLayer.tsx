@@ -4,6 +4,7 @@ import React from 'react';
 import { Group, Text as KonvaText, Rect } from 'react-konva';
 import { PlayerMarkingsConfig } from '@/types/kit';
 import { BACK_NECK_Y, BACK_CENTER_X } from '@/constants/pes2021Parts';
+import { useI18n } from '@/i18n/I18nProvider';
 
 interface PlayerMarkingsLayerProps {
   markings: PlayerMarkingsConfig;
@@ -14,6 +15,8 @@ export const PlayerMarkingsLayer: React.FC<PlayerMarkingsLayerProps> = ({
   markings,
   isExportingClean = false,
 }) => {
+  // canvas text is not part of the page, so it is translated here (react-konva passes the context through)
+  const { t } = useI18n();
   // If exporting and user configured to NOT include markings in texture, skip rendering
   if (isExportingClean && !markings.includeInExport) {
     return null;
@@ -107,7 +110,7 @@ export const PlayerMarkingsLayer: React.FC<PlayerMarkingsLayerProps> = ({
           <KonvaText
             x={6}
             y={3}
-            text="PREVIEW NAMA & NOMOR"
+            text={t('PREVIEW NAMA & NOMOR')}
             fontSize={9}
             fontFamily="system-ui, sans-serif"
             fontStyle="bold"

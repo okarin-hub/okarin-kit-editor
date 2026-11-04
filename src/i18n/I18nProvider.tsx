@@ -7,7 +7,8 @@ import { DEFAULT_LANG, Lang, LANGUAGES, translate } from '@/i18n/engine';
 const useBeforePaint = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 const STORAGE_KEY = 'kit-creator-lang';
-const ATTRIBUTES = ['title', 'placeholder', 'alt', 'aria-label'];
+// label: the headings of <optgroup> in drop-down lists
+const ATTRIBUTES = ['title', 'placeholder', 'alt', 'aria-label', 'label'];
 const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'NOSCRIPT', 'CODE', 'PRE']);
 
 interface I18nValue {

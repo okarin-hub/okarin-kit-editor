@@ -36,14 +36,13 @@ export type ImageFit = 'stretch' | 'fit' | 'crop';
  * or cropped (fills the square, the middle is kept).
  */
 export function imageToData(
-  img: HTMLImageElement,
+  img: CanvasImageSource & { width: number; height: number; naturalWidth?: number; naturalHeight?: number },
   fit: ImageFit = 'stretch',
   size = SIZE
 ): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; data: ImageData } {
   const SIZE = size;
-  const canvas = document.createElement('canvas');
-  canvas.width = SIZE;
-  canvas.height = SIZE;
+  // newCanvas: also works in the PNG -> PSD worker (an ImageBitmap comes in there)
+  const canvas = newCanvas(SIZE, SIZE);
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
   ctx.imageSmoothingQuality = 'high';
   const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
@@ -306,6 +305,35 @@ export function analyzeColorways(datas: ImageData[], tolerance: number): ColorAn
 }
 
 /**
+ * Gradient mode helper: the colours (of ids) that lie between two others of them, i.e. a shade of the gradient
+ * from one to the other rather than a colour of its own. The end colours are never between two others.
+ */
+export function blendColours(ids: number[], vectors: ColourVector[]): Set<number> {
+  const out = new Set<number>();
+  const D = vectors[0]?.length ?? 3;
+  for (const c of ids) {
+    const C = vectors[c];
+    search: for (const a of ids) {
+      if (a === c) continue;
+      for (const b of ids) {
+        if (b === c || b <= a) continue;
+        const A = vectors[a], B = vectors[b];
+        let len = 0, dot = 0;
+        for (let j = 0; j < D; j++) { const v = B[j] - A[j]; len += v * v; dot += (C[j] - A[j]) * v; }
+        if (!len) continue;
+        const s = dot / len;
+        if (s < 0.08 || s > 0.92) continue;
+        let off = 0;
+        for (let j = 0; j < D; j++) off += (C[j] - A[j] - s * (B[j] - A[j])) ** 2;
+        // close to the line from a to b (about 20 levels per channel and picture)
+        if (off < 400 * (D / 3)) { out.add(c); break search; }
+      }
+    }
+  }
+  return out;
+}
+
+/**
  * Gradient mode: pixels whose colour was not chosen (the shades of a gradient) join the nearest chosen colour,
  * on the kit parts only (not the armband / credit boxes where template sites put their watermark).
  */
@@ -340,11 +368,22 @@ export async function masksToPsd(
   srcs: ImageData[],
   palette: ColourVector[],
   rank: Int16Array,
-  gradient = false
+  gradient = false,
+  /** Colours merged by the user: cluster -> the cluster it joined (itself when not merged). */
+  alias?: Int32Array
 ): Promise<ArrayBuffer> {
   const { writePsd } = await import('ag-psd');
   const S = PSD_SIZE, k = SIZE / S;
   const { a, b, t } = blendMap(srcs, palette, rank, gradient);
+  if (alias) {
+    for (let p = 0; p < a.length; p++) {
+      if (a[p] === 65535) continue;
+      a[p] = alias[a[p]];
+      b[p] = alias[b[p]];
+      // a pixel between a colour and one merged into it is just that colour
+      if (a[p] === b[p]) t[p] = 0;
+    }
+  }
   const composite = newCanvas(S, S);
   const cctx = composite.getContext('2d')!;
   const children: { name: string; canvas: HTMLCanvasElement; left: number; top: number }[] = [];
@@ -428,6 +467,100 @@ export function splitByGroup(mask: Uint8Array, minPixels = 60): { group: string;
     if (n >= minPixels) out.push({ group, mask: m });
   }
   return out;
+}
+
+/**
+ * 3x3 median per channel: removes the speckles and 8x8 blocks of a compressed (WebP / JPG) picture while
+ * keeping its edges, before the colours are grouped.
+ */
+export function median3(src: ImageData): ImageData {
+  const { width: W, height: H, data: d } = src;
+  const out = new ImageData(new Uint8ClampedArray(d), W, H);
+  const o = out.data;
+  const v = new Uint8Array(9);
+  for (let y = 1; y < H - 1; y++) {
+    for (let x = 1; x < W - 1; x++) {
+      const i = (y * W + x) * 4;
+      for (let c = 0; c < 3; c++) {
+        let n = 0;
+        for (let dy = -W * 4; dy <= W * 4; dy += W * 4) {
+          for (let dx = -4; dx <= 4; dx += 4) {
+            // insertion into the sorted list
+            let val = d[i + dy + dx + c], j = n++;
+            while (j > 0 && v[j - 1] > val) { v[j] = v[j - 1]; j--; }
+            v[j] = val;
+          }
+        }
+        o[i + c] = v[4];
+      }
+    }
+  }
+  return out;
+}
+
+/** What the PNG -> PSD worker needs: the pictures, the colour groups the user chose and how to cut them. */
+export interface PngPsdRequest {
+  /** The picture and its other colourways. */
+  images: ImageBitmap[];
+  fit: ImageFit;
+  denoise: boolean;
+  /** Colour group per pixel at 1024 (from the analysis shown in the dialog). */
+  labels: Uint16Array;
+  counts: number[];
+  vectors: ColourVector[];
+  colors: [number, number, number][];
+  chosen: { id: number; name: string }[];
+  /** Colour group -> the group it was merged into (itself when not merged). */
+  alias: Int32Array;
+  gradient: boolean;
+  splitPieces: boolean;
+  minArea: number;
+  maxZones: number;
+}
+
+/** The picture at a size, cleaned up when asked (the same way as in the dialog's analysis). */
+export function pictureData(img: CanvasImageSource & { width: number; height: number }, fit: ImageFit, size: number, denoise: boolean) {
+  const d = imageToData(img, fit, size).data;
+  return denoise ? median3(d) : d;
+}
+
+/**
+ * Import PNG -> PSD (runs in a worker): one layer per chosen colour and part group (Base: the whole group, at
+ * the bottom), cut again at PSD_SIZE with soft edges.
+ */
+export async function buildPngPsd(r: PngPsdRequest, onProgress?: (done: number, total: number) => void): Promise<ArrayBuffer> {
+  const labels = r.labels.map((l) => (l === 65535 ? l : r.alias[l]));
+  const counts = new Array(r.counts.length).fill(0);
+  r.counts.forEach((c, i) => (counts[r.alias[i]] += c));
+  // the largest colour is the kit's base (drawn under the patterns), at the bottom of the PSD
+  const ordered = [...r.chosen].sort((a, b) => counts[b.id] - counts[a.id]);
+  // gradient: the shades in between join the chosen colours, so their layers cover the whole gradient
+  const lab = r.gradient
+    ? absorbIntoChosen(labels, r.images.map((i) => pictureData(i, r.fit, SIZE, r.denoise)), r.vectors, new Set(r.chosen.map((c) => c.id)))
+    : labels;
+  const layers: { name: string; mask: Uint8Array; color: [number, number, number]; cluster: number }[] = [];
+  for (const [k, cl] of ordered.entries()) {
+    // numbered by size, like the colour slots the PSD gets when it is read (see assignSlots)
+    const name = k === 0 ? 'Base' : /^Warna \d+$/.test(cl.name) ? `Warna ${k + 1}` : cl.name;
+    // one layer per part group (shirt, shorts, socks, details), so each shows in its own group of the Layer tab
+    // in a gradient a colour fades out far from where it is the nearest one: its layer may reach the whole group
+    // (its share decides how much shows), otherwise the fade is cut halfway and the gradient turns into blocks
+    const area = k === 0 || r.gradient ? new Uint8Array(lab.length).fill(1) : clusterMask(lab, cl.id);
+    for (const g of splitByGroup(area)) {
+      const label = `${name} – ${g.group}`;
+      const pieces = r.splitPieces && k > 0 ? splitComponents(Uint16Array.from(g.mask, (v) => (v ? 1 : 65535)), 1, r.minArea) : [g.mask];
+      pieces.slice(0, r.maxZones - layers.length).forEach((mask, i) =>
+        layers.push({ name: pieces.length > 1 ? `${label} ${i + 1}` : label, mask, color: r.colors[cl.id], cluster: cl.id })
+      );
+    }
+    onProgress?.(k + 1, ordered.length + 1);
+  }
+  const rank = new Int16Array(r.counts.length).fill(-1);
+  ordered.forEach((cl, k) => (rank[cl.id] = k));
+  const srcs = r.images.map((i) => pictureData(i, r.fit, PSD_SIZE, r.denoise));
+  const buf = await masksToPsd(layers, srcs, r.vectors, rank, r.gradient, r.alias);
+  onProgress?.(ordered.length + 1, ordered.length + 1);
+  return buf;
 }
 
 /** Pixel mask of a whole cluster. */
