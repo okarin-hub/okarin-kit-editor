@@ -12,8 +12,8 @@ const http = require('node:http');
 const net = require('node:net');
 const os = require('node:os');
 const path = require('node:path');
-const { Readable } = require('node:stream');
-const { pipeline } = require('node:stream/promises');
+const crypto = require('node:crypto');
+const { once } = require('node:events');
 
 const REPO = 'okarin-hub/okarin-kit-editor';
 
@@ -173,15 +173,31 @@ async function installUpdate(event, tag) {
   const total = Number(res.headers.get('content-length')) || asset.size || 0;
   let done = 0;
   let last = 0;
-  const body = Readable.fromWeb(res.body);
-  body.on('data', (chunk) => {
-    done += chunk.length;
-    if (done - last > 1024 * 1024 || done === total) {
-      last = done;
-      send({ phase: 'download', done, total });
+  // one chunk at a time, each one copied: a chunk can be a view on a buffer the download fills again, so a chunk
+  // still waiting in the file queue was overwritten by later data (seen: parts of the zip 16-80 KB out of place)
+  const out = fs.createWriteStream(zip);
+  const reader = res.body.getReader();
+  const hash = crypto.createHash('sha256');
+  try {
+    for (;;) {
+      const { done: end, value } = await reader.read();
+      if (end) break;
+      const chunk = Buffer.from(value);
+      hash.update(chunk);
+      if (!out.write(chunk)) await once(out, 'drain');
+      done += chunk.length;
+      if (done - last > 1024 * 1024 || done === total) {
+        last = done;
+        send({ phase: 'download', done, total });
+      }
     }
-  });
-  await pipeline(body, fs.createWriteStream(zip));
+  } finally {
+    await new Promise((resolve, reject) => out.end((err) => (err ? reject(err) : resolve())));
+  }
+  // GitHub lists a SHA-256 for release files: a download that does not match is never installed
+  const want = /^sha256:([0-9a-f]{64})$/i.exec(String(asset.digest || ''))?.[1];
+  if (want && want.toLowerCase() !== hash.digest('hex')) throw new Error('File unduhan rusak (hash tidak cocok). Coba lagi.');
+  if (total && done !== total) throw new Error('Unduhan tidak lengkap. Coba lagi.');
 
   send({ phase: 'extract', done: 0, total: 0 });
   const unpacked = path.join(work, 'files');

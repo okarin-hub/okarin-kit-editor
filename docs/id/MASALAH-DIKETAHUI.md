@@ -95,5 +95,5 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 
 | # | Pri | Masalah |
 |---|---|---|
-| 47 | P3 | **Pembaruan dari aplikasi** baru ada mulai 0.4.0: pengguna 0.3.3 ke bawah perlu mengunduh 0.4.0 manual sekali. Fitur ini butuh internet ke GitHub dan hanya jalan di aplikasi Windows (tidak dari source, tidak di browser). Kalau penyalinan gagal di tengah (file dikunci program lain), unduh zip-nya manual; folder `library` tidak pernah disentuh. |
+| 47 | P3 | **Pembaruan dari aplikasi** baru ada mulai 0.4.0: pengguna 0.3.3 ke bawah perlu mengunduh 0.4.0 manual sekali. Updater 0.4.0 bisa gagal dengan "ZIP decompression failed" (diperbaiki di 0.4.1): coba lagi atau unduh zip-nya manual. Fitur ini butuh internet ke GitHub dan hanya jalan di aplikasi Windows (tidak dari source, tidak di browser). Kalau penyalinan gagal di tengah (file dikunci program lain), unduh zip-nya manual; folder `library` tidak pernah disentuh. |
 | 48 | P3 | Kuas hapus menyimpan area hapus tiap layer di 1024 px dalam ruang layer itu sendiri; layer yang diperbesar jauh menampilkannya sedikit lebih lembut. *Simpan sebagai template* tidak membawa area hapusnya (tetap tersimpan di proyek). |

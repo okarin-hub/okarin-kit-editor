@@ -17,6 +17,10 @@
 - **No more leftovers:** the converted copy in `library/templates/.psd` is removed when its PSD is deleted or
   moved away (known issue #46).
 
+- **Fix: update from the app could fail** with "ZIP decompression failed": while the disk was busy, parts of the
+  downloaded zip ended up in the wrong place. The download is now written in order and checked against the
+  SHA-256 GitHub lists for the file; a download that does not match is never installed. The 0.4.0 updater has
+  the bug: if updating from 0.4.0 fails, try again or download the zip by hand.
 - **DDS export confirmed:** a DDS from the app, turned into FTEX with a DDS → FTEX tool, loads in PES 2021. The
   known issue and the guide no longer call it untested.
 

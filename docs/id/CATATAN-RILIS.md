@@ -17,6 +17,10 @@
 - **Tidak ada sisa lagi:** salinan konversi di `library/templates/.psd` ikut terhapus saat PSD-nya dihapus atau
   dipindah (known issue #46).
 
+- **Perbaikan: update dari aplikasi bisa gagal** dengan pesan "ZIP decompression failed": saat disk sedang sibuk,
+  sebagian isi zip yang diunduh tertulis di tempat yang salah. Unduhan sekarang ditulis berurutan dan dicocokkan
+  dengan SHA-256 yang dicantumkan GitHub; unduhan yang tidak cocok tidak pernah dipasang. Updater 0.4.0 masih punya
+  bug ini: kalau update dari 0.4.0 gagal, coba lagi atau unduh zip-nya manual.
 - **Export DDS terbukti jalan:** DDS dari aplikasi yang diubah ke FTEX dengan tool DDS → FTEX terbaca di PES 2021.
   Known issue dan panduan tidak lagi menyebutnya belum diuji.
 
