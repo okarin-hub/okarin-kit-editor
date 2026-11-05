@@ -238,6 +238,10 @@ export interface KitZoneDef {
   slot?: string;
   /** One choice of a set of alternatives (collar 1 / 2 / 13): showing it hides the other options of the set. */
   variant?: { set: string; option: string };
+  /** Blend mode from the PSD (a canvas composite operation such as 'multiply'); unset = normal. */
+  blend?: GlobalCompositeOperation;
+  /** Clipping mask from the PSD: drawn only inside this zone (its base layer), and hidden with it. */
+  clipTo?: string;
   defaultColor: string;
   defaultVisible: boolean;
 }
@@ -259,6 +263,8 @@ export interface KitTemplate {
   name: string;
   description?: string;
   source?: 'builtin' | 'library' | 'psd';
+  /** Template JSON from library/templates: its path relative to that folder (for rename / delete). */
+  libFile?: string;
   /** PSD read straight from library/templates: its path relative to the library root. */
   psdFile?: string;
   /** True once the user added, deleted or re-assigned zones (so it is no longer refreshed from code). */

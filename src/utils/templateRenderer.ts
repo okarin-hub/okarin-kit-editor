@@ -176,7 +176,31 @@ export function setLiveErase(zoneId: string, mask: HTMLCanvasElement | null): vo
   else liveErase.delete(zoneId);
 }
 
-let eraseLayer: HTMLCanvasElement | null = null;
+// scratch layers the size of the target canvas: [0] a layer on its own, [1] a layer clipped to it
+const scratch: HTMLCanvasElement[] = [];
+function scratchLayer(i: number, ctx: CanvasRenderingContext2D): CanvasRenderingContext2D {
+  let c = scratch[i];
+  if (!c) c = scratch[i] = document.createElement('canvas');
+  if (c.width !== ctx.canvas.width || c.height !== ctx.canvas.height) {
+    c.width = ctx.canvas.width;
+    c.height = ctx.canvas.height;
+  }
+  const g = c.getContext('2d')!;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.globalCompositeOperation = 'source-over';
+  g.clearRect(0, 0, c.width, c.height);
+  g.setTransform(ctx.getTransform());
+  return g;
+}
+
+/** Draws `src` (device pixels, same size) onto `dst` with a composite operation, whatever dst's transform is. */
+function blit(dst: CanvasRenderingContext2D, src: HTMLCanvasElement, op?: GlobalCompositeOperation): void {
+  dst.save();
+  dst.setTransform(1, 0, 0, 1, 0, 0);
+  if (op) dst.globalCompositeOperation = op;
+  dst.drawImage(src, 0, 0);
+  dst.restore();
+}
 
 /**
  * A layer's eraser mask redrawn through a matrix, for when the layer's own shape is rebuilt (moved to another part,
@@ -213,8 +237,18 @@ export function drawTemplateForPart(
   /** 'base' = only the base zones (drawn under the patterns); 'top' = the rest and the seams. */
   which: 'base' | 'top' = 'top'
 ): void {
+  // layers clipped to another layer are drawn with it (only inside it, and only while it is shown)
+  const byId = new Set(template.zones.map((z) => z.id));
+  const clipped = new Map<string, KitTemplate['zones']>();
+  template.zones.forEach((z) => {
+    if (z.clipTo && byId.has(z.clipTo) && state.zones[z.id]?.visible) clipped.set(z.clipTo, [...(clipped.get(z.clipTo) ?? []), z]);
+  });
   const zones = template.zones.filter(
-    (z) => zoneParts(z).includes(part.id) && state.zones[z.id]?.visible && !!z.base === (which === 'base')
+    (z) =>
+      !(z.clipTo && byId.has(z.clipTo)) &&
+      zoneParts(z).includes(part.id) &&
+      state.zones[z.id]?.visible &&
+      !!z.base === (which === 'base')
   );
   const extraSeams = (template.seams ?? []).filter((s) => s.part === part.id);
   const seams = which === 'top' ? state.seams : { ...state.seams, enabled: false };
@@ -227,22 +261,8 @@ export function drawTemplateForPart(
   ctx.clip();
 
   // 1. Coloured zones (move / scale / rotate / edge shaping / opacity come from the zone state)
-  zones.forEach((zone) => {
-    const zs = state.zones[zone.id];
-    // a layer with eraser strokes is drawn on its own layer first, then the strokes are cut out of it
-    const eraser = eraseMaskOf(zone.id, zs.erase);
-    let g = ctx;
-    if (eraser) {
-      if (!eraseLayer) eraseLayer = document.createElement('canvas');
-      if (eraseLayer.width !== ctx.canvas.width || eraseLayer.height !== ctx.canvas.height) {
-        eraseLayer.width = ctx.canvas.width;
-        eraseLayer.height = ctx.canvas.height;
-      }
-      g = eraseLayer.getContext('2d')!;
-      g.setTransform(1, 0, 0, 1, 0, 0);
-      g.clearRect(0, 0, eraseLayer.width, eraseLayer.height);
-      g.setTransform(ctx.getTransform());
-    }
+  /** Draws one layer (shape and / or mask image) onto g with g's composite operation. */
+  const paint = (g: CanvasRenderingContext2D, zone: KitTemplate['zones'][number], zs: TemplateState['zones'][string]) => {
     if (hasShape(zone)) {
       g.save();
       g.globalAlpha = zs.opacity ?? 1;
@@ -266,6 +286,13 @@ export function drawTemplateForPart(
         preloadImage(zone.mask);
       }
     }
+  };
+
+  /** The layer alone on scratch layer i, with its eraser strokes cut out. */
+  const isolated = (i: number, zone: KitTemplate['zones'][number], zs: TemplateState['zones'][string]) => {
+    const g = scratchLayer(i, ctx);
+    paint(g, zone, zs);
+    const eraser = eraseMaskOf(zone.id, zs.erase);
     if (eraser) {
       // the mask is kept in the layer's own space, so it moves / turns / scales with the layer
       const m = zoneMatrix(zone, zs);
@@ -274,12 +301,33 @@ export function drawTemplateForPart(
       g.transform(m.a, m.b, m.c, m.d, m.e, m.f);
       g.drawImage(eraser, 0, 0, 1024, 1024);
       g.restore();
-      // the part clip of ctx still applies (it is kept in device space)
-      ctx.save();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.drawImage(eraseLayer!, 0, 0);
-      ctx.restore();
     }
+    return g.canvas as HTMLCanvasElement;
+  };
+
+  zones.forEach((zone) => {
+    const zs = state.zones[zone.id];
+    const clips = clipped.get(zone.id) ?? [];
+    if (!clips.length && !eraseMaskOf(zone.id, zs.erase)) {
+      // plain layer: straight onto the texture (with its blend mode)
+      ctx.save();
+      if (zone.blend) ctx.globalCompositeOperation = zone.blend;
+      paint(ctx, zone, zs);
+      ctx.restore();
+      return;
+    }
+    // the layer on its own first (eraser strokes cut out), then the layers clipped to it, kept inside its pixels
+    const base = isolated(0, zone, zs);
+    const bg = base.getContext('2d')!;
+    clips.forEach((c) => {
+      const layer = isolated(1, c, state.zones[c.id]);
+      const lg = layer.getContext('2d')!;
+      blit(lg, base, 'destination-in');
+      // blends with the base layer only (Photoshop also blends it with what is under the base)
+      blit(bg, layer, c.blend);
+    });
+    // the part clip of ctx still applies (it is kept in device space)
+    blit(ctx, base, zone.blend);
   });
 
   // 2. Seams

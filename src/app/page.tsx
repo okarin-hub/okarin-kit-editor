@@ -842,6 +842,51 @@ export default function Home() {
     [library]
   );
 
+  // Rename / delete a template file of library/templates (a JSON template, or a PSD that is read as one)
+  const libraryFileRequest = useCallback(async (method: 'PATCH' | 'DELETE', t: KitTemplate, extra: Record<string, unknown> = {}) => {
+    const res = await fetch('/api/library/template', {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: t.psdFile ? 'psd' : 'json', file: t.psdFile ?? t.libFile, ...extra }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.error) throw new Error(data.error || `Server menjawab ${res.status}`);
+    return data;
+  }, []);
+
+  const handleRenameLibraryTemplate = useCallback(
+    async (t: KitTemplate, name: string) => {
+      try {
+        const data = await libraryFileRequest('PATCH', t, { name });
+        // the open template follows (a PSD gets a new id from its new file name)
+        setTplBundle((prev) =>
+          prev.def.id !== t.id
+            ? prev
+            : { ...prev, def: { ...prev.def, name: data.name ?? name, id: data.id ?? prev.def.id, psdFile: data.file ?? prev.def.psdFile } }
+        );
+        library.reload();
+        return null;
+      } catch (e: any) {
+        return String(e?.message || e);
+      }
+    },
+    [libraryFileRequest, library]
+  );
+
+  const handleDeleteLibraryTemplate = useCallback(
+    async (t: KitTemplate) => {
+      try {
+        await libraryFileRequest('DELETE', t);
+        // the open kit keeps its layers; the template is then listed as "from the project"
+        library.reload();
+        return null;
+      } catch (e: any) {
+        return String(e?.message || e);
+      }
+    },
+    [libraryFileRequest, library]
+  );
+
   useEffect(() => {
     if (!pendingPsdId) return;
     const t = library.templates.find((x) => x.id === pendingPsdId);
@@ -1568,6 +1613,8 @@ export default function Home() {
                 editSeam={editSeam}
                 onToggleEditSeam={(key) => setEditSeam((cur) => (cur === key ? null : key))}
                 onAddPsd={handleAddPsd}
+                onRenameLibraryTemplate={handleRenameLibraryTemplate}
+                onDeleteLibraryTemplate={handleDeleteLibraryTemplate}
                 view={rightTab === 'kitTemplate' ? 'template' : 'layers'}
                 onOpenPngImport={() => setIsPngImportOpen(true)}
                 editPoints={editPoints}

@@ -8,7 +8,9 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 ## Sudah dan belum diuji
 
 - **Export FTEX terbukti terbaca di PES 2021** (diuji pembuat).
-- **Export DDS dan output 2048 px belum diuji di game.** Buka hasilnya di aplikasi gambar dulu.
+- **Export DDS berfungsi:** game sendiri hanya membaca FTEX, dan DDS dari aplikasi yang diubah ke FTEX dengan tool
+  DDS → FTEX terbaca di PES 2021 (diuji pembuat). DDS disediakan untuk tool lain dan kit creator yang membutuhkannya.
+- **Output 2048 px belum diuji di game.** Buka hasilnya di aplikasi gambar dulu.
 - Hanya Chrome / Edge (dan build Electron) yang diuji. Layar sentuh dan ponsel kecil tidak didukung.
 
 ## Import template (PSD / PNG) — eksperimental
@@ -17,7 +19,7 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 |---|---|---|---|
 | 1 | P2 | **Pemetaan bagian masih tebakan.** Bagian layer ditebak dari persentase piksel di tiap area; layer yang melintasi banyak area sering ditempel ke bagian yang salah. Setelah konversi, klik sebuah layer di laporan untuk mengubah bagiannya (langsung disimpan). | Tampilkan tebakan di pratinjau sebelum menyimpan. |
 | 2 | P3 | **PSD template resmi berisi banyak layer yang hanya membantu desainer** (mesh, bayangan, jahitan titik-titik, panduan, mask, latar). Sekarang tidak dicentang secara bawaan (115 layer jadi 19 di PSD resmi 2019, dengan label alasannya); tombol *Semua* tetap memilihnya. Filter memakai nama (Inggris dan Jepang) dan ukuran, jadi nama yang tidak biasa bisa lolos atau layer berguna bisa ikut berlabel. | Pratinjau tiap layer. |
-| 3 | P1 | **Efek PSD tidak terbawa:** mode blend, efek layer (bayangan, stroke, overlay warna), clipping mask, layer penyesuaian, smart object, teks dan bentuk vektor. | Dukung clipping mask dan mode blend dasar; rasterize otomatis. |
+| 3 | P2 | **Sebagian efek PSD masih tidak terbawa:** layer style (drop / inner shadow, stroke, glow, bevel, overlay warna / pola), layer adjustment, dan layer isi gradasi / pola; layer teks tanpa piksel dilewati (rasterize dulu). Blend mode, clipping mask, layer mask dan vector mask, shape layer, serta opacity / mask grup sudah dibaca. Layer yang di-clip hanya berbaur dengan layer dasarnya, dan selama satu bagian difokuskan di tampilan 2D, layer ber-blend hanya berbaur dengan layer template (3D dan export tetap tepat). | Layer style (stroke dan drop shadow dulu). |
 | 4 | P3 | Konversi PSD besar butuh waktu (115 layer ≈ 20 detik di browser uji) dan berjalan di main thread. Tiap layer kini hanya diproses di dalam kotaknya sendiri dan mask diunggah 4 sekaligus. | Web Worker. |
 | 6 | P2 | Zona mask tidak bisa diedit titik demi titik atau diberi bentuk tepi. | "Ubah mask jadi poligon". |
 | 8 | P2 | Pemisahan PNG per warna sudah lebih baik tetapi tetap perkiraan: tepi anti-alias dan warna noise diserap ke wilayah di sekitarnya, namun gradasi dan desain berbayang masih pecah menjadi beberapa warna, dan maksimal 80 zona. Sebuah zona warna ikut ke setiap bagian yang memuat beberapa puluh pikselnya, jadi daftar bagiannya bisa lebih banyak dari dugaan. | Penghalusan tepi per zona, pratinjau bagian. |
@@ -87,7 +89,7 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 | 43 | P3 | Memindah pola atau objek ke grup lain dan mengubah ukuran panel samping perlu mouse; dengan keyboard, tombol panah hanya mengubah urutan di dalam grup. |
 | 44 | P3 | Pola tampil paling atas di grupnya tetapi selalu digambar di bawah layer template grup itu, jadi urutan daftar antara pola dan layer template bukan urutan gambarnya. |
 | 45 | P3 | Semua salinan objek kembar berukuran sama. Mengedit titik objek kembar yang diputar membuat arah kembarnya lurus lagi (mengikuti sumbu tekstur). |
-| 46 | P3 | **Baca PSD:** PSD dikonversi oleh app selama app terbuka (PSD 30 layer butuh sekitar 10 sampai 30 detik). Template baca-PSD yang sudah kamu ubah di editor (layer ditambah, dihapus, atau dipindah bagian) tidak diperbarui saat PSD disimpan ulang; pilih ulang dari daftar. Menghapus PSD meninggalkan salinan konversinya di `library/templates/.psd` (hapus manual). Slot warna menggabungkan layer berdasarkan abu-abu yang persis sama, jadi dua layer yang kebetulan abu-abunya sama juga berbagi warna, dan satu layer belum bisa dilepas dari slotnya. |
+| 46 | P3 | **Baca PSD:** PSD dikonversi oleh app selama app terbuka (PSD 30 layer butuh sekitar 10 sampai 30 detik). Template baca-PSD yang sudah kamu ubah di editor (layer ditambah, dihapus, atau dipindah bagian) tidak diperbarui saat PSD disimpan ulang; pilih ulang dari daftar. Slot warna menggabungkan layer berdasarkan abu-abu yang persis sama, jadi dua layer yang kebetulan abu-abunya sama juga berbagi warna, dan satu layer belum bisa dilepas dari slotnya. |
 
 ## Ditambahkan di 0.4.0
 

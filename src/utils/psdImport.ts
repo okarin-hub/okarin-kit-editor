@@ -29,7 +29,17 @@ export interface PsdLayerInfo {
   key: string;
   name: string; // "Group / Layer"
   hidden: boolean;
+  /** Layer opacity × fill opacity × the opacity of its groups. */
   opacity: number;
+  /** Blend mode (its own, or its group's when the layer itself is normal). */
+  blend?: GlobalCompositeOperation;
+  /** Clipping mask: the key of the layer it is clipped to. */
+  clipBase?: string;
+  /** Raster and vector masks of the layer and of its groups (all of them cut the layer). */
+  masks: any[];
+  vmasks: any[];
+  /** Shape / solid colour fill layer (no pixels in the file): drawn from this colour and its vector mask. */
+  fillColor?: string;
   left: number;
   top: number;
   right: number;
@@ -97,6 +107,80 @@ export function junkReason(info: Pick<PsdLayerInfo, 'name' | 'opacity' | 'left' 
   return undefined;
 }
 
+/** PSD blend modes as canvas composite operations; the ones the canvas lacks get the closest it has. */
+const BLENDS: Record<string, GlobalCompositeOperation> = {
+  multiply: 'multiply',
+  screen: 'screen',
+  overlay: 'overlay',
+  darken: 'darken',
+  lighten: 'lighten',
+  'color dodge': 'color-dodge',
+  'color burn': 'color-burn',
+  'hard light': 'hard-light',
+  'soft light': 'soft-light',
+  difference: 'difference',
+  exclusion: 'exclusion',
+  hue: 'hue',
+  saturation: 'saturation',
+  color: 'color',
+  luminosity: 'luminosity',
+  'linear dodge': 'lighter',
+  'linear burn': 'multiply',
+  'darker color': 'darken',
+  'lighter color': 'lighten',
+  'vivid light': 'hard-light',
+  'linear light': 'hard-light',
+  'pin light': 'hard-light',
+};
+export const blendOf = (mode: unknown): GlobalCompositeOperation | undefined =>
+  typeof mode === 'string' ? BLENDS[mode] : undefined;
+
+const rgbHex = (c: any): string | undefined =>
+  c && typeof c.r === 'number' ? `#${hex2(c.r)}${hex2(c.g)}${hex2(c.b)}` : undefined;
+
+/**
+ * Fills the closed paths of a vector mask (document pixels, scaled by sx / sy) in the current fill style.
+ * A path's operation (combine / subtract / intersect / exclude) carries on to the paths after it until another one is set.
+ */
+export function fillVectorPaths(ctx: CanvasRenderingContext2D, vm: any, sx: number, sy: number): void {
+  let op = 'combine';
+  for (const p of vm.paths ?? []) {
+    op = p.operation ?? op;
+    const k = p.knots ?? [];
+    if (p.open || k.length < 2) continue;
+    ctx.globalCompositeOperation =
+      op === 'subtract' ? 'destination-out' : op === 'intersect' ? 'destination-in' : op === 'exclude' ? 'xor' : 'source-over';
+    // knot points: control in, anchor, control out
+    const pt = (i: number, j: number) => [k[i].points[j] * sx, k[i].points[j + 1] * sy] as const;
+    ctx.beginPath();
+    ctx.moveTo(...pt(0, 2));
+    for (let i = 1; i <= k.length; i++) {
+      const a = i - 1, b = i % k.length;
+      ctx.bezierCurveTo(...pt(a, 4), ...pt(b, 0), ...pt(b, 2));
+    }
+    ctx.closePath();
+    ctx.fill(p.fillRule === 'non-zero' ? 'nonzero' : 'evenodd');
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+/** Box [left, top, right, bottom] around the closed paths of a vector mask (anchors and control points). */
+function pathBounds(vm: any): [number, number, number, number] | undefined {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of vm.paths ?? []) {
+    if (p.open) continue;
+    for (const k of p.knots ?? []) {
+      for (let j = 0; j < 6; j += 2) {
+        x0 = Math.min(x0, k.points[j]);
+        x1 = Math.max(x1, k.points[j]);
+        y0 = Math.min(y0, k.points[j + 1]);
+        y1 = Math.max(y1, k.points[j + 1]);
+      }
+    }
+  }
+  return x1 > x0 && y1 > y0 ? [Math.floor(x0), Math.floor(y0), Math.ceil(x1), Math.ceil(y1)] : undefined;
+}
+
 export interface ParsedPsd {
   fileName: string;
   width: number;
@@ -134,42 +218,73 @@ export async function parsePsd(file: File): Promise<ParsedPsd> {
   const skipped: { name: string; reason: string }[] = [];
   let counter = 0;
 
-  const walk = (children: any[] | undefined, trail: string[], parentHidden: boolean, parentVariant?: PsdLayerInfo['variant']) => {
+  interface Inherited {
+    hidden: boolean;
+    variant?: PsdLayerInfo['variant'];
+    opacity: number;
+    blend?: GlobalCompositeOperation;
+    masks: any[];
+    vmasks: any[];
+  }
+  const walk = (children: any[] | undefined, trail: string[], up: Inherited) => {
     const variants = findVariants(children ?? []);
+    // children run from the bottom layer up: a clipped layer is clipped to the nearest unclipped layer below it
+    let below: string | undefined;
     (children ?? []).forEach((l, i) => {
       // a hidden option of a variant set is still imported (as a hidden choice)
-      const variant = parentVariant ?? variants.get(i);
-      const hidden = parentHidden || !!l.hidden;
+      const variant = up.variant ?? variants.get(i);
+      const hidden = up.hidden || !!l.hidden;
       const name = String(l.name ?? 'Layer');
+      const opacity = up.opacity * (typeof l.opacity === 'number' ? l.opacity : 1);
+      const own = blendOf(l.blendMode);
+      const masks = l.mask?.canvas && !l.mask.disabled ? [...up.masks, l.mask] : up.masks;
+      const vmasks = l.vectorMask?.paths?.length && !l.vectorMask.disable ? [...up.vmasks, l.vectorMask] : up.vmasks;
       if (l.children) {
-        walk(l.children, [...trail, name], hidden, variant);
+        below = undefined;
+        walk(l.children, [...trail, name], { hidden, variant, opacity, blend: own ?? up.blend, masks, vmasks });
         return;
       }
+      const clipBase = l.clipping ? below : undefined;
       const full = [...trail, name].join(' / ');
-      const w = (l.right ?? 0) - (l.left ?? 0);
-      const h = (l.bottom ?? 0) - (l.top ?? 0);
-      if (!l.canvas || w <= 0 || h <= 0) {
+      let left = l.left ?? 0, top = l.top ?? 0, right = l.right ?? 0, bottom = l.bottom ?? 0;
+      const fill = l.vectorFill?.type === 'color' ? rgbHex(l.vectorFill.color) : undefined;
+      if (fill) {
+        // a shape layer's box is its outline; a solid colour fill without a shape covers the document (its mask cuts it)
+        const box = l.vectorMask?.paths?.length ? pathBounds(l.vectorMask) : undefined;
+        if (box) [left, top, right, bottom] = box;
+        else if (right <= left || bottom <= top) [left, top, right, bottom] = [0, 0, psd.width, psd.height];
+      }
+      if ((!l.canvas && !fill) || right <= left || bottom <= top) {
         skipped.push({
           name: full,
           reason: l.text ? 'layer teks (rasterize dulu)' : l.vectorMask || l.vectorFill ? 'layer vektor/bentuk (rasterize dulu)' : l.adjustment ? 'layer adjustment' : 'tidak ada piksel',
         });
+        if (!l.clipping) below = undefined;
         return;
       }
+      const key = `l${counter++}`;
+      if (!l.clipping) below = key;
       layers.push({
-        key: `l${counter++}`,
+        key,
         name: full,
         hidden,
-        opacity: typeof l.opacity === 'number' ? l.opacity : 1,
-        left: l.left,
-        top: l.top,
-        right: l.right,
-        bottom: l.bottom,
+        opacity: opacity * (typeof l.fillOpacity === 'number' ? l.fillOpacity : 1),
+        blend: own ?? up.blend,
+        clipBase,
+        masks,
+        vmasks,
+        // a shape layer may also carry pixels (empty, or the shape drawn by Photoshop): its colour and outline are exact
+        fillColor: fill,
+        left,
+        top,
+        right,
+        bottom,
         layer: l,
         variant,
       });
     });
   };
-  walk(psd.children, [], false);
+  walk(psd.children, [], { hidden: false, opacity: 1, masks: [], vmasks: [] });
   // a PSD written by Import PNG has only real colour layers: none of them is a helper or a backdrop
   const fromPng = String((psd as any).imageResources?.xmpMetadata ?? '').includes(PNG_PSD_MARK);
   layers.forEach((l) => {
@@ -362,7 +477,13 @@ export function convertLayer(info: PsdLayerInfo, psdW: number, psdH: number, ind
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return null;
   ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(l.canvas, info.left * sx, info.top * sy, (info.right - info.left) * sx, (info.bottom - info.top) * sy);
+  if (info.fillColor) {
+    // shape / colour fill layer: its colour over its box, the vector mask below gives the shape
+    ctx.fillStyle = info.fillColor;
+    ctx.fillRect(info.left * sx, info.top * sy, (info.right - info.left) * sx, (info.bottom - info.top) * sy);
+  } else {
+    ctx.drawImage(l.canvas, info.left * sx, info.top * sy, (info.right - info.left) * sx, (info.bottom - info.top) * sy);
+  }
 
   // only the layer's own area is read and processed (most layers are small)
   const rx = Math.max(0, Math.floor(info.left * sx));
@@ -373,22 +494,42 @@ export function convertLayer(info: PsdLayerInfo, psdW: number, psdH: number, ind
   const img = ctx.getImageData(rx, ry, rw, rh);
   const d = img.data;
 
-  // User layer mask (grayscale): multiply it into the alpha
-  const m = l.mask;
-  if (m && m.canvas && !m.disabled) {
+  // Layer masks of the layer and its groups (grayscale): multiplied into the alpha
+  for (const m of info.masks) {
     const mc = newCanvas(SIZE, SIZE);
     const mctx = mc.getContext('2d', { willReadFrequently: true });
-    if (mctx) {
-      const dc = typeof m.defaultColor === 'number' ? m.defaultColor : 255;
-      mctx.fillStyle = `rgb(${dc},${dc},${dc})`;
+    if (!mctx) continue;
+    const dc = typeof m.defaultColor === 'number' ? m.defaultColor : 255;
+    mctx.fillStyle = `rgb(${dc},${dc},${dc})`;
+    mctx.fillRect(0, 0, SIZE, SIZE);
+    mctx.drawImage(m.canvas, m.left * sx, m.top * sy, (m.right - m.left) * sx, (m.bottom - m.top) * sy);
+    const md = mctx.getImageData(rx, ry, rw, rh).data;
+    for (let i = 0; i < d.length; i += 4) d[i + 3] = (d[i + 3] * md[i]) / 255;
+  }
+  // Vector masks (shape outlines) of the layer and its groups
+  for (const vm of info.vmasks) {
+    const mc = newCanvas(SIZE, SIZE);
+    const mctx = mc.getContext('2d', { willReadFrequently: true });
+    if (!mctx) continue;
+    mctx.fillStyle = '#fff';
+    if (vm.invert) {
       mctx.fillRect(0, 0, SIZE, SIZE);
-      mctx.drawImage(m.canvas, m.left * sx, m.top * sy, (m.right - m.left) * sx, (m.bottom - m.top) * sy);
-      const md = mctx.getImageData(rx, ry, rw, rh).data;
-      for (let i = 0; i < d.length; i += 4) d[i + 3] = (d[i + 3] * md[i]) / 255;
+      mctx.globalCompositeOperation = 'destination-out';
+      const inner = newCanvas(SIZE, SIZE);
+      const ictx = inner.getContext('2d')!;
+      ictx.fillStyle = '#fff';
+      fillVectorPaths(ictx, vm, sx, sy);
+      mctx.drawImage(inner, 0, 0);
+      mctx.globalCompositeOperation = 'source-over';
+    } else {
+      fillVectorPaths(mctx, vm, sx, sy);
     }
+    const md = mctx.getImageData(rx, ry, rw, rh).data;
+    for (let i = 0; i < d.length; i += 4) d[i + 3] = (d[i + 3] * md[i + 3]) / 255;
   }
 
   const out = finalizeMask(canvas, ctx, img, { name: info.name, hidden: info.hidden, opacity: info.opacity }, index, rx, ry);
+  if (out && info.blend) out.zone.blend = info.blend;
   // a Base layer is the kit's base colour (drawn under the pattern layers); Import PNG writes one per part group
   if (out && /^base\b/i.test(info.name.split(' / ').pop() ?? '')) out.zone.base = true;
   return out;

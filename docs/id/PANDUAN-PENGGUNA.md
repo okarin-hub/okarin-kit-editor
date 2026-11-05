@@ -60,6 +60,11 @@ Daftarnya berisi tiga jenis:
   dinamai sebagai varian menjadi pilihan opsi.
 - **Tambah PSD** menyalin PSD yang kamu pilih ke `library/templates` (file dengan nama sama diganti) dan membukanya
   setelah selesai dibaca.
+- Template yang berupa file di `library/templates` menampilkan path-nya di bawah daftar, dengan **Ganti nama** dan
+  **Hapus**. Menghapus selalu bertanya dulu dan tidak bisa dibatalkan.
+
+Blend mode, clipping mask, layer mask dan vector mask, shape layer, serta opacity grup dari PSD ikut terbawa; layer
+style (bayangan, stroke, glow, bevel, overlay) dan layer adjustment belum.
 
 **Import PNG** (eksperimental) punya dua cara:
 
@@ -166,12 +171,12 @@ di atas bagian dengan opasitas. Kamu bisa berpindah antara *Warna* dan *Desain i
 | Format | Kegunaan |
 |---|---|
 | **PNG** | edit atau preview (1024 atau 2048 px) |
-| **DDS** | DXT1 / DXT5 / BGRA dengan mipmap, untuk tool mod |
+| **DDS** | DXT1 / DXT5 / BGRA dengan mipmap, untuk tool mod; game membaca FTEX, jadi ubah dulu dengan tool DDS → FTEX (sudah diuji) |
 | **FTEX** | ditulis langsung (satu file `.ftex`, mipmap di dalamnya, format FtexTool); sudah diuji di PES 2021 |
 | **Proyek (.peskit)** | menyimpan dan membagikan seluruh kit |
 | **Kartu showcase** | gambar kit |
 
-Simpan salinan file yang kamu ganti di game sebelum mencoba yang baru. Output DDS dan 2048 px belum diuji di game.
+Simpan salinan file yang kamu ganti di game sebelum mencoba yang baru. Output 2048 px belum diuji di game.
 
 ### Kitserver (config.txt) – eksperimental
 

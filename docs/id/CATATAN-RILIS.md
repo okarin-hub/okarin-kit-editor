@@ -2,6 +2,24 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## 0.4.1 (eksperimental) — Efek PSD, ganti nama / hapus template library
+
+- **Lebih banyak isi PSD yang terbawa (Baca PSD):** blend mode (multiply, screen, overlay, soft / hard light, darken,
+  lighten, dan lainnya; linear burn / dodge serta vivid / linear / pin light memakai yang paling mirip), **clipping
+  mask** (layer yang di-clip hanya tampil di dalam layer dasarnya dan ikut tersembunyi bersamanya), **vector mask**,
+  **shape layer dan layer isi warna** (digambar dari warna dan garis bentuknya; sebelumnya dilewati), serta opacity,
+  fill opacity, blend mode, dan mask dari **grup**. Blend mode dan clipping tetap ikut saat warna layer diganti.
+  Semua PSD di library dibaca ulang sekali setelah update.
+- **Ganti nama atau hapus template library dari aplikasi:** di bawah daftar template muncul *Ganti nama* dan
+  *Hapus* untuk template yang berupa file di `library/templates` (template JSON, folder beserta mask-nya, atau PSD).
+  Mengganti nama PSD ikut mengganti nama file-nya dan menjaga salinan konversinya, jadi tidak dibaca ulang.
+  Menghapus selalu bertanya dulu, dan memberi peringatan kalau kit yang terbuka memakai gambar layer template itu.
+- **Tidak ada sisa lagi:** salinan konversi di `library/templates/.psd` ikut terhapus saat PSD-nya dihapus atau
+  dipindah (known issue #46).
+
+- **Export DDS terbukti jalan:** DDS dari aplikasi yang diubah ke FTEX dengan tool DDS → FTEX terbaca di PES 2021.
+  Known issue dan panduan tidak lagi menyebutnya belum diuji.
+
 ## 0.4.0 — Stabil: kuas hapus per layer, edit teks, garis jahit bisa dibentuk ulang, pembaruan dari aplikasi
 
 Rilis ini menjadikan fitur 0.3.x (template PSD dari library, Import PNG, tab Template) bagian dari versi stabil,

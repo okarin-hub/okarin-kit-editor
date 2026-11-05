@@ -57,11 +57,17 @@ self.onmessage = async (e: MessageEvent<PsdSyncRequest>) => {
     const { folder } = await post({ action: 'init', psd: path });
     const zones: Record<string, unknown>[] = [];
     const flats: { flat?: string; pixels: number }[] = [];
+    // layer key -> zone id, for clipping masks (a base layer always comes before the layers clipped to it)
+    const ids = new Map<string, string>();
     let idx = 0;
     for (const [k, info] of chosen.entries()) {
       const out = convertLayer(info, parsed.width, parsed.height, idx);
       if (out) {
         await post({ action: 'mask', folder, file: out.maskFile, dataUrl: await toDataUrl(out.maskCanvas) });
+        ids.set(info.key, String(out.zone.id));
+        // a layer clipped to a layer that was left out (helper, empty) is drawn as a normal layer
+        const clipTo = info.clipBase ? ids.get(info.clipBase) : undefined;
+        if (clipTo) out.zone.clipTo = clipTo;
         zones.push(info.variant ? { ...out.zone, variant: info.variant } : out.zone);
         flats.push({ flat: out.flat, pixels: out.pixels });
         idx++;

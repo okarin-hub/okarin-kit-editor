@@ -60,6 +60,11 @@ colours. The list has three kinds:
   variants become a choice of options.
 - **Add PSD** copies a PSD you pick into `library/templates` (a file with the same name is replaced) and opens it
   once it has been read.
+- A template that is a file in `library/templates` shows its path under the list, with **Rename** and **Delete**.
+  Deleting asks first and cannot be undone.
+
+PSD blend modes, clipping masks, layer and vector masks, shape layers and group opacity are kept; layer styles
+(shadow, stroke, glow, bevel, overlays) and adjustment layers are not.
 
 **Import PNG** (experimental) has two ways:
 
@@ -165,12 +170,12 @@ parts with an opacity. You can switch between *Colour* and *Imported design* any
 | Format | Use |
 |---|---|
 | **PNG** | editing or preview (1024 or 2048 px) |
-| **DDS** | DXT1 / DXT5 / BGRA with mipmaps, for mod tools |
+| **DDS** | DXT1 / DXT5 / BGRA with mipmaps, for mod tools; the game reads FTEX, so convert it with a DDS → FTEX tool (tested) |
 | **FTEX** | written directly (one `.ftex` file, mipmaps inside, FtexTool layout); tested in PES 2021 |
 | **Project (.peskit)** | save and share the whole kit |
 | **Showcase card** | a picture of the kit |
 
-Keep a copy of the file you replace in your game before testing a new one. DDS and 2048 px output has not been
+Keep a copy of the file you replace in your game before testing a new one. 2048 px output has not been
 tested in the game yet.
 
 ### Kitserver (config.txt) – experimental

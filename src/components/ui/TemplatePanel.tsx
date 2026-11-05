@@ -95,6 +95,9 @@ interface TemplatePanelProps {
   onToggleEditSeam: (key: string) => void;
   /** Copies a .psd into library/templates, where it is read as a template. */
   onAddPsd: (file: File) => void;
+  /** Renames / deletes a template of library/templates (JSON or PSD); resolves to an error message or null. */
+  onRenameLibraryTemplate: (template: KitTemplate, name: string) => Promise<string | null>;
+  onDeleteLibraryTemplate: (template: KitTemplate) => Promise<string | null>;
   /** Which tab shows the panel: the template tab (choice, kit base, save) or the layer tab. */
   view: 'template' | 'layers';
   onOpenPngImport: () => void;
@@ -229,6 +232,8 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
   editSeam,
   onToggleEditSeam,
   onAddPsd,
+  onRenameLibraryTemplate,
+  onDeleteLibraryTemplate,
   view,
   onOpenPngImport,
   editPoints,
@@ -244,6 +249,10 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
   const [lockRatio, setLockRatio] = useState(false);
   // the part whose colour editor is open under its row (one at a time)
   const [editPart, setEditPart] = useState<KitPartId | null>(null);
+  // renaming the chosen library template: the name being typed (null = not renaming); last error
+  const [renameTo, setRenameTo] = useState<string | null>(null);
+  const [libMsg, setLibMsg] = useState<string | null>(null);
+  const [libBusy, setLibBusy] = useState(false);
 
   const all: KitTemplate[] = [...BUILTIN_TEMPLATES, ...library.templates];
   const groups = (['shirt', 'shorts', 'socks', 'details'] as KitCategory[]).map((g) => ({
@@ -1037,6 +1046,95 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           })}
           {!all.some((t) => t.id === template.id) && <option value={template.id}>{template.name} (dari proyek)</option>}
         </select>
+
+        {(() => {
+          // the chosen template is a file of library/templates: it can be renamed or deleted here
+          const entry = library.templates.find((x) => x.id === template.id && (x.libFile || x.psdFile));
+          if (!entry) return null;
+          const run = async (job: () => Promise<string | null>) => {
+            setLibBusy(true);
+            setLibMsg(null);
+            const err = await job();
+            setLibBusy(false);
+            if (err) setLibMsg(err);
+            else setRenameTo(null);
+          };
+          if (renameTo !== null) {
+            return (
+              <form
+                className="flex items-center gap-1.5"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (renameTo.trim()) run(() => onRenameLibraryTemplate(entry, renameTo.trim()));
+                }}
+              >
+                <input
+                  autoFocus
+                  value={renameTo}
+                  onChange={(e) => setRenameTo(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Escape' && setRenameTo(null)}
+                  maxLength={80}
+                  aria-label="Nama baru template"
+                  className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white outline-none focus:border-sky-500"
+                />
+                <button
+                  type="submit"
+                  disabled={libBusy || !renameTo.trim()}
+                  className="text-[11px] px-2 py-1 rounded bg-sky-600 hover:bg-sky-500 text-white font-semibold disabled:opacity-50"
+                >
+                  Simpan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRenameTo(null)}
+                  className="text-[11px] px-2 py-1 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
+                >
+                  Batal
+                </button>
+              </form>
+            );
+          }
+          return (
+            <div className="flex items-center gap-1.5">
+              <span className="flex-1 min-w-0 truncate text-[10px] text-slate-500" title={entry.psdFile ?? `templates/${entry.libFile}`}>
+                {entry.psdFile ?? `templates/${entry.libFile}`}
+              </span>
+              <button
+                type="button"
+                disabled={libBusy}
+                onClick={() => {
+                  setLibMsg(null);
+                  setRenameTo(entry.name);
+                }}
+                className="text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800 flex items-center gap-1 disabled:opacity-50"
+                title={entry.psdFile ? 'Ganti nama file PSD ini' : 'Ganti nama template ini'}
+              >
+                <Pencil className="w-3 h-3" />
+                Ganti nama
+              </button>
+              <button
+                type="button"
+                disabled={libBusy}
+                onClick={() => {
+                  const ask = t(`Hapus template "${entry.name}" dari library? File-nya ikut terhapus dan tidak bisa dikembalikan.`);
+                  // the open kit draws its layers from the template's files
+                  const inUse = entry.zones.some((z) => z.mask)
+                    ? '\n\n' + t('Kit yang sedang terbuka memakai gambar layer dari template ini: setelah aplikasi dibuka ulang, layer itu kosong.')
+                    : '';
+                  if (window.confirm(ask + inUse)) {
+                    run(() => onDeleteLibraryTemplate(entry));
+                  }
+                }}
+                className="text-[10px] px-1.5 py-0.5 rounded border border-rose-800/70 text-rose-300 hover:bg-rose-950/50 flex items-center gap-1 disabled:opacity-50"
+                title="Hapus file template ini dari library"
+              >
+                <Trash2 className="w-3 h-3" />
+                Hapus file
+              </button>
+            </div>
+          );
+        })()}
+        {libMsg && <p className="text-[10px] text-rose-300">{libMsg}</p>}
 
         <div className="grid grid-cols-2 gap-1.5">
           <label

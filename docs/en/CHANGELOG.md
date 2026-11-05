@@ -2,6 +2,24 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## 0.4.1 (experimental) — PSD effects, rename / delete library templates
+
+- **More of a PSD is kept (Read PSD):** blend modes (multiply, screen, overlay, soft / hard light, darken, lighten
+  and the rest; linear burn / dodge and the vivid / linear / pin lights get the closest the app has), **clipping
+  masks** (a clipped layer shows only inside its base layer and hides with it), **vector masks**, **shape and
+  solid colour fill layers** (drawn from their colour and outline; before they were skipped), and the opacity,
+  fill opacity, blend mode and masks of **groups**. The blend modes and clipping also follow the layer's colour
+  when you change it. Every PSD in the library is read once more after the update.
+- **Rename or delete a library template from the app:** under the template list, *Rename* and *Delete* show for a
+  template that is a file in `library/templates` (a JSON template, a folder with its masks, or a PSD). Renaming a
+  PSD renames the file and keeps its converted copy, so it is not read again. Deleting asks first, and warns when
+  the open kit uses that template's layer images.
+- **No more leftovers:** the converted copy in `library/templates/.psd` is removed when its PSD is deleted or
+  moved away (known issue #46).
+
+- **DDS export confirmed:** a DDS from the app, turned into FTEX with a DDS → FTEX tool, loads in PES 2021. The
+  known issue and the guide no longer call it untested.
+
 ## 0.4.0 — Stable: eraser per layer, text editing, reshaping stitch lines, update from the app
 
 This release makes the 0.3.x features (PSD templates from the library, Import PNG, the Template tab) part of a

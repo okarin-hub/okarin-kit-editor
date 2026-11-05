@@ -17,6 +17,7 @@ import {
 import useImage from 'use-image';
 import { drawPatternLayersForPart, patternLayersForPart } from '@/utils/patternRenderer';
 import { preloadImage, subscribeAssets } from '@/utils/imageCache';
+import { renderKitCanvas } from '@/utils/textureGenerator';
 import { drawTemplateForPart, setLiveErase, SEAM_CURVE_TENSION } from '@/utils/templateRenderer';
 import { zoomFactor } from '@/utils/uiPrefs';
 import { zoneBox, zoneMatrix } from '@/utils/zoneGeometry';
@@ -812,6 +813,21 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
               listening={false}
               sceneFunc={(context) => {
                 const c = (context as any)._context as CanvasRenderingContext2D;
+                // A blended layer (multiply…) must see the colours and patterns under it, which the 2D view keeps on
+                // other canvases: then draw the whole kit up to the template here, exactly like the 3D texture (the
+                // fabric and an overlaid design still come after, from this layer). Not while one part is focused:
+                // the other parts are dimmed on the lower canvases only.
+                const blended = templateBundle.def.zones.some(
+                  (z) => z.blend && !z.base && !z.clipTo && templateBundle.state.zones[z.id]?.visible
+                );
+                if (blended && viewState.activePartId === 'all') {
+                  const replace = baseTexture?.mode === 'replace' ? baseTexture : null;
+                  const kit = renderKitCanvas(partsConfig, [], undefined, false, CANVAS_TEXTURE_SIZE, undefined, replace, patternMask, templateBundle);
+                  if (kit) {
+                    c.drawImage(kit, 0, 0, CANVAS_TEXTURE_SIZE, CANVAS_TEXTURE_SIZE);
+                    return;
+                  }
+                }
                 shapeParts.renderOrder.forEach((part) => {
                   const cfg = partsConfig[part.id];
                   if (!cfg || !cfg.visible) return;

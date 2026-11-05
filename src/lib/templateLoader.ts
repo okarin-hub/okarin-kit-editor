@@ -25,6 +25,11 @@ const isPt = (p: unknown): boolean => Array.isArray(p) && p.length === 2 && isNu
 const isBox = (r: unknown): boolean => Array.isArray(r) && r.length === 4 && r.every(isNum);
 
 const INITIAL_KEYS = ['dx', 'dy', 'sx', 'sy', 'rot', 'opacity'] as const;
+// blend modes a template zone may use (what the PSD reader writes)
+const BLEND_OPS = new Set([
+  'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'color-burn', 'hard-light', 'soft-light',
+  'difference', 'exclusion', 'hue', 'saturation', 'color', 'luminosity', 'lighter',
+]);
 
 /** Validates one template JSON. `relDirs` = sub-folders of library/templates that hold the file. */
 export function parseTemplate(json: any, relDirs: string[], fileName: string) {
@@ -90,6 +95,8 @@ export function parseTemplate(json: any, relDirs: string[], fileName: string) {
         z.variant && typeof z.variant.set === 'string' && typeof z.variant.option === 'string'
           ? { set: z.variant.set.slice(0, 60), option: z.variant.option.slice(0, 20) }
           : undefined,
+      blend: BLEND_OPS.has(z.blend) ? z.blend : undefined,
+      clipTo: typeof z.clipTo === 'string' && z.clipTo ? z.clipTo.slice(0, 80) : undefined,
       defaultColor: typeof z.defaultColor === 'string' ? z.defaultColor : '#ffffff',
       defaultVisible: z.defaultVisible !== false,
     };
@@ -130,6 +137,7 @@ export function readTemplates() {
 
   // PSDs read straight from the folder: their converted copy lives in .psd/<folder>
   const psd = listPsd();
+  removeOrphanPsdCaches(psd);
   for (const p of psd) {
     if (!p.ready) continue;
     try {
@@ -149,7 +157,8 @@ export function readTemplates() {
       const json = JSON.parse(fs.readFileSync(f.full, 'utf8'));
       // a folder with a single template.json uses the folder name as the id seed
       const nameSeed = fileName === 'template.json' && f.rel.length ? `${f.rel[f.rel.length - 1]}.json` : fileName;
-      templates.push(parseTemplate(json, f.rel, nameSeed));
+      // the file, so the app can rename or delete it
+      templates.push({ ...parseTemplate(json, f.rel, nameSeed), libFile: [...f.rel, fileName].join('/') });
     } catch (e: any) {
       errors.push({ file: f.rel.length ? `${f.rel.join('/')}/${fileName}` : fileName, error: e?.message || 'JSON tidak valid' });
     }
@@ -170,6 +179,25 @@ export const psdFolder = (rel: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 60) || 'psd';
+
+/** Deletes converted copies whose PSD is gone (only folders the reader made: they hold a source.json). */
+function removeOrphanPsdCaches(psd: PsdEntry[]): void {
+  if (!fs.existsSync(PSD_CACHE_DIR)) return;
+  const keep = new Set(psd.map((p) => p.folder));
+  for (const d of fs.readdirSync(PSD_CACHE_DIR, { withFileTypes: true })) {
+    if (!d.isDirectory() || keep.has(d.name)) continue;
+    const dir = path.join(PSD_CACHE_DIR, d.name);
+    if (!fs.existsSync(path.join(dir, 'source.json'))) continue;
+    try {
+      fs.rmSync(dir, { recursive: true, force: true });
+    } catch {
+      // in use or locked: tried again on the next read
+    }
+  }
+}
+
+/** Raise when the PSD reader draws layers differently (2: blend modes, clipping, vector masks, shape layers). */
+const PSD_READER_VERSION = 2;
 
 export interface PsdEntry {
   /** Path relative to the library root ("templates/adidas/adidas AUTH.psd"), for /api/library/file. */
@@ -195,7 +223,8 @@ export function listPsd(): PsdEntry[] {
         const st = fs.statSync(full);
         const relPath = [...rel, d.name].join('/');
         const folder = psdFolder(relPath);
-        const rev = `${Math.round(st.mtimeMs)}-${st.size}`;
+        // the reader version is part of it, so PSDs are read again when the way of reading them changes
+        const rev = `${Math.round(st.mtimeMs)}-${st.size}-r${PSD_READER_VERSION}`;
         let ready = false;
         try {
           const src = JSON.parse(fs.readFileSync(path.join(PSD_CACHE_DIR, folder, 'source.json'), 'utf8'));

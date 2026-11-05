@@ -8,7 +8,9 @@ welcome (see [Contributing](CONTRIBUTING.md)).
 ## Tested and untested
 
 - **FTEX export is confirmed to load in PES 2021** (tested by the author).
-- **DDS export and 2048 px output have not been tested in the game.** Open the result in an image tool first.
+- **DDS export works:** the game itself only reads FTEX, and a DDS from the app turned into FTEX with a DDS → FTEX
+  tool loads in PES 2021 (tested by the author). DDS is there for other tools and kit makers who need it.
+- **2048 px output has not been tested in the game.** Open the result in an image tool first.
 - Only Chrome / Edge (and the Electron build) are tested. Touch screens and small phones are not supported.
 
 ## Template import (PSD / PNG) — experimental
@@ -17,7 +19,7 @@ welcome (see [Contributing](CONTRIBUTING.md)).
 |---|---|---|---|
 | 1 | P2 | **Part mapping is still a guess.** The part of a layer is guessed from the share of pixels in each area; layers that cross several areas are often attached to the wrong part. After converting, click a layer in the report to change its parts (saved at once). | Show the guess in a preview before saving. |
 | 2 | P3 | **Official template PSDs hold many layers that only help the artist** (mesh, shadows, dotted stitch, guides, masks, background). They are now left unchecked by default (115 layers become 19 in the official 2019 PSD, tagged with the reason); *All* still selects them. The filter is by name (English and Japanese) and size, so an unusual name can slip through or a useful layer be tagged. | A preview of each layer. |
-| 3 | P1 | **PSD effects are not carried over:** blend modes, layer effects (shadow, stroke, colour overlay), clipping masks, adjustment layers, smart objects, text and vector shapes. | Support clipping masks and basic blend modes; auto-rasterize. |
+| 3 | P2 | **Some PSD effects are still not carried over:** layer styles (drop / inner shadow, stroke, glow, bevel, colour / pattern overlay), adjustment layers and gradient / pattern fill layers; a text layer without pixels is skipped (rasterize it). Blend modes, clipping masks, layer and vector masks, shape layers and group opacity / masks are read. A clipped layer blends with its base layer only, and while one part is focused in the 2D view a blended layer blends only with the template layers (3D and the export are exact). | Layer styles (stroke and drop shadow first). |
 | 4 | P3 | Converting a large PSD takes a while (115 layers ≈ 20 s in the test browser) and runs on the main thread. Each layer is now processed only inside its own box and masks are uploaded 4 at a time. | Web Worker. |
 | 6 | P2 | Mask zones cannot be edited point by point or get edge shapes. | "Convert mask to polygon". |
 | 8 | P2 | PNG split-by-colour is better but still an approximation: anti-aliased edges and noise colours are absorbed into the neighbouring region, but gradients and shaded designs still break into several colours, and there is a maximum of 80 zones. A colour zone joins every part that holds a few dozen of its pixels, so it can list more parts than you expect. | Edge smoothing per zone, a preview of the parts. |
@@ -87,7 +89,7 @@ welcome (see [Contributing](CONTRIBUTING.md)).
 | 43 | P3 | Moving a pattern or object to another group and resizing the side panel need a mouse; with the keyboard the arrow buttons only change the order inside a group. |
 | 44 | P3 | Patterns are listed at the top of their group but are always drawn under the template layers of that group, so the list order between patterns and template layers is not the drawing order. |
 | 45 | P3 | All copies of a repeated object have the same size. Editing the points of a rotated repeated object straightens the repeat direction (it then follows the texture axes). |
-| 46 | P3 | **Read PSD:** the PSD is converted by the app while it is open (a 30-layer PSD takes about 10 to 30 seconds). A read-PSD template you changed in the editor (added, deleted or re-assigned layers) is not refreshed when the PSD is saved again; pick it again in the list. Deleting a PSD leaves its converted copy in `library/templates/.psd` (remove it by hand). Colour slots join layers by their exact grey, so two unrelated layers that happen to have the same flat grey also share a colour, and one layer cannot be taken out of its slot yet. |
+| 46 | P3 | **Read PSD:** the PSD is converted by the app while it is open (a 30-layer PSD takes about 10 to 30 seconds). A read-PSD template you changed in the editor (added, deleted or re-assigned layers) is not refreshed when the PSD is saved again; pick it again in the list. Colour slots join layers by their exact grey, so two unrelated layers that happen to have the same flat grey also share a colour, and one layer cannot be taken out of its slot yet. |
 
 ## Added in 0.4.0
 
