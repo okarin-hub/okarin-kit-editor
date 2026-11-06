@@ -2,6 +2,14 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## 0.5.1 — Stable patch: smooth colour picker
+
+- **Dragging in a colour picker is smooth again.** Every step of the drag rebuilt the 3D texture: the whole kit
+  rendered, encoded to PNG and decoded again (about 100–190 ms each, so the picker stuttered). The 3D texture is now
+  rebuilt at most every 150 ms while a value keeps changing, goes to the 3D view as a canvas without the PNG round
+  trip, and is not built at all in the 2D-only view. Measured in the packed app, 40 colour steps: Split 5.6 s → 1.8 s
+  and 2D 4.2 s → 1.4 s, with no main-thread block over 50 ms left (32 before).
+
 ## 0.5.0 — Stable: the real 3D model parts, true 3D colours, undo / redo fixed
 
 Stable release: it also brings everything from 0.4.1 and 0.4.2 (below) to the stable channel. Still marked

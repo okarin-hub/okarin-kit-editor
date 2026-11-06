@@ -2,6 +2,14 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## 0.5.1 — Patch stabil: pemilih warna mulus
+
+- **Menggeser pemilih warna kembali mulus.** Setiap langkah geser membuat ulang tekstur 3D: seluruh kit digambar,
+  diubah ke PNG, lalu didekode lagi (sekitar 100–190 ms tiap kali, jadi pemilih warna patah-patah). Sekarang tekstur 3D
+  dibuat ulang paling sering tiap 150 ms selama nilainya terus berubah, dikirim ke 3D sebagai kanvas tanpa lewat PNG,
+  dan tidak dibuat sama sekali di tampilan 2D saja. Diukur di aplikasi hasil pack, 40 langkah warna: Split 5,6 dtk →
+  1,8 dtk dan 2D 4,2 dtk → 1,4 dtk, tanpa ada lagi blok main thread di atas 50 ms (sebelumnya 32).
+
 ## 0.5.0 — Stabil: part asli model 3D, warna 3D sesuai tekstur, undo / redo diperbaiki
 
 Rilis stabil: sekaligus membawa semua isi 0.4.1 dan 0.4.2 (di bawah) ke jalur stabil. Yang masih bertanda

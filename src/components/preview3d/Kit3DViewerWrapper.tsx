@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Kit3DViewer, ZoneDragTarget } from './Kit3DViewer';
 
 interface Kit3DViewerWrapperProps {
-  textureDataUrl: string | null;
+  textureCanvas: HTMLCanvasElement | null;
   className?: string;
   zoneDrag?: ZoneDragTarget | null;
   kitConfig?: string;

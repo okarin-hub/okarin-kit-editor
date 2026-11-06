@@ -80,6 +80,9 @@ import {
 } from '@/constants/templates';
 import { Shirt, Shield, Hash, Type, LayoutGrid, LayoutTemplate } from 'lucide-react';
 
+/** Shortest time between two rebuilds of the 3D texture while something keeps changing. */
+const TEXTURE_3D_MIN_MS = 150;
+
 export default function Home() {
   const [partsConfig, setPartsConfig] = useState<
     Record<KitPartId, KitPartConfig>
@@ -106,7 +109,7 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<WorkspaceViewMode>('split');
 
   // Real-time texture data URL for 3D model
-  const [texture3DDataUrl, setTexture3DDataUrl] = useState<string | null>(null);
+  const [texture3D, setTexture3D] = useState<HTMLCanvasElement | null>(null);
 
   // Realistic athletic fabric texture configuration
   const [fabricConfig, setFabricConfig] = useState<FabricConfig>(DEFAULT_FABRIC_CONFIG);
@@ -944,11 +947,17 @@ export default function Home() {
     setTplBundle((prev) => ({ ...prev, state: buildTemplateState(prev.def, prev.state.seams) }));
   }, []);
 
-  // Instant Real-time 3D Texture Generation
+  // Real-time 3D texture: rebuilt at most every TEXTURE_3D_MIN_MS (dragging a colour fires dozens of changes a
+  // second and each rebuild renders the full texture), and not at all while the 3D view is hidden. The canvas goes
+  // to the 3D view as it is, without a PNG round trip.
+  const last3DTextureRef = useRef(0);
   useEffect(() => {
+    if (viewMode === '2d') return;
     let cancelled = false;
     const run = () => {
-      const texture = generateKitTexture(
+      if (cancelled) return;
+      last3DTextureRef.current = performance.now();
+      const texture = renderKitCanvas(
         partsConfig,
         graphicItems,
         markings,
@@ -959,9 +968,7 @@ export default function Home() {
         patternMask,
         tplBundle
       );
-      if (texture && !cancelled) {
-        setTexture3DDataUrl(texture);
-      }
+      if (texture && !cancelled) setTexture3D(texture);
     };
     // The generator draws from the image cache, so make sure imports / the mask are decoded first
     const pending: Promise<unknown>[] = [];
@@ -969,15 +976,16 @@ export default function Home() {
     if (patternMask) pending.push(preloadImage(patternMask));
     tplBundle.def.zones.forEach((z) => z.mask && pending.push(preloadImage(z.mask)));
     Object.values(tplBundle.state.zones).forEach((zs) => zs.erase && pending.push(preloadImage(zs.erase)));
-    if (pending.length) {
-      Promise.all(pending).then(run);
-    } else {
-      run();
-    }
+    const wait = Math.max(0, TEXTURE_3D_MIN_MS - (performance.now() - last3DTextureRef.current));
+    const timer = setTimeout(() => {
+      if (pending.length) Promise.all(pending).then(run);
+      else run();
+    }, wait);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
-  }, [partsConfig, graphicItems, markings, fabricConfig, baseTexture, patternMask, tplBundle, assetTick]);
+  }, [partsConfig, graphicItems, markings, fabricConfig, baseTexture, patternMask, tplBundle, assetTick, viewMode]);
 
   // Resize listener to fit canvas neatly
   useEffect(() => {
@@ -1522,7 +1530,7 @@ export default function Home() {
             {(
               <div className={`h-full relative ${viewMode === '2d' ? 'hidden' : ''} ${viewMode === 'split' ? 'flex-1 min-w-0' : 'w-full'}`}>
                 <Kit3DViewerWrapper
-                  textureDataUrl={texture3DDataUrl}
+                  textureCanvas={texture3D}
                   zoneDrag={zoneDrag3D}
                   kitConfig={kitConfigText}
                   className="w-full h-full shadow-2xl"

@@ -37,7 +37,8 @@ export interface ZoneDragTarget {
 }
 
 interface Kit3DViewerProps {
-  textureDataUrl: string | null;
+  /** The kit texture (a fresh canvas from renderKitCanvas each time it changes). */
+  textureCanvas: HTMLCanvasElement | null;
   className?: string;
   zoneDrag?: ZoneDragTarget | null;
   /** Kit config text: collar, shorts model, Kappa sleeves and tight kit pick the model parts. */
@@ -45,7 +46,7 @@ interface Kit3DViewerProps {
 }
 
 export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
-  textureDataUrl,
+  textureCanvas,
   className = '',
   zoneDrag = null,
   kitConfig = DEFAULT_KIT_CONFIG,
@@ -59,7 +60,7 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
   const controlsRef = useRef<OrbitControls | null>(null);
   const kitMeshGroupRef = useRef<THREE.Group | null>(null);
   const kitMaterialRef = useRef<THREE.MeshStandardMaterial | null>(null);
-  const textureDataUrlRef = useRef<string | null>(textureDataUrl);
+  const textureCanvasRef = useRef<HTMLCanvasElement | null>(textureCanvas);
 
   const [isLoading, setIsLoading] = useState(true);
   const [autoRotate, setAutoRotate] = useState(false);
@@ -73,36 +74,21 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
 
   // Keep texture ref updated
   useEffect(() => {
-    textureDataUrlRef.current = textureDataUrl;
-  }, [textureDataUrl]);
+    textureCanvasRef.current = textureCanvas;
+  }, [textureCanvas]);
 
-  // Helper to load and bind texture into Three.js material
-  const textureSeq = useRef(0);
-  const applyTextureToMaterial = (mat: THREE.MeshStandardMaterial, url: string) => {
-    const textureLoader = new THREE.TextureLoader();
-    const seq = ++textureSeq.current;
-    textureLoader.load(
-      url,
-      (texture) => {
-        // a newer texture was requested while this one decoded: drop the stale one
-        if (seq !== textureSeq.current) {
-          texture.dispose();
-          return;
-        }
-        mat.map?.dispose();
-        texture.flipY = false; // glTF standard
-        texture.colorSpace = THREE.SRGBColorSpace;
-        texture.generateMipmaps = true;
-        texture.minFilter = THREE.LinearMipmapLinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-
-        mat.map = texture;
-        mat.color.set(0xffffff); // Neutral white base so texture colors appear vibrant
-        mat.needsUpdate = true;
-      },
-      undefined,
-      (err) => console.error('Failed to load texture into 3D model:', err)
-    );
+  // The kit canvas goes straight onto the GPU (no PNG encode / decode in between)
+  const applyTextureToMaterial = (mat: THREE.MeshStandardMaterial, canvas: HTMLCanvasElement) => {
+    mat.map?.dispose();
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.flipY = false; // glTF standard
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.generateMipmaps = true;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    mat.map = texture;
+    mat.color.set(0xffffff); // Neutral white base so texture colors appear vibrant
+    mat.needsUpdate = true;
   };
 
   // 1. Setup Three.js Scene, Camera, Renderer, Lighting, and Controls
@@ -376,8 +362,8 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
         setIsLoading(false);
 
         // Immediately apply texture if already available upon model load!
-        if (textureDataUrlRef.current) {
-          applyTextureToMaterial(kitMat, textureDataUrlRef.current);
+        if (textureCanvasRef.current) {
+          applyTextureToMaterial(kitMat, textureCanvasRef.current);
         }
       },
       undefined,
@@ -432,9 +418,9 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
 
   // 2. Real-Time Dynamic Texture Synchronization
   useEffect(() => {
-    if (!kitMaterialRef.current || !textureDataUrl) return;
-    applyTextureToMaterial(kitMaterialRef.current, textureDataUrl);
-  }, [textureDataUrl]);
+    if (!kitMaterialRef.current || !textureCanvas) return;
+    applyTextureToMaterial(kitMaterialRef.current, textureCanvas);
+  }, [textureCanvas]);
 
   // Model parts: collar, sleeves, shorts, socks
   useEffect(() => {
