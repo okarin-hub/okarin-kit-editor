@@ -21,6 +21,9 @@ The `library` folder next to the exe starts **empty**: add your own logos, patte
 ## Features
 
 - 2D canvas (Konva) and 3D preview (Three.js) side by side, with the same renderer for both and for the export.
+- **3D model parts:** 133 collars, 16 shorts models, normal / Kappa / tight sleeves, real long sleeves and three
+  sock lengths, picked from the kitserver config (*Collar*, *ShortsModel* …) in the toolbar; colours as in the
+  texture. Template layers can be dragged right on the model.
 - Layer groups for shirt, shorts, socks and accessories: part colours, **patterns** (several per kit, each with
   size, rotation, offset, mirror, parts) and **objects** (stripe, panel, ellipse, triangle, repeatable), dragged
   between groups; fabric texture layers, trims, collar, captain's armband and credit box.

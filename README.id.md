@@ -21,6 +21,9 @@ Folder `library` di sebelah exe awalnya **kosong**: tambahkan logo, pola, font, 
 ## Fitur
 
 - Canvas 2D (Konva) dan preview 3D (Three.js) berdampingan, dengan renderer yang sama untuk keduanya dan untuk export.
+- **Part model 3D:** 133 kerah, 16 model celana, lengan normal / Kappa / ketat, lengan panjang asli, dan tiga panjang
+  kaus kaki, dipilih dari config kitserver (*Collar*, *ShortsModel* …) di toolbar; warnanya sama dengan tekstur. Layer
+  template bisa digeser langsung di model.
 - Grup layer baju, celana, kaus kaki, dan aksesoris: warna bagian, **pola** (boleh banyak per kit, masing-masing
   dengan ukuran, rotasi, geser, cermin, bagian) dan **objek** (strip, panel, elips, segitiga, bisa dikembarkan) yang
   bisa diseret antargrup; layer tekstur kain, lis, kerah, ban kapten, dan kotak kredit.
