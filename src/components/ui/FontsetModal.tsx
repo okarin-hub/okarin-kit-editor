@@ -859,12 +859,7 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
               <Type className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                Generator Fontset
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                  Eksperimental
-                </span>
-              </h3>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">Generator Fontset</h3>
               <p className="text-[11px] text-slate-400">Nomor dan nama untuk kitserver, ditaruh di slot karakter template PES 2021.</p>
             </div>
           </div>

@@ -45,10 +45,10 @@ welcome (see [Contributing](CONTRIBUTING.md)).
 
 | # | Pri | Issue |
 |---|---|---|
-| 19 | P2 | **The long sleeve is generated** (a tapered tube): no elbow, no folds, and the shoulder joint can look tight from some angles. The model itself only has short sleeves. |
-| 20 | P2 | **The shorts UV is an estimate.** The model uses only x 81–320 of the shorts area, the game uses x 0–330. The preview stretches the outer side (x 81 → 0, about 1.34×) so the 2D area shows in 3D; that factor is not measured from the game model. In the preview the shirt hem also covers the upper part of the shorts, so only about x 0-148 of the 336 px shorts area (right shorts: 876-1024) is visible; a logo placed further in is hidden under the shirt. |
+| 19 | P3 | **Sleeve and sock length in 3D are preview buttons.** Collar, shorts model, Kappa sleeves and the tight kit follow the kit config, but the game takes sleeve and sock length from the player, so the preview can't know them. (Long sleeves now use the model's own long sleeve, no longer a generated tube.) |
+| 20 | P2 | **The shirt hem covers the top of the shorts** in the preview, so a logo placed near the waist of the shorts area is hidden under the shirt. The shorts leg piece (ShortsModel 1–16) shows the outer side from x 17; x 0–17 is not on the model. |
 | 21 | P3 | Cloth material is simple (no normal map or realistic lighting). |
-
+| 49 | P3 | **Not in the 3D model yet** (planned for a next update): captain-armband sleeves, goalkeeper sleeves, the PS4 collars, the shirt tucked into the shorts, and Collar 134–135 / ShortsModel 0 and 17 (the preview shows model 1 for those). |
 ## App and distribution
 
 | # | Pri | Issue |
@@ -75,8 +75,8 @@ welcome (see [Contributing](CONTRIBUTING.md)).
 
 | # | Pri | Issue |
 |---|---|---|
-| 37 | P3 | **Experimental:** the config.txt editor only writes the file. Its values (name/number positions, badges, collar and shirt models) are not shown in the 2D/3D preview: the positions are game units that still need calibrating from in-game screenshots, and the collar/shirt models are game meshes the app does not have. |
-| 38 | P3 | **Experimental:** the fontset generator's FTEX output was tested in PES 2021 (numbers and name show in the game); its DDS output is not tested. The character slots come from modder templates (three fontsets agree to ±5 px), not from the game files; one slot of the `_ex` file (between Ę and Ğ) is empty in every sample and is left empty. |
+| 37 | P3 | **Experimental:** the 3D preview follows *Collar*, *Shorts model*, *Short sleeves model* and *Tight kit* of the config.txt editor. The other values (name/number positions, badges, *Shirt model*, winter collar) are only written to the file: the positions are game units that still need calibrating from in-game screenshots. |
+| 38 | P3 | The fontset generator's FTEX output was tested in PES 2021 (numbers and name show in the game); its DDS output is not tested. The character slots come from modder templates (three fontsets agree to ±5 px), not from the game files; one slot of the `_ex` file (between Ę and Ğ) is empty in every sample and is left empty. |
 | 39 | P3 | A character missing from the chosen font is drawn with a fallback font; the check compares shapes and can miss a fallback that looks the same. Letters wider than their slot are squeezed sideways. |
 | 40 | P3 | Font sheet import: letters that touch are split at the thinnest column, which can cut a little off one of them; recognition compares shapes with common fonts and relies on the sheet being in alphabet order, so very decorative letters or a shuffled sheet need the row text corrected by hand. On a very busy background (neon lines, glow) the automatic cut can still pick up background pieces: use *Pick letters* in the import dialog. A pattern also covers the outline. Accented letters are not built from the sheet yet (they come from the fallback font). |
 | 41 | P3 | Letters from a font sheet picture are traced into vector outlines when they are enlarged, so their edges are sharp, but a wobble or a dent that is in the picture itself stays, and very small letters (under about 40 px) can lose their finest details. Use the largest, cleanest picture you have. |

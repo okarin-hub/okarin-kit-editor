@@ -17,7 +17,7 @@
 
 - **Menu bar** – *File* (kit baru, buka / simpan proyek, import desain, export), *Edit* (undo, redo, pengaturan, preset warna),
   *Tampilan* (garis bagian, label bagian, template PES asli, *Kecepatan zoom (scroll)*), *Alat* (pola dari foto
-  jersey, generator fontset, config.txt kitserver; semuanya eksperimental), *Bantuan* (panduan, pintasan, cek
+  jersey dan config.txt kitserver, keduanya eksperimental; generator fontset), *Bantuan* (panduan, pintasan, cek
   pembaruan, kredit, tentang). *Kit baru* bertanya dulu; *Undo* mengembalikan kit sebelumnya.
 - **Rail alat (kiri)** – pilih / geser, bentuk bebas, bentuk titik, garis jahit titik, garis jahit bebas, kuas hapus
   (tombol `V`, `B`, `P`, `S`, `J`, `E`). Satu alat aktif sekali waktu; klik alat yang aktif lagi untuk kembali
@@ -26,7 +26,13 @@
   men-zoom canvas ke satu bagian.
 - **Preview 3D** – seret untuk memutar, tahan tombol tengah mouse (tombol scroll) lalu geser ke atas / bawah untuk
   melihat dari atas atau bawah, scroll untuk zoom. Tombol mengganti kamera (depan, belakang, dada, bawah,
-  penuh) dan panjang lengan (pendek / panjang).
+  penuh); bar di bawah mengatur panjang lengan dan panjang kaus kaki di preview.
+  - **Geser layer template di model:** pilih template yang punya layer (Classic, Raglan …), pilih layernya di tab
+    *Layer*, lalu seret di model 3D (kursor berubah jadi tanda geser di atasnya). Pola, logo, dan lis digeser di 2D.
+- **Part model 3D** – di mode Split dan 3D, toolbar (di samping zoom) punya *Kerah*, *Model lengan* (Normal /
+  Kappa), *Baju ketat*, dan *Celana* (model celana 1–16). Semuanya nilai config kitserver (`Collar`,
+  `ShortSleevesModel`, `TightKit`, `ShortsModel`), jadi dialog *Kitserver config.txt* menampilkan yang sama. Angka
+  berwarna kuning berarti nilai itu tidak ada di model 3D (misalnya Collar 134); preview lalu memakai model 1.
 - **Panel kanan** – tab **Kain**, **Template**, **Layer**, **Logo**, **Nama**. Tab hanya menampilkan ikonnya; tab
   yang terbuka juga menampilkan namanya.
 - **Kecepatan zoom** – *Tampilan → Kecepatan zoom (scroll)*: pelan, normal, atau cepat, untuk canvas 2D, preview 3D,
@@ -192,7 +198,7 @@ file di folder kit itu sendiri, dan nama kosong atau file yang tidak ada berarti
 `<KitFile>.ftex` ke sana, dengan konfirmasi sebelum menimpa. Kit tidak otomatis ditambahkan ke `order.ini` atau
 `map.txt`; tambahkan sendiri.
 
-### Generator fontset – eksperimental
+### Generator fontset
 
 *Alat → Generator fontset…* membuat file font nomor dan nama yang dibaca kitserver. Pilih font, warna isi, dan outline
 untuk nomor dan untuk nama; pratinjau menampilkan setiap tekstur dengan slot karakter (biru) serta batas atas huruf dan

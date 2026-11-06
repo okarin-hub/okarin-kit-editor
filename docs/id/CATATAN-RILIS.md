@@ -2,6 +2,36 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## 0.5.0 — Stabil: part asli model 3D, warna 3D sesuai tekstur, undo / redo diperbaiki
+
+Rilis stabil: sekaligus membawa semua isi 0.4.1 dan 0.4.2 (di bawah) ke jalur stabil. Yang masih bertanda
+*Eksperimental* di aplikasi: *Pola dari foto jersey*, *Import PNG*, dan editor *Kitserver config.txt*.
+
+- **Generator fontset tidak lagi eksperimental:** output FTEX-nya terbaca di PES 2021 (nomor dan nama tampil di game).
+  Output DDS-nya belum diuji.
+- **Preview 3D: part asli dari model.** Model 3D kini membawa 133 kerah, 16 model celana (bagian kaki), lengan normal
+  dan Kappa, baju ketat, dan tiga panjang kaus kaki dari model CometKIT. Kerah, model celana, lengan Kappa, dan baju
+  ketat mengikuti config kit (*Kitserver config.txt…* di menu Alat), jadi preview menampilkan yang kamu atur. Tombol baru *Kaus kaki
+  pendek / sedang / panjang* di bawah tampilan 3D. Di mode Split dan 3D, toolbar workspace (di samping zoom) punya
+  *Kerah*, *Model lengan*, *Baju ketat*, dan *Celana*: semuanya menulis config kit, jadi tampilan 3D dan dialog
+  config selalu sama. Panjang lengan dan kaus kaki ada di satu bar kecil di dalam tampilan 3D.
+- **Undo / redo:** perubahan config kit (*Kerah*, *Model lengan*, *Baju ketat*, *Celana* di toolbar, dan dialog
+  *Kitserver config.txt*) kini ikut Ctrl+Z / Ctrl+Y. Diperbaiki juga: Ctrl+Z kedua berturut-turut tidak berbuat apa-apa
+  dan Ctrl+Y tidak pernah jalan, karena setiap undo tercatat sebagai perubahan baru.
+- **Warna kaus kaki tidak muncul lagi di celana 3D:** area kaus kaki di 2D masuk ke baris atas area celana (dan bagian
+  kaki celana membaca baris itu). Kaus kaki kini berhenti di y 577, celana mulai di 579,5.
+- **Aksen hem celana** ada di tepi luar kaki celana (x 16 / 1008), tempat model benar-benar menampilkannya, bukan di
+  x 0 yang tidak dibaca apa pun.
+- **Warna 3D sesuai tekstur:** tampilan 3D tidak lagi menggelapkan warna gelap (celana dan lengan navy dulu jadi
+  hitam, merah jadi lebih tua). Sudah dicek dengan scene Blender CometKIT memakai tekstur yang sama: tekstur jatuh
+  di tempat yang sama di semua part dan warnanya kini hampir sama. Kainnya juga lebih doff, jadi warna terang tidak
+  lagi tampak keputihan karena kilap.
+- **Lengan panjang asli di 3D:** tabung buatan dihapus; lengan panjang memakai lengan panjang milik model, lengkap
+  dengan siku dan lipatan, dan dipetakan ke area lengan panjang di template.
+- **Celana di 3D tidak diregangkan lagi:** bagian kaki celana menampilkan sisi luar area celana (x 17–81) seperti di
+  game, bukan meregangkan bagian atas.
+- `npm run build:model` menyusun ulang `public/model/pes_kit.glb` dari ekspor CometKIT lokal (lihat kepala skripnya).
+
 ## 0.4.2 (eksperimental) — detail kain untuk Import PNG, sash dan lengan raglan dari foto jersey
 
 - **Pola dari foto jersey: lengan raglan dengan warnanya sendiri:** kalau sebagian besar kotak lengan berisi satu warna

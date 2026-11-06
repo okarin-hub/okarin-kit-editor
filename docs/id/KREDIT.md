@@ -14,7 +14,7 @@ Dibuat oleh **okarin-hub**. Kode sumbernya dirilis dengan lisensi [GPL-3.0](../.
 
 | Aset | Lokasi | Catatan |
 |---|---|---|
-| **Model 3D kit** `public/model/pes_kit.glb` | preview 3D | Diambil dari **CometKIT previewer** (alat preview kit dari komunitas). Model ini **tidak** tercakup GPL dan ketentuan dari pembuat aslinya tidak diketahui pengelola. Disertakan agar preview langsung jalan. Kalau kamu pemegang haknya dan ingin ini dihapus, buka issue. Kamu bisa menggantinya dengan modelmu sendiri (tata letak UV harus sama). |
+| **Model 3D kit** `public/model/pes_kit.glb` | preview 3D | Diambil dari **CometKIT previewer** (alat preview kit dari komunitas): baju, lengan, kerah, celana, dan kaus kakinya, disusun ulang lebih kecil oleh `scripts/build-3d-model.cjs`. Model ini **tidak** tercakup GPL dan ketentuan dari pembuat aslinya tidak diketahui pengelola. Disertakan agar preview langsung jalan. Kalau kamu pemegang haknya dan ingin ini dihapus, buka issue. Kamu bisa menggantinya dengan modelmu sendiri (tata letak UV harus sama). |
 
 Tidak ada yang lain dari alat kit lain, file game, atau paket template yang disertakan. Khususnya repositori ini
 **tidak berisi logo, template kit, maupun gambar template resmi PES**: folder `library` sengaja kosong dan

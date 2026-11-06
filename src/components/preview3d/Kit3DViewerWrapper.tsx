@@ -7,6 +7,7 @@ interface Kit3DViewerWrapperProps {
   textureDataUrl: string | null;
   className?: string;
   zoneDrag?: ZoneDragTarget | null;
+  kitConfig?: string;
 }
 
 export const Kit3DViewerWrapper: React.FC<Kit3DViewerWrapperProps> = (props) => {

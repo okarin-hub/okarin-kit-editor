@@ -12,8 +12,7 @@ import { KitTemplate, KitZoneDef, Pt, SeamConfig, TemplateState } from '@/types/
  *    y ~ 347/586 = underside, y ~ 440 = back, y ~ 480 = top of the shoulder, y ~ 535 = front.
  *  - shorts: the island is rotated: x runs along the leg (hem at x 0 / 1024, waist at x ~ 320 /
  *    704) and y wraps around it (y ~ 583 / 976 = inner seams, y ~ 780 = outer side). These are the
- *    game's coordinates: the 3D model only uses x 81..320 of each leg and the preview stretches it to
- *    0..320 (see Kit3DViewer remapShortsUV), so a model x maps to (x - 81) * 1.34.
+ *    game's coordinates: the 3D model's upper shorts use x 81..320 and the leg piece x 17..81.
  *  - socks: y runs along the leg (y = 320 is the top), x wraps around it.
  *  - shoulders: the shoulder ridge of the shirt is at y ~ 452..500, x 380..446 and 578..644.
  *

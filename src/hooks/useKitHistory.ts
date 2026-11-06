@@ -15,6 +15,8 @@ export interface KitSnapshot {
   baseTexture: BaseTexture | null;
   patternMask: string | null;
   template: TemplateBundle;
+  /** Kitserver config text (collar, sleeve model, tight kit, shorts model of the 3D view live here too) */
+  kitConfig: string;
 }
 
 const MAX_HISTORY = 100;
@@ -51,7 +53,8 @@ export function useKitHistory(
         last.markings === now.markings &&
         last.baseTexture === now.baseTexture &&
         last.patternMask === now.patternMask &&
-        last.template === now.template
+        last.template === now.template &&
+        last.kitConfig === now.kitConfig
       ) {
         return;
       }
@@ -69,6 +72,7 @@ export function useKitHistory(
     current.baseTexture,
     current.patternMask,
     current.template,
+    current.kitConfig,
   ]);
 
   const undo = useCallback(() => {

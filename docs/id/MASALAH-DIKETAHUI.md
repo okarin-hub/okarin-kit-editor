@@ -45,10 +45,10 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 
 | # | Pri | Masalah |
 |---|---|---|
-| 19 | P2 | **Lengan panjang dibuat otomatis** (tabung meruncing): tanpa siku, tanpa lipatan, dan sambungan bahu bisa terlihat sempit dari sudut tertentu. Modelnya sendiri hanya punya lengan pendek. |
-| 20 | P2 | **UV celana adalah perkiraan.** Model hanya memakai x 81–320 area celana, game memakai x 0–330. Preview meregangkan sisi luar (x 81 → 0, sekitar 1,34×) agar area 2D tampil di 3D; faktor itu bukan hasil ukur dari model game. Di preview, hem baju juga menutupi bagian atas celana, jadi hanya sekitar x 0-148 dari area celana 336 px (celana kanan: 876-1024) yang terlihat; logo yang ditaruh lebih ke dalam tersembunyi di bawah baju. |
+| 19 | P3 | **Panjang lengan dan kaus kaki di 3D hanya tombol preview.** Kerah, model celana, lengan Kappa, dan baju ketat mengikuti config kit, tapi game mengambil panjang lengan dan kaus kaki dari pemain, jadi preview tidak bisa tahu. (Lengan panjang kini memakai lengan panjang asli dari model, bukan tabung buatan lagi.) |
+| 20 | P2 | **Hem baju menutupi bagian atas celana** di preview, jadi logo yang ditaruh dekat pinggang di area celana tersembunyi di bawah baju. Bagian kaki celana (ShortsModel 1–16) menampilkan sisi luar mulai x 17; x 0–17 tidak ada di model. |
 | 21 | P3 | Material kain masih sederhana (tanpa normal map atau pencahayaan realistis). |
-
+| 49 | P3 | **Belum ada di model 3D** (direncanakan di update berikutnya): lengan dengan ban kapten, lengan kiper, kerah PS4, baju yang dimasukkan ke celana, dan Collar 134–135 / ShortsModel 0 dan 17 (preview memakai model 1 untuk nilai itu). |
 ## Aplikasi dan distribusi
 
 | # | Pri | Masalah |
@@ -75,8 +75,8 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 
 | # | Pri | Masalah |
 |---|---|---|
-| 37 | P3 | **Eksperimental:** editor config.txt hanya menulis file. Nilainya (posisi nama/nomor, badge, model kerah dan baju) tidak tampil di pratinjau 2D/3D: posisi memakai satuan game yang masih perlu dikalibrasi dari screenshot di game, dan model kerah/baju adalah mesh game yang tidak dimiliki app. |
-| 38 | P3 | **Eksperimental:** output FTEX generator fontset sudah diuji di PES 2021 (nomor dan nama tampil di game); output DDS-nya belum diuji. Slot karakter diambil dari template modder (tiga fontset cocok sampai ±5 px), bukan dari file game; satu slot di file `_ex` (antara Ę dan Ğ) kosong di semua sampel dan dibiarkan kosong. |
+| 37 | P3 | **Eksperimental:** preview 3D mengikuti *Kerah*, *Model celana*, *Model lengan pendek*, dan *Baju ketat* dari editor config.txt. Nilai lainnya (posisi nama/nomor, badge, *Model baju*, kerah musim dingin) hanya ditulis ke file: posisi memakai satuan game yang masih perlu dikalibrasi dari screenshot di game. |
+| 38 | P3 | Output FTEX generator fontset sudah diuji di PES 2021 (nomor dan nama tampil di game); output DDS-nya belum diuji. Slot karakter diambil dari template modder (tiga fontset cocok sampai ±5 px), bukan dari file game; satu slot di file `_ex` (antara Ę dan Ğ) kosong di semua sampel dan dibiarkan kosong. |
 | 39 | P3 | Karakter yang tidak ada di font yang dipilih digambar dengan font cadangan; pengecekannya membandingkan bentuk dan bisa terlewat kalau font cadangannya mirip. Huruf yang lebih lebar dari slotnya dipersempit ke samping. |
 | 40 | P3 | Import gambar font: huruf yang menempel dipisah di kolom paling tipis, yang bisa memotong sedikit salah satunya; pengenalan membandingkan bentuk dengan font umum dan mengandalkan urutan alfabet di gambar, jadi huruf yang sangat dekoratif atau gambar yang urutannya acak perlu dikoreksi lewat teks baris. Pada latar yang sangat ramai (garis neon, cahaya) pemisahan otomatis masih bisa mengambil potongan latar: pakai *Pilih huruf* di jendela import. Pola juga menutupi outline. Huruf beraksen belum dirakit dari gambar (diambil dari font cadangan). |
 | 41 | P3 | Huruf dari gambar font di-trace menjadi garis tepi vektor saat diperbesar, jadi tepinya tajam, tetapi gelombang atau penyok yang memang ada di gambar tetap terbawa, dan huruf yang sangat kecil (di bawah sekitar 40 px) bisa kehilangan detail terhalusnya. Pakai gambar terbesar dan terbersih yang kamu punya. |

@@ -176,19 +176,21 @@ export default function Home() {
 
   // Undo / Redo over parts, graphics and markings
   const applySnapshot = useCallback((snap: KitSnapshot) => {
-    setPartsConfig({ ...DEFAULT_PART_CONFIG, ...snap.partsConfig });
+    // the snapshot's own object: a copy would look like a new edit to the history and wipe the redo steps
+    setPartsConfig(snap.partsConfig);
     setGraphicItems(snap.graphicItems);
     setMarkings(snap.markings);
     setBaseTexture(snap.baseTexture);
     setPatternMask(snap.patternMask);
     setTplBundle(snap.template);
+    setKitConfigText(snap.kitConfig);
     setSelectedGraphicId((prev) =>
       prev && snap.graphicItems.some((g) => g.id === prev) ? prev : null
     );
   }, []);
 
   const { undo, redo, canUndo, canRedo } = useKitHistory(
-    { partsConfig, graphicItems, markings, baseTexture, patternMask, template: tplBundle },
+    { partsConfig, graphicItems, markings, baseTexture, patternMask, template: tplBundle, kitConfig: kitConfigText },
     applySnapshot
   );
 
@@ -1437,6 +1439,8 @@ export default function Home() {
             viewMode={viewMode}
             setViewMode={setViewMode}
             onFocusPart={handleFocusPart}
+            kitConfig={kitConfigText}
+            onKitConfigChange={setKitConfigText}
           />
 
           {/* Viewport Area */}
@@ -1520,6 +1524,7 @@ export default function Home() {
                 <Kit3DViewerWrapper
                   textureDataUrl={texture3DDataUrl}
                   zoneDrag={zoneDrag3D}
+                  kitConfig={kitConfigText}
                   className="w-full h-full shadow-2xl"
                 />
               </div>

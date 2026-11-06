@@ -1,6 +1,6 @@
 {
   "name": "okarin-kit-editor",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "electron:dev": "electron .",
-    "pack:win": "node scripts/pack-win.cjs"
+    "pack:win": "node scripts/pack-win.cjs",
+    "build:model": "node scripts/build-3d-model.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3",

@@ -249,7 +249,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               <MenuItem
                 icon={<Type className="w-3.5 h-3.5" />}
                 label="Generator fontset…"
-                badge="Eksp."
                 title="Buat file font nomor dan nama untuk kitserver"
                 onClick={run(close, onOpenFontset)}
               />

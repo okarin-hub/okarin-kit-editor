@@ -98,7 +98,7 @@ export const KitConfigModal: React.FC<KitConfigModalProps> = ({
                 </span>
               </h3>
               <p className="text-[11px] text-slate-400">Pengaturan kit untuk kserv.lua (Sider). Batas nilai mengikuti kserv 1.13.</p>
-              <p className="text-[10px] text-amber-300/80">Hanya mengatur file config; pratinjau 2D/3D belum mengikuti nilai ini.</p>
+              <p className="text-[10px] text-amber-300/80">Preview 3D mengikuti Kerah, Model celana, Model lengan pendek, dan Baju ketat; nilai lain hanya untuk file config.</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">

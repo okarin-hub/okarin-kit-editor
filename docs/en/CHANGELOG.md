@@ -2,6 +2,36 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## 0.5.0 — Stable: the real 3D model parts, true 3D colours, undo / redo fixed
+
+Stable release: it also brings everything from 0.4.1 and 0.4.2 (below) to the stable channel. Still marked
+*Experimental* in the app: *Pattern from a jersey photo*, *Import PNG* and the *Kitserver config.txt* editor.
+
+- **Fontset generator is no longer experimental:** its FTEX output loads in PES 2021 (numbers and name show in the
+  game). The DDS output is still untested.
+- **3D preview: the model's own parts.** The 3D model now carries all 133 collars, the 16 shorts models (the leg
+  piece), normal and Kappa sleeves, the tight kit and three sock lengths from the CometKIT model. Collar, shorts
+  model, Kappa sleeves and the tight kit follow the kit config (*Kitserver config.txt…* in the Tools menu), so the preview shows what you
+  set. In Split and 3D the workspace toolbar (next to the zoom) has *Collar*, *Sleeve model*, *Tight kit* and
+  *Shorts*: they write the kit config, so the 3D view and the config dialog always agree. Sleeve length and sock
+  length are one small bar inside the 3D view.
+- **Undo / redo:** changes to the kit config (the toolbar's *Collar*, *Sleeve model*, *Tight kit*, *Shorts*, and the
+  *Kitserver config.txt* dialog) are now part of Ctrl+Z / Ctrl+Y. Also fixed: a second Ctrl+Z in a row did nothing
+  and Ctrl+Y never worked, because every undo was recorded as a new edit.
+- **Sock colour no longer shows on the shorts in 3D:** the socks area in 2D reached into the top rows of the shorts
+  area (and the leg piece of the shorts reads those rows). Socks now end at y 577, the shorts start at 579.5.
+- **Shorts hem accent** sits on the outer edge of the shorts leg (x 16 / 1008) where the model actually shows it,
+  no longer at x 0 where nothing reads it.
+- **3D colours match the texture:** the 3D view no longer darkens dark colours (navy shorts and sleeves came out
+  black, reds turned darker). Checked against the CometKIT Blender scene with the same texture: the texture lands
+  in the same place on every part and the colours now match closely. The cloth is also more matte, so bright
+  colours no longer get a whitish shine.
+- **Real long sleeves in 3D:** the generated tube is gone; long sleeves use the model's own long sleeve, with elbow
+  and folds, mapped to the long sleeve area of the template.
+- **Shorts in 3D no longer stretched:** the leg piece of the shorts shows the outer side of the shorts area (x 17–81)
+  the way the game does, instead of stretching the upper part.
+- `npm run build:model` rebuilds `public/model/pes_kit.glb` from a local CometKIT export (see the script header).
+
 ## 0.4.2 (experimental) — fabric detail for Import PNG, sashes and raglan sleeves from jersey photos
 
 - **Pattern from a jersey photo: raglan sleeves in their own colour:** when most of the sleeve boxes are one colour

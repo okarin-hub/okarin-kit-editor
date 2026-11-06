@@ -17,7 +17,7 @@
 
 - **Menu bar** – *File* (new kit, open / save project, import design, export), *Edit* (undo, redo, settings, colour presets),
   *View* (part outlines, part labels, original PES template, *Zoom speed (scroll)*), *Tools* (pattern from a jersey
-  photo, fontset generator, kitserver config.txt; all experimental), *Help* (guide, shortcuts, update check,
+  photo and kitserver config.txt, both experimental; fontset generator), *Help* (guide, shortcuts, update check,
   credits, about). *New kit* asks first; *Undo* brings the old kit back.
 - **Tool rail (left)** – select / move, freehand shape, point shape, stitch line by points, stitch line freehand,
   eraser brush (keys `V`, `B`, `P`, `S`, `J`, `E`). One tool is active at a time; click the active tool again to go
@@ -25,8 +25,15 @@
 - **2D canvas** – scroll to zoom, drag to pan. Click a part to select it. The *All parts* list in the toolbar zooms
   the canvas onto one part.
 - **3D preview** – drag to rotate, hold the middle mouse button (wheel button) and drag up / down to look from
-  above or below, scroll to zoom. Buttons switch the camera (front, back, chest, bottom, full) and
-  the sleeve length (short / long).
+  above or below, scroll to zoom. Buttons switch the camera (front, back, chest, bottom, full); the bar at the
+  bottom sets the sleeve length and the sock length of the preview.
+  - **Move a template layer on the model:** pick a template with layers (Classic, Raglan …), select a layer in the
+    *Layer* tab, then drag it on the 3D model (the cursor turns into a move cursor over it). Patterns, logos and
+    trims are moved in 2D.
+- **3D model parts** – in Split and 3D the toolbar (next to the zoom) has *Collar*, *Sleeve model* (Normal / Kappa),
+  *Tight kit* and *Shorts* (shorts model 1–16). They are the kitserver config values (`Collar`, `ShortSleevesModel`,
+  `TightKit`, `ShortsModel`), so the *Kitserver config.txt* dialog shows the same. A number marked yellow is a
+  value the 3D model doesn't have (for example Collar 134); the preview then shows model 1.
 - **Side panel** – tabs **Fabric**, **Template**, **Layer**, **Logo**, **Name**. The tabs show their icon; the open
   tab also shows its name.
 - **Zoom speed** – *View → Zoom speed (scroll)*: slow, normal or fast, for the 2D canvas, the 3D preview and the
@@ -191,7 +198,7 @@ inside the kit's own folder, and an empty name or a missing file means the game'
 *Save to kit folder…* asks for the kit folder (for example `content/kit-server/<team>/p1`) and writes `config.txt` and
 `<KitFile>.ftex` there. It asks before overwriting. The kit is not added to `order.ini` or `map.txt`; do that yourself.
 
-### Fontset generator – experimental
+### Fontset generator
 
 *Tools → Fontset generator…* makes the number and name font files kitserver reads. Pick a font, fill colour and
 outline for the numbers and for the name; the preview shows each texture with its character slots (blue) and the

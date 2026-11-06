@@ -14,7 +14,7 @@ Created by **okarin-hub**. The source code is released under the [GPL-3.0](../..
 
 | Asset | Where | Notes |
 |---|---|---|
-| **3D kit model** `public/model/pes_kit.glb` | 3D preview | Taken from the **CometKIT previewer** (a community kit-preview tool). It is **not** covered by the GPL and its original author's terms are not known to the maintainer. It is included so the preview works out of the box. If you are the rights holder and want it removed, please open an issue. You can replace it with your own model (keep the UV layout). |
+| **3D kit model** `public/model/pes_kit.glb` | 3D preview | Taken from the **CometKIT previewer** (a community kit-preview tool): its shirts, sleeves, collars, shorts and socks, rebuilt smaller by `scripts/build-3d-model.cjs`. It is **not** covered by the GPL and its original author's terms are not known to the maintainer. It is included so the preview works out of the box. If you are the rights holder and want it removed, please open an issue. You can replace it with your own model (keep the UV layout). |
 
 Nothing else from other kit tools, game files or template packs is included. In particular the repository contains
 **no logos, no kit templates and no official PES template images**: the `library` folder is empty on purpose and

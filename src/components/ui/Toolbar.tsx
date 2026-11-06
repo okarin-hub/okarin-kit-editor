@@ -4,6 +4,7 @@ import React from 'react';
 import { ZoomIn, ZoomOut, Maximize2, Box, Layout, Columns, X } from 'lucide-react';
 import { CanvasViewState, KitPartId } from '@/types/kit';
 import { PART_MAP, PES_2021_PARTS } from '@/constants/pes2021Parts';
+import KitModelBar from './KitModelBar';
 
 export type WorkspaceViewMode = '2d' | '3d' | 'split';
 
@@ -14,10 +15,21 @@ interface ToolbarProps {
   viewMode: WorkspaceViewMode;
   setViewMode: (mode: WorkspaceViewMode) => void;
   onFocusPart: (partId: KitPartId) => void;
+  kitConfig: string;
+  onKitConfigChange: (text: string) => void;
 }
 
-/** Strip above the workspace: view mode (2D / Split / 3D), the focused part and the zoom. */
-export const Toolbar: React.FC<ToolbarProps> = ({ viewState, setViewState, onResetSolo, viewMode, setViewMode, onFocusPart }) => {
+/** Strip above the workspace: view mode (2D / Split / 3D), the focused part, the 3D model parts and the zoom. */
+export const Toolbar: React.FC<ToolbarProps> = ({
+  viewState,
+  setViewState,
+  onResetSolo,
+  viewMode,
+  setViewMode,
+  onFocusPart,
+  kitConfig,
+  onKitConfigChange,
+}) => {
   const activePart = viewState.activePartId !== 'all' ? PART_MAP[viewState.activePartId] : null;
 
   const modes: { id: WorkspaceViewMode; label: string; icon: React.ReactNode }[] = [
@@ -86,7 +98,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({ viewState, setViewState, onRes
         </div>
       )}
 
-      <div className="flex-1" />
+      {/* 3D model parts (collar, sleeves, tight kit, shorts), next to the zoom */}
+      <div className="flex-1 min-w-0 flex justify-end">
+        {viewMode !== '2d' && <KitModelBar kitConfig={kitConfig} onKitConfigChange={onKitConfigChange} />}
+      </div>
 
       {/* Zoom */}
       <div className="flex items-center gap-0.5 bg-slate-900/90 border border-slate-800 p-0.5 rounded-lg shrink-0">

@@ -5,24 +5,14 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { zoomFactor, onPrefsChange } from '@/utils/uiPrefs';
-import { createLongSleeves, LongSleeveController } from '@/utils/longSleeves';
+import { ModelChoice, SockLength, modelChoiceFromConfig, partVisible } from '@/utils/kitModelParts';
+import { DEFAULT_KIT_CONFIG } from '@/utils/kitConfig';
 
-/** Shorts UV island of the model (left side, texture px) and where it starts in the game's template. */
-const SHORTS_UV_LEFT = 80.94;
-const SHORTS_UV_RIGHT = 319.8;
-
-/** Stretches the left outer edge of each shorts leg from x 81 to x 0 (the inner edge at x 320 stays). */
-function remapShortsUV(mesh: THREE.Mesh) {
-  const uv = mesh.geometry.getAttribute('uv') as THREE.BufferAttribute | undefined;
-  if (!uv) return;
-  const k = SHORTS_UV_RIGHT / (SHORTS_UV_RIGHT - SHORTS_UV_LEFT);
-  const stretch = (x: number) => (x - SHORTS_UV_LEFT) * k;
-  for (let i = 0; i < uv.count; i++) {
-    const x = uv.getX(i) * 1024;
-    if (x < 512) uv.setX(i, stretch(x) / 1024);
-    else uv.setX(i, (1024 - stretch(1024 - x)) / 1024);
-  }
-  uv.needsUpdate = true;
+/** Shows only the model parts of this choice (the model holds every collar, sleeve, shorts and sock variant). */
+function applyModelChoice(model: THREE.Object3D, choice: ModelChoice) {
+  model.traverse((o) => {
+    if ((o as THREE.Mesh).isMesh) o.visible = partVisible(o.name, choice);
+  });
 }
 import {
   Rotate3d,
@@ -50,12 +40,15 @@ interface Kit3DViewerProps {
   textureDataUrl: string | null;
   className?: string;
   zoneDrag?: ZoneDragTarget | null;
+  /** Kit config text: collar, shorts model, Kappa sleeves and tight kit pick the model parts. */
+  kitConfig?: string;
 }
 
 export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
   textureDataUrl,
   className = '',
   zoneDrag = null,
+  kitConfig = DEFAULT_KIT_CONFIG,
 }) => {
   const zoneDragRef = useRef<ZoneDragTarget | null>(zoneDrag);
   zoneDragRef.current = zoneDrag;
@@ -71,8 +64,11 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [autoRotate, setAutoRotate] = useState(false);
   const [sleeveMode, setSleeveMode] = useState<'short' | 'long'>('short');
-  const sleeveModeRef = useRef<'short' | 'long'>('short');
-  const sleeveCtlRef = useRef<LongSleeveController | null>(null);
+  const [socks, setSocks] = useState<SockLength>('middle');
+  const choice = modelChoiceFromConfig(kitConfig, { longSleeves: sleeveMode === 'long', socks });
+  const choiceRef = useRef(choice);
+  choiceRef.current = choice;
+  const choiceKey = JSON.stringify(choice);
   const [cameraView, setCameraView] = useState<'front' | 'back' | 'chest' | 'lower' | 'full'>('front');
 
   // Keep texture ref updated
@@ -140,8 +136,8 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
     renderer.shadowMap.enabled = true;
     // PCFSoftShadowMap was removed from three.js (it fell back to this one with a warning)
     renderer.shadowMap.type = THREE.PCFShadowMap;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
+    // No tone mapping: ACES and Neutral both crush dark colours (navy came out black), the kit colours must stay true
+    renderer.toneMapping = THREE.NoToneMapping;
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
@@ -298,25 +294,23 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
 
-    // Lighting (Studio & Stadium setup)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+    // Lighting: neutral white lights, balanced so a surface facing the camera (front or back) shows about
+    // the texture's own colour, like the flat texture view of the CometKIT Blender scene; the sides fall off.
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.8);
     scene.add(ambientLight);
 
-    // Key Light
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1.4);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 2.1);
     keyLight.position.set(2, 3, 2.5);
     keyLight.castShadow = true;
     scene.add(keyLight);
 
-    // Fill Light
-    const fillLight = new THREE.DirectionalLight(0x90b0e0, 0.9);
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.8);
     fillLight.position.set(-2.5, 1.5, 1.5);
     scene.add(fillLight);
 
-    // Rim / Back Light (Enhances football jersey fabric edge silhouettes)
-    const rimLight = new THREE.DirectionalLight(0xfff0dd, 1.2);
-    rimLight.position.set(0, 2.5, -2.5);
-    scene.add(rimLight);
+    const backLight = new THREE.DirectionalLight(0xffffff, 1.45);
+    backLight.position.set(-1.5, 2.5, -2.5);
+    scene.add(backLight);
 
     // Subtle Ground Shadow Plane
     const groundGeo = new THREE.PlaneGeometry(5, 5);
@@ -340,8 +334,9 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
 
         // Create standard kit material with realistic cloth roughness
         const kitMat = new THREE.MeshStandardMaterial({
-          roughness: 0.65,
-          metalness: 0.08,
+          // matte cloth: a glossier value adds white highlights that wash bright kit colours out
+          roughness: 0.9,
+          metalness: 0,
           side: THREE.DoubleSide,
         });
         kitMaterialRef.current = kitMat;
@@ -356,25 +351,15 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
           }
         });
 
-        // The game reads the whole shorts area of the template (x 0..~330) but this model's shorts UVs
-        // only cover x 81..320: stretch them so the 3D preview shows what the game shows.
-        model.traverse((child) => {
-          const mesh = child as THREE.Mesh;
-          if (mesh.isMesh && /pants/i.test(mesh.name)) remapShortsUV(mesh);
-        });
+        applyModelChoice(model, choiceRef.current);
 
-        // Procedural long sleeves (the model itself only has short sleeves)
-        let sleeveMesh: THREE.Mesh | null = null;
-        model.traverse((child) => {
-          if ((child as THREE.Mesh).isMesh && /sleeve/i.test(child.name)) sleeveMesh = child as THREE.Mesh;
+        // Center and scale model to fit view nicely (default parts, so switching parts never moves the view)
+        const box = new THREE.Box3();
+        applyModelChoice(model, modelChoiceFromConfig(DEFAULT_KIT_CONFIG, { longSleeves: false, socks: 'middle' }));
+        model.traverse((o) => {
+          if ((o as THREE.Mesh).isMesh && o.visible) box.expandByObject(o);
         });
-        if (sleeveMesh) {
-          sleeveCtlRef.current = createLongSleeves(sleeveMesh, kitMat);
-          sleeveCtlRef.current?.setLong(sleeveModeRef.current === 'long');
-        }
-
-        // Center and scale model to fit view nicely
-        const box = new THREE.Box3().setFromObject(model);
+        applyModelChoice(model, choiceRef.current);
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
 
@@ -451,11 +436,10 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
     applyTextureToMaterial(kitMaterialRef.current, textureDataUrl);
   }, [textureDataUrl]);
 
-  // Short / long sleeves
+  // Model parts: collar, sleeves, shorts, socks
   useEffect(() => {
-    sleeveModeRef.current = sleeveMode;
-    sleeveCtlRef.current?.setLong(sleeveMode === 'long');
-  }, [sleeveMode]);
+    if (kitMeshGroupRef.current) applyModelChoice(kitMeshGroupRef.current, choiceRef.current);
+  }, [choiceKey]);
 
   // 3. Update Auto-Rotate
   useEffect(() => {
@@ -560,28 +544,32 @@ export const Kit3DViewer: React.FC<Kit3DViewerProps> = ({
         </div>
       </div>
 
-      {/* Sleeves: short / long */}
-        <div className="absolute bottom-2 left-3 z-10 flex items-center gap-0.5 bg-[#121622]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800 shadow-xl pointer-events-auto">
-          {(
-            [
-              ['short', 'Lengan pendek'],
-              ['long', 'Lengan panjang'],
-            ] as const
-          ).map(([mode, title]) => (
-            <button
-              key={mode}
-              onClick={() => setSleeveMode(mode)}
-              title={`${title} (lengan panjang dibuat otomatis dan memakai area lengan panjang di template)`}
-              className={`h-6 px-2 rounded-md text-[11px] font-bold whitespace-nowrap transition-all ${
-                sleeveMode === mode
-                  ? 'bg-sky-500/25 text-sky-100'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
-              }`}
-            >
-              {mode === 'short' ? 'Lengan pendek' : 'Lengan panjang'}
-            </button>
-          ))}
-        </div>
+      {/* Preview-only parts: sleeve length and sock length (the game takes both from the player) */}
+      <div className="absolute bottom-2 left-3 z-10 flex items-center gap-1 max-w-[calc(100%-1.5rem)] overflow-x-auto bg-[#121622]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800 shadow-xl">
+        {(
+          [
+            ['Lengan', 'Lengan panjang memakai area lengan panjang di template', sleeveMode, (v: string) => setSleeveMode(v as 'short' | 'long'), [['short', 'Pendek'], ['long', 'Panjang']]],
+            ['Kaus kaki', 'Panjang kaus kaki di preview 3D', socks, (v: string) => setSocks(v as SockLength), [['short', 'Pendek'], ['middle', 'Sedang'], ['long', 'Panjang']]],
+          ] as const
+        ).map(([group, hint, value, set, options], gi) => (
+          <div key={group} className="flex items-center gap-0.5" role="group" aria-label={group} title={hint}>
+            {gi > 0 && <span className="w-px h-4 bg-slate-700 mx-1" aria-hidden />}
+            <span className="px-1.5 text-[11px] font-semibold text-slate-500 whitespace-nowrap">{group}</span>
+            {options.map(([mode, label]) => (
+              <button
+                key={mode}
+                onClick={() => set(mode)}
+                aria-pressed={value === mode}
+                className={`h-6 px-2 rounded-md text-[11px] font-bold whitespace-nowrap transition-colors ${
+                  value === mode ? 'bg-sky-500/25 text-sky-100' : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        ))}
+      </div>
 
       {/* Bottom hint (short, hidden on small windows) */}
       <div className="absolute bottom-2 right-3 pointer-events-none z-10 hidden 2xl:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/70 backdrop-blur-md border border-slate-800/80 text-[10px] text-slate-400 whitespace-nowrap">

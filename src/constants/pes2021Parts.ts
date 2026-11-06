@@ -101,7 +101,8 @@ const SEEDS: PartSeed[] = [
     // two rectangles so the piece never overlaps the sleeve bottom or the collar strip
     regions: [R(0, 583, 222, 393), R(222, 605, 114, 371)],
     outline: [
-      [[0, 573], [0, 982], [340.5, 982], [340.5, 604], [155.5, 603.5], [146, 588.5], [145.5, 573]],
+      // top at y 579.5, below the sock colour (see the sock outline); the shorts UV starts at 583.5
+      [[0, 579.5], [0, 982], [340.5, 982], [340.5, 604], [155.5, 603.5], [146, 588.5], [145.5, 579.5]],
     ],
     bounds: R(0, 583, 336, 393),
     innerGuides: ['M 0 773 L 345 773'],
@@ -115,7 +116,7 @@ const SEEDS: PartSeed[] = [
     category: 'shorts',
     regions: [R(802, 583, 222, 393), R(688, 605, 114, 371)],
     outline: [
-      [[879, 573], [878, 588.5], [868.5, 603.5], [684, 604], [684, 982], [1024, 982], [1024, 573]],
+      [[879, 579.5], [878, 588.5], [868.5, 603.5], [684, 604], [684, 982], [1024, 982], [1024, 579.5]],
     ],
     bounds: R(688, 583, 336, 393),
     innerGuides: ['M 680 773 L 1024 773'],
@@ -129,7 +130,9 @@ const SEEDS: PartSeed[] = [
     category: 'socks',
     regions: [R(0, 320, 222, 258)],
     outline: [
-      [[0, 310], [0, 584.5], [195, 584.5], [195, 310]],
+      // bottom at y 577: with the 2 px colour bleed of the base fill the sock colour stops at 579, between the
+      // sock UV (ends at 575.5) and the shorts UV (starts at 583.5)
+      [[0, 310], [0, 577], [195, 577], [195, 310]],
     ],
     bounds: R(0, 320, 222, 258),
     innerGuides: ['M 0 370 L 222 370'],
@@ -143,7 +146,7 @@ const SEEDS: PartSeed[] = [
     category: 'socks',
     regions: [R(805, 320, 219, 258)],
     outline: [
-      [[829, 310], [829.5, 584.5], [1024, 584.5], [1024, 310]],
+      [[829, 310], [829.5, 577], [1024, 577], [1024, 310]],
     ],
     bounds: R(805, 320, 219, 258),
     innerGuides: ['M 805 370 L 1024 370'],
@@ -269,10 +272,11 @@ export function getAccentRects(partId: KitPartId, stripeW: number): KitRect[] {
       return [R(782 - stripeW, 333, 20 + stripeW, 272), R(1024 - stripeW, 68, stripeW, 247)];
     // The shorts are stored turned sideways: top-to-bottom runs left-to-right on the player's left
     // shorts (right of the image) and right-to-left on the right shorts, so the hem is a vertical strip.
+    // The leg pieces of the model (ShortsModel 1-15) start at x 16.8 / 1007, so the hem sits there, not at x 0.
     case 'leftShorts':
-      return [R(0, 573, stripeW, 409)];
+      return [R(16, 579.5, stripeW, 402.5)];
     case 'rightShorts':
-      return [R(1024 - stripeW, 573, stripeW, 409)];
+      return [R(1008 - stripeW, 579.5, stripeW, 402.5)];
     case 'leftSock':
     case 'rightSock':
       return [R(b.x, b.y, b.width, stripeW)];
