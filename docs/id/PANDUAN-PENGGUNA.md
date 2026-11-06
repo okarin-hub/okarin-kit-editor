@@ -74,8 +74,9 @@ style (bayangan, stroke, glow, bevel, overlay) dan layer adjustment belum.
   menggabungkannya ke warna lain (bayangan yang terpisah ikut ke warnanya); klik pada pratinjau untuk mencari warnanya
   di daftar (*Perbesar pratinjau* menampilkannya selebar jendela); *Bersihkan noise* (untuk WebP / JPG); *Versi warna
   lain* (sampai dua gambar lagi dari template yang sama dengan warna lain, supaya area yang warnanya sama di satu
-  gambar tetap bisa dipisah); *Gradasi halus* (centang hanya warna ujung gradasinya). Gambar yang tajam dengan warna
-  bersih memberi hasil terbaik.
+  gambar tetap bisa dipisah); *Gradasi halus* (centang hanya warna ujung gradasinya); *Simpan detail kain* (garis mesh dan
+  bayangan menjadi dua layer di atas warna, gelap dengan multiply dan terang dengan screen, jadi tetap ada setelah
+  warna diganti). Gambar yang tajam dengan warna bersih memberi hasil terbaik.
 - *Banyak PNG (1 file = 1 layer)* membuat template dari gambar layer yang terpisah.
 
 Pilih zona untuk menggeser, mengubah ukuran, memutar, mengubah bentuk, atau mewarnainya, di canvas atau lewat kolom

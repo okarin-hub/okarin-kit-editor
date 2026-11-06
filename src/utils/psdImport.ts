@@ -16,6 +16,21 @@ const SIZE = 1024;
 /** Written into the XMP of a PSD made by Import PNG (see parsePsd). */
 export const PNG_PSD_MARK = 'okarin-kit-editor:png-template';
 
+/**
+ * The part groups of the Layer tab. Import PNG writes one layer per colour and group, named "<colour> – <group>",
+ * so a colour shared by shirt and shorts becomes one layer in each group; read back, a layer stays in its group.
+ */
+export const LAYER_GROUPS: [string, KitPartId[]][] = [
+  ['Baju', ['front', 'back', 'leftSleeve', 'rightSleeve']],
+  ['Celana', ['leftShorts', 'rightShorts']],
+  ['Kaos kaki', ['leftSock', 'rightSock']],
+  ['Detail', ['collar', 'armband', 'credit']],
+];
+
+/** Names of the fabric detail layers Import PNG writes (read back with their own black / white, no colour slot). */
+export const DETAIL_DARK = 'Detail kain – gelap';
+export const DETAIL_LIGHT = 'Detail kain – terang';
+
 /** A canvas that also works inside a web worker (OffscreenCanvas there). */
 export function newCanvas(w: number, h: number): HTMLCanvasElement {
   if (typeof document === 'undefined') return new OffscreenCanvas(w, h) as unknown as HTMLCanvasElement;
@@ -49,6 +64,8 @@ export interface PsdLayerInfo {
   junk?: string;
   /** One option of a set of alternative layers or groups (Collar 1 / Collar 2, Seams / Seams v2). */
   variant?: { set: string; option: string };
+  /** From a PSD written by Import PNG: a colour layer spans many parts, so every part holding its pixels is kept. */
+  fromPng?: boolean;
 }
 
 /**
@@ -289,6 +306,7 @@ export async function parsePsd(file: File): Promise<ParsedPsd> {
   const fromPng = String((psd as any).imageResources?.xmpMetadata ?? '').includes(PNG_PSD_MARK);
   layers.forEach((l) => {
     l.junk = fromPng ? undefined : junkReason(l, psd.width, psd.height);
+    l.fromPng = fromPng;
   });
 
   return { fileName: file.name, width: psd.width, height: psd.height, layers, skipped };
@@ -317,6 +335,8 @@ export interface MaskMeta {
   minPartShare?: number;
   /** ...and at least this many pixels (default 0). Colour-split zones use low values so a small logo is not dropped. */
   minPartPixels?: number;
+  /** Only these parts can be chosen (a layer of one part group). */
+  onlyParts?: KitPartId[];
 }
 
 /**
@@ -393,7 +413,7 @@ export function finalizeMask(
   const keepColor = mode === 'keep' || (mode === 'auto' && !flat && chroma / count > 22);
 
   // Which parts does the layer cover? (pixel counts inside each part's regions)
-  const perPart: { id: KitPartId; n: number }[] = PES_2021_PARTS.map((p) => {
+  const perPart: { id: KitPartId; n: number }[] = PES_2021_PARTS.filter((p) => !meta.onlyParts || meta.onlyParts.includes(p.id)).map((p) => {
     let n = 0;
     p.regions.forEach((r) => {
       // sample every 2nd pixel on the same grid as a full scan, but only inside the layer's box
@@ -467,6 +487,12 @@ export function withZoneParts(zone: Record<string, unknown>, parts: KitPartId[])
   return { ...rest, part: parts[0], ...(parts.length > 1 ? { parts: parts.slice(1) } : {}) };
 }
 
+/** The parts of the group an Import PNG layer was cut for ("Warna 2 – Celana", "Base – Baju 2"); undefined = any part. */
+function pngLayerGroup(name: string): KitPartId[] | undefined {
+  const group = /–\s*(.+?)(\s+\d+)?$/.exec(name)?.[1];
+  return LAYER_GROUPS.find(([g]) => g === group)?.[1];
+}
+
 /** Converts one PSD layer. Returns null for layers without visible pixels. */
 export function convertLayer(info: PsdLayerInfo, psdW: number, psdH: number, index: number): ConvertedZone | null {
   const sx = SIZE / psdW;
@@ -528,7 +554,25 @@ export function convertLayer(info: PsdLayerInfo, psdW: number, psdH: number, ind
     for (let i = 0; i < d.length; i += 4) d[i + 3] = (d[i + 3] * md[i + 3]) / 255;
   }
 
-  const out = finalizeMask(canvas, ctx, img, { name: info.name, hidden: info.hidden, opacity: info.opacity }, index, rx, ry);
+  // the fabric detail layers of an Import PNG PSD keep their own black / white (no colour slot, no flattening)
+  const detail = info.name === DETAIL_DARK || info.name === DETAIL_LIGHT;
+  const out = finalizeMask(
+    canvas,
+    ctx,
+    img,
+    {
+      name: info.name,
+      hidden: info.hidden,
+      opacity: info.opacity,
+      ...(detail ? { mode: 'keep' as const } : {}),
+      // a colour layer of Import PNG holds every piece of that colour in its part group (three stripes on each sleeve
+      // and the chest): a part with only a small share of it must not be dropped
+      ...(info.fromPng ? { minPartShare: 0, minPartPixels: 120, onlyParts: pngLayerGroup(info.name) } : {}),
+    },
+    index,
+    rx,
+    ry
+  );
   if (out && info.blend) out.zone.blend = info.blend;
   // a Base layer is the kit's base colour (drawn under the pattern layers); Import PNG writes one per part group
   if (out && /^base\b/i.test(info.name.split(' / ').pop() ?? '')) out.zone.base = true;

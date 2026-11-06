@@ -11,6 +11,7 @@ import {
   clusterHex,
   median3,
   blendColours,
+  groupMainColours,
   PngPsdRequest,
   analyzeColorways,
   ColourVector,
@@ -90,6 +91,8 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
   const [gradient, setGradient] = useState(false);
   // compressed pictures (WebP / JPG from template sites) are cleaned of speckles before the colours are grouped
   const [denoise, setDenoise] = useState(false);
+  // the picture's mesh lines and shading as two layers over the colours, so they stay after a colour change
+  const [fabricDetail, setFabricDetail] = useState(true);
   // the colour picked in the preview (or in the list): shown bright, the rest dimmed
   const [highlight, setHighlight] = useState<number | null>(null);
   const [bigPreview, setBigPreview] = useState(false);
@@ -320,6 +323,7 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
         chosen: chosen.map((c) => ({ id: c.id, name: c.name.trim() || c.auto })),
         alias,
         gradient,
+        detail: fabricDetail,
         splitPieces,
         minArea,
         maxZones: MAX_ZONES,
@@ -556,6 +560,8 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
                             // a gradient needs only its end colours: untick the ones that are a blend of two others
                             if (e.target.checked && analysis) {
                               const blends = blendColours(clusters.filter((c) => c.on && c.merge === undefined).map((c) => c.id), analysis.vectors);
+                              // the main colour of the shirt, shorts or socks stays, even between two others (light grey)
+                              groupMainColours(analysis.labels).forEach((c) => blends.delete(c));
                               setClusters((prev) => prev.map((x) => (blends.has(x.id) ? { ...x, on: false } : x)));
                             }
                           }}
@@ -564,6 +570,13 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
                         <span className="flex items-center gap-1">
                           Gradasi halus
                           <InfoTip text="Untuk desain bergradasi atau blur: centang hanya warna ujungnya, warna di antaranya menjadi campuran keduanya dan gradasinya tetap ada saat warnanya diganti." />
+                        </span>
+                      </label>
+                      <label className="flex items-start gap-1.5 text-[11px] text-slate-300 cursor-pointer">
+                        <input type="checkbox" checked={fabricDetail} onChange={(e) => setFabricDetail(e.target.checked)} className="mt-0.5 accent-sky-500" />
+                        <span className="flex items-center gap-1">
+                          Simpan detail kain
+                          <InfoTip text="Garis mesh, lipatan, dan bayangan dari gambar jadi dua layer di atas warna (gelap: multiply, terang: screen), jadi tetap ada saat warnanya diganti. Matikan untuk template yang warnanya rata." />
                         </span>
                       </label>
                       <div className="space-y-1">

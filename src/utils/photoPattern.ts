@@ -412,8 +412,30 @@ export function extractPattern(
     const blends = pattern.filter(blend);
     for (const k of blends) pattern.splice(pattern.indexOf(k), 1);
   }
+  // shades of one colour (the lit and the shaded side, a faint tone-on-tone print) are one pattern colour: the same
+  // hue and a similar lightness. Light blue and navy share a hue too, but lie far apart in lightness and stay two.
+  const root = centres.map((_, i) => i);
+  if (!palette && pattern.length > 1) {
+    const sum = centres.map(() => [0, 0]);
+    for (let p = 0; p < N; p += 3) {
+      sum[label[p]][0] += feats[p * 3];
+      sum[label[p]][1]++;
+    }
+    const L = sum.map(([s, n]) => s / Math.max(1, n));
+    const hue = (k: number) => (Math.atan2(centres[k][2], centres[k][1]) * 180) / Math.PI;
+    const chroma = (k: number) => Math.hypot(centres[k][1], centres[k][2]);
+    const same = (i: number, k: number) =>
+      chroma(i) > 10 && chroma(k) > 10 && Math.abs(((hue(i) - hue(k) + 540) % 360) - 180) < 12 && Math.abs(L[i] - L[k]) < 25;
+    // pattern runs from the biggest colour down: a colour joins a bigger one of the same hue
+    pattern.forEach((k, n) => {
+      const i = pattern.slice(0, n).find((j) => root[j] === j && same(j, k));
+      if (i !== undefined) root[k] = i;
+    });
+    for (const k of pattern.filter((k) => root[k] !== k)) pattern.splice(pattern.indexOf(k), 1);
+  }
   const keep = new Int16Array(centres.length).fill(-1);
   pattern.forEach((k, i) => (keep[k] = i));
+  root.forEach((r, k) => r !== k && (keep[k] = keep[r]));
   const out = new Int16Array(N);
   for (let p = 0; p < N; p++) {
     const k = keep[label[p]];

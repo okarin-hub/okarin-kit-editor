@@ -74,8 +74,9 @@ PSD blend modes, clipping masks, layer and vector masks, shape layers and group 
   it into another (a shade that split off joins its colour); a click on the preview finds a colour in the list
   (*Enlarge preview* shows it full width); *Clean up noise* (for WebP / JPG); *Other colourways* (up to two more
   pictures of the same template in other colours, so areas that share a colour in one picture are still told
-  apart); *Smooth gradient* (tick only the end colours of a fade). A sharp picture with clean colours gives the
-  best result.
+  apart); *Smooth gradient* (tick only the end colours of a fade); *Keep fabric detail* (the mesh lines and shading
+  become two layers over the colours, dark in multiply and light in screen, so they stay after a colour change). A
+  sharp picture with clean colours gives the best result.
 - *Many PNGs (1 file = 1 layer)* makes a template from separate layer pictures.
 
 Select a zone to move, resize, rotate, reshape or recolour it, on the canvas or with the fields, then *Save as

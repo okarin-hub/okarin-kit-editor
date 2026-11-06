@@ -1,4 +1,4 @@
-import { finalizeMask, ConvertedZone, newCanvas, PNG_PSD_MARK } from '@/utils/psdImport';
+import { finalizeMask, ConvertedZone, newCanvas, PNG_PSD_MARK, DETAIL_DARK, DETAIL_LIGHT, LAYER_GROUPS } from '@/utils/psdImport';
 import { analyzeColors, ColorAnalysis } from '@/utils/colorClusters';
 import { PES_2021_PARTS } from '@/constants/pes2021Parts';
 
@@ -370,7 +370,9 @@ export async function masksToPsd(
   rank: Int16Array,
   gradient = false,
   /** Colours merged by the user: cluster -> the cluster it joined (itself when not merged). */
-  alias?: Int32Array
+  alias?: Int32Array,
+  /** Also keep the fabric detail (mesh, shading) of the first picture as two layers on top. */
+  detail = false
 ): Promise<ArrayBuffer> {
   const { writePsd } = await import('ag-psd');
   const S = PSD_SIZE, k = SIZE / S;
@@ -386,7 +388,7 @@ export async function masksToPsd(
   }
   const composite = newCanvas(S, S);
   const cctx = composite.getContext('2d')!;
-  const children: { name: string; canvas: HTMLCanvasElement; left: number; top: number }[] = [];
+  const children: { name: string; canvas: HTMLCanvasElement; left: number; top: number; blendMode?: string }[] = [];
   for (const l of layers) {
     // the layer's area (cut at 1024) grown a pixel, so the soft edge just outside it is included
     const m = dilate(l.mask);
@@ -436,6 +438,15 @@ export async function masksToPsd(
     cctx.drawImage(c, x0, y0);
     children.push({ name: l.name, canvas: c, left: x0, top: y0 });
   }
+  if (detail) {
+    for (const d of fabricDetail(srcs[0], cctx.getImageData(0, 0, S, S), t)) {
+      cctx.save();
+      cctx.globalCompositeOperation = d.blendMode as GlobalCompositeOperation;
+      cctx.drawImage(d.canvas, d.left, d.top);
+      cctx.restore();
+      children.push(d);
+    }
+  }
   return writePsd(
     {
       width: S,
@@ -448,13 +459,57 @@ export async function masksToPsd(
   );
 }
 
-/** The part groups of the Layer tab, so a colour shared by shirt and shorts becomes one layer in each group. */
-const LAYER_GROUPS: [string, string[]][] = [
-  ['Baju', ['front', 'back', 'leftSleeve', 'rightSleeve']],
-  ['Celana', ['leftShorts', 'rightShorts']],
-  ['Kaos kaki', ['leftSock', 'rightSock']],
-  ['Detail', ['collar', 'armband', 'credit']],
-];
+/**
+ * Fabric detail (mesh lines, folds, shading): where the picture is darker than its flat colour layers, a black
+ * layer in multiply; where it is lighter, a white layer in screen. The alpha is exactly the change in brightness,
+ * so on the picture's own colours the result matches it, and after a colour change the detail stays on the new
+ * colour. Edges between two colours (t > 0) and tiny differences (compression noise) are left out.
+ */
+function fabricDetail(pic: ImageData, flat: ImageData, t: Uint8Array) {
+  const S = pic.width, k = SIZE / S;
+  // not the armband / credit boxes, where template sites put their watermark
+  const kit = partsMask(PES_2021_PARTS.map((p) => p.id).filter((id) => id !== 'armband' && id !== 'credit'));
+  const lum = (d: Uint8ClampedArray, i: number) => (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255;
+  const dark = new Uint8Array(S * S), light = new Uint8Array(S * S);
+  for (let p = 0, i = 0; p < S * S; p++, i += 4) {
+    if (t[p] || !kit[((((p / S) | 0) * k) | 0) * SIZE + (((p % S) * k) | 0)] || flat.data[i + 3] < 255) continue;
+    const r = lum(pic.data, i), b = lum(flat.data, i);
+    if (Math.abs(r - b) < 5 / 255) continue;
+    // multiply with black at alpha a scales by (1 - a); screen with white at alpha a lifts by a towards white
+    if (r < b) dark[p] = Math.round(255 * (1 - r / b));
+    else if (b < 0.995) light[p] = Math.round((255 * (r - b)) / (1 - b));
+  }
+  const out: { name: string; canvas: HTMLCanvasElement; left: number; top: number; blendMode: string }[] = [];
+  for (const [name, alpha, v, blendMode] of [[DETAIL_DARK, dark, 0, 'multiply'], [DETAIL_LIGHT, light, 255, 'screen']] as const) {
+    let x0 = S, y0 = S, x1 = -1, y1 = -1, n = 0;
+    for (let p = 0; p < S * S; p++) {
+      if (!alpha[p]) continue;
+      n++;
+      const x = p % S, y = (p / S) | 0;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+    if (n < 200) continue;
+    const w = x1 - x0 + 1, h = y1 - y0 + 1;
+    const c = newCanvas(w, h);
+    const ctx = c.getContext('2d')!;
+    const img = ctx.createImageData(w, h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const a = alpha[(y + y0) * S + x + x0];
+        if (!a) continue;
+        const i = (y * w + x) * 4;
+        img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+        img.data[i + 3] = a;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    out.push({ name, canvas: c, left: x0, top: y0, blendMode });
+  }
+  return out;
+}
 
 /** Splits a mask by part group; groups with only a few stray pixels are left out. */
 export function splitByGroup(mask: Uint8Array, minPixels = 60): { group: string; mask: Uint8Array }[] {
@@ -513,6 +568,8 @@ export interface PngPsdRequest {
   /** Colour group -> the group it was merged into (itself when not merged). */
   alias: Int32Array;
   gradient: boolean;
+  /** Keep the fabric detail (mesh, shading) as two layers on top. */
+  detail: boolean;
   splitPieces: boolean;
   minArea: number;
   maxZones: number;
@@ -539,7 +596,9 @@ export async function buildPngPsd(r: PngPsdRequest, onProgress?: (done: number, 
     ? absorbIntoChosen(labels, r.images.map((i) => pictureData(i, r.fit, SIZE, r.denoise)), r.vectors, new Set(r.chosen.map((c) => c.id)))
     : labels;
   const layers: { name: string; mask: Uint8Array; color: [number, number, number]; cluster: number }[] = [];
+  const first = pictureData(r.images[0], r.fit, SIZE, r.denoise);
   for (const [k, cl] of ordered.entries()) {
+    const color = dominantColour(first, labels, cl.id) ?? r.colors[cl.id];
     // numbered by size, like the colour slots the PSD gets when it is read (see assignSlots)
     const name = k === 0 ? 'Base' : /^Warna \d+$/.test(cl.name) ? `Warna ${k + 1}` : cl.name;
     // one layer per part group (shirt, shorts, socks, details), so each shows in its own group of the Layer tab
@@ -550,7 +609,7 @@ export async function buildPngPsd(r: PngPsdRequest, onProgress?: (done: number, 
       const label = `${name} – ${g.group}`;
       const pieces = r.splitPieces && k > 0 ? splitComponents(Uint16Array.from(g.mask, (v) => (v ? 1 : 65535)), 1, r.minArea) : [g.mask];
       pieces.slice(0, r.maxZones - layers.length).forEach((mask, i) =>
-        layers.push({ name: pieces.length > 1 ? `${label} ${i + 1}` : label, mask, color: r.colors[cl.id], cluster: cl.id })
+        layers.push({ name: pieces.length > 1 ? `${label} ${i + 1}` : label, mask, color, cluster: cl.id })
       );
     }
     onProgress?.(k + 1, ordered.length + 1);
@@ -558,9 +617,46 @@ export async function buildPngPsd(r: PngPsdRequest, onProgress?: (done: number, 
   const rank = new Int16Array(r.counts.length).fill(-1);
   ordered.forEach((cl, k) => (rank[cl.id] = k));
   const srcs = r.images.map((i) => pictureData(i, r.fit, PSD_SIZE, r.denoise));
-  const buf = await masksToPsd(layers, srcs, r.vectors, rank, r.gradient, r.alias);
+  const buf = await masksToPsd(layers, srcs, r.vectors, rank, r.gradient, r.alias, r.detail);
   onProgress?.(ordered.length + 1, ordered.length + 1);
   return buf;
+}
+
+/**
+ * The most common colour of a cluster (32 levels per channel, the mean inside the fullest bin). The plain mean also
+ * counts the edges and logos inside the cluster, which pulls a light grey next to maroon towards pink.
+ */
+export function dominantColour(data: ImageData, labels: Uint16Array, cluster: number): [number, number, number] | undefined {
+  const bins = new Map<number, [number, number, number, number]>();
+  const d = data.data;
+  for (let p = 0; p < labels.length; p++) {
+    if (labels[p] !== cluster) continue;
+    const i = p * 4;
+    const key = ((d[i] >> 3) << 10) | ((d[i + 1] >> 3) << 5) | (d[i + 2] >> 3);
+    const b = bins.get(key) ?? [0, 0, 0, 0];
+    b[0] += d[i]; b[1] += d[i + 1]; b[2] += d[i + 2]; b[3]++;
+    bins.set(key, b);
+  }
+  let best: [number, number, number, number] | undefined;
+  for (const b of bins.values()) if (!best || b[3] > best[3]) best = b;
+  return best ? [Math.round(best[0] / best[3]), Math.round(best[1] / best[3]), Math.round(best[2] / best[3])] : undefined;
+}
+
+/**
+ * The most common colour group of each part group (shirt, shorts, socks, details). Such a colour is never a shade of
+ * a gradient, even when it lies between two others (a light grey on the line from white to black).
+ */
+export function groupMainColours(labels: Uint16Array): Set<number> {
+  const out = new Set<number>();
+  for (const [, parts] of LAYER_GROUPS) {
+    const area = partsMask(parts);
+    const count = new Map<number, number>();
+    for (let p = 0; p < labels.length; p++) if (area[p] && labels[p] !== 65535) count.set(labels[p], (count.get(labels[p]) ?? 0) + 1);
+    let best = -1, n = 0;
+    for (const [c, k] of count) if (k > n) { best = c; n = k; }
+    if (best >= 0) out.add(best);
+  }
+  return out;
 }
 
 /** Pixel mask of a whole cluster. */

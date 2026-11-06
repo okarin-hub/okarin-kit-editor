@@ -2,6 +2,30 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## Belum dirilis
+
+- **Import PNG menyimpan detail kain:** dengan *Simpan detail kain* (menyala secara bawaan), garis mesh, lipatan, dan
+  bayangan dari gambar menjadi dua layer di atas warna: *Detail kain – gelap* (hitam, multiply) dan *Detail kain –
+  terang* (putih, screen). Pada warna asli gambar, keduanya mengembalikan terang-gelapnya; setelah warna diganti,
+  detailnya tetap menempel di warna baru. Tepi antar-warna dan perbedaan yang sangat kecil (noise kompresi)
+  diabaikan, begitu juga area armband dan kredit (watermark situs template). Logo yang warnanya tidak dicentang
+  menjadi bayangan di layer detail; centang warnanya agar tetap jadi layer sendiri.
+- **Pola dari foto jersey: gradasi satu warna jadi satu warna:** sisi baju yang terkena cahaya dan yang berbayang,
+  serta motif tone-on-tone yang samar (rona sama, terang-gelap mirip), tidak lagi dipecah jadi beberapa warna pola
+  (baju kuning sebelumnya keluar sebagai tiga kuning). Warna terang dan gelap dengan rona sama (biru muda dan biru
+  tua) tetap terpisah.
+- **Perbaikan:** layer yang bagian utamanya kotak kredit tidak muncul di tab Layer (tidak punya grup).
+- **Perbaikan: Import PNG kehilangan potongan kecil sebuah warna:** layer warna hanya digambar di bagian yang memuat
+  porsi besar dari layer itu, jadi tiga garis di lengan dan dada hilang kalau warna yang sama sebagian besar ada di
+  tempat lain (gradasi gelap di punggung). Layer dari Import PNG sekarang tetap digambar di setiap bagian dalam
+  grupnya sendiri (baju, celana, kaos kaki, detail) yang memuat pikselnya, dan tidak lagi tumpah ke grup sebelah di
+  tempat kotak bagiannya bertumpuk. PSD hasil Import PNG dibaca ulang sekali setelah update.
+- **Gradasi halus tetap menyimpan warna utama:** mencentang *Gradasi halus* tidak lagi membuang centang warna yang
+  menjadi warna utama baju, celana, atau kaos kaki, walaupun warna itu terletak di antara dua warna lain (celana
+  abu-abu terang pada desain putih / hitam dianggap bagian gradasi dan jadi kemerahan).
+- **Warna Import PNG lebih bersih:** warna layer diambil dari warna yang paling sering muncul di kelompoknya, bukan
+  rata-rata yang ikut menghitung tepi logo (abu-abu terang di samping maroon jadi kemerahan).
+
 ## 0.4.1 (eksperimental) — Efek PSD, ganti nama / hapus template library
 
 - **Lebih banyak isi PSD yang terbawa (Baca PSD):** blend mode (multiply, screen, overlay, soft / hard light, darken,

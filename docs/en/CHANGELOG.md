@@ -2,6 +2,29 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## Unreleased
+
+- **Import PNG keeps the fabric detail:** with *Keep fabric detail* (on by default), the mesh lines, folds and
+  shading of the picture become two layers over the colours: *Fabric detail – dark* (black, multiply) and
+  *Fabric detail – light* (white, screen). On the picture's own colours they bring back its brightness; after a
+  colour change the detail stays on the new colour. Edges between colours and tiny differences (compression
+  noise) are left out, and so are the armband and credit boxes (template site watermarks). A logo whose colour is
+  not ticked ends up as a shade in the detail layer; tick its colour to keep it as its own layer.
+- **Pattern from a jersey photo: shades of one colour are one colour:** the lit and the shaded side of a shirt
+  and a faint tone-on-tone print (same hue, similar lightness) are no longer split into several pattern colours
+  (a yellow shirt came out as three yellows). Light and dark colours of one hue (sky blue and navy) stay apart.
+- **Fix:** a layer whose main part is the credit box was missing from the Layer tab (it had no group).
+- **Fix: Import PNG lost small pieces of a colour:** a colour layer was only drawn on the parts holding a large
+  share of it, so the three stripes on the sleeves and chest of a design whose colour mostly sits elsewhere (a
+  dark gradient on the back) disappeared. A layer from Import PNG now keeps every part of its own group (shirt,
+  shorts, socks, details) that holds its pixels, and no longer spills onto a neighbouring group where the part boxes
+  overlap. PSDs made by Import PNG are read once more after the update.
+- **Smooth gradient keeps the main colours:** ticking *Smooth gradient* no longer unticks a colour that is the main
+  colour of the shirt, shorts or socks, even when it lies between two others (the light grey shorts of a
+  white / black design were taken for a shade of the gradient and came out pinkish).
+- **Import PNG picks cleaner colours:** a layer's colour is the most common colour of its group instead of the
+  average, which counted the edges of logos too (a light grey next to maroon came out pinkish).
+
 ## 0.4.1 (experimental) — PSD effects, rename / delete library templates
 
 - **More of a PSD is kept (Read PSD):** blend modes (multiply, screen, overlay, soft / hard light, darken, lighten

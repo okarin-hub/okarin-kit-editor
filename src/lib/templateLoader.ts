@@ -17,7 +17,7 @@ export const PART_IDS = [
 const PART_GROUP: Record<string, string> = {
   front: 'shirt', back: 'shirt', leftSleeve: 'shirt', rightSleeve: 'shirt',
   leftShorts: 'shorts', rightShorts: 'shorts', leftSock: 'socks', rightSock: 'socks',
-  collar: 'details', armband: 'details',
+  collar: 'details', armband: 'details', credit: 'details',
 };
 
 const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
@@ -196,8 +196,9 @@ function removeOrphanPsdCaches(psd: PsdEntry[]): void {
   }
 }
 
-/** Raise when the PSD reader draws layers differently (2: blend modes, clipping, vector masks, shape layers). */
-const PSD_READER_VERSION = 2;
+/** Raise when the PSD reader draws layers differently (2: blend modes, clipping, vector masks, shape layers;
+ *  4: Import PNG layers keep every part of their own group holding their pixels). */
+const PSD_READER_VERSION = 4;
 
 export interface PsdEntry {
   /** Path relative to the library root ("templates/adidas/adidas AUTH.psd"), for /api/library/file. */
