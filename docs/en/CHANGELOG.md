@@ -2,7 +2,23 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
-## Unreleased
+## 0.4.2 (experimental) — fabric detail for Import PNG, sashes and raglan sleeves from jersey photos
+
+- **Pattern from a jersey photo: raglan sleeves in their own colour:** when most of the sleeve boxes are one colour
+  the body does not have (navy sleeves on a white shirt), the sleeves, long sleeve part included, get that colour
+  instead of the body's, also with *Use as a pattern layer*. A patterned sleeve in colours of its own is not read
+  yet.
+
+- **Pattern from a jersey photo: mark colours yourself:** *+ Pattern colour* and *− Not a pattern colour* next to the
+  box buttons; click on the front photo. A marked colour is always a pattern colour even when it is small (a thin
+  sash), or never one (a sponsor word); *Clear marks* removes them.
+- **Pattern from a jersey photo: a sash with a soft edge stays:** a band that fades into the shirt was joined to it
+  and painted over in the clean-up step; a large second colour in an area is now kept.
+- **Pattern from a jersey photo finds a sash by itself:** a colour split by the light into a lit and a shaded half
+  counts with both halves, and a smaller colour that forms one solid band across the body is a pattern colour (a
+  word across the chest is not: its strokes are much thinner than its height). The diagonal sash of the three test
+  photos is recognised as *One slanted band* without marking it; the synthetic test set (stripes, hoops, diagonal,
+  sash, plain) still reads the same.
 
 - **Import PNG keeps the fabric detail:** with *Keep fabric detail* (on by default), the mesh lines, folds and
   shading of the picture become two layers over the colours: *Fabric detail – dark* (black, multiply) and

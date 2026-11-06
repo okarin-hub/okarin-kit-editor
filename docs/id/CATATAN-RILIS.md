@@ -2,7 +2,22 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
-## Belum dirilis
+## 0.4.2 (eksperimental) — detail kain untuk Import PNG, sash dan lengan raglan dari foto jersey
+
+- **Pola dari foto jersey: lengan raglan dengan warnanya sendiri:** kalau sebagian besar kotak lengan berisi satu warna
+  yang tidak ada di badan (lengan biru tua pada baju putih), lengan (termasuk bagian lengan panjang) memakai warna
+  itu, bukan warna badan, juga saat *Pakai sebagai layer pola*. Lengan bermotif dengan warna sendiri belum terbaca.
+
+- **Pola dari foto jersey: tandai warna sendiri:** *+ Warna pola* dan *− Buang warna* di samping tombol kotak; klik di
+  foto depan. Warna yang ditandai selalu jadi warna pola walaupun kecil (sash tipis), atau tidak pernah dipakai
+  (tulisan sponsor); *Hapus tanda* menghapus tandanya.
+- **Pola dari foto jersey: sash dengan tepi pudar tetap ada:** pita yang memudar ke warna baju sebelumnya ikut
+  tergabung dan tertimpa saat perapian; warna kedua yang besar dalam satu area sekarang dipertahankan.
+- **Pola dari foto jersey menemukan sash sendiri:** warna yang terpecah cahaya menjadi bagian terang dan berbayang
+  dihitung bersama kedua bagiannya, dan warna yang lebih kecil yang membentuk satu pita padat melintasi badan
+  dianggap warna pola (tulisan di dada tidak: goresannya jauh lebih tipis dari tingginya). Sash diagonal di ketiga
+  foto uji dikenali sebagai *Satu pita miring* tanpa ditandai; set uji buatan (strip, hoops, diagonal, sash, polos)
+  tetap terbaca sama.
 
 - **Import PNG menyimpan detail kain:** dengan *Simpan detail kain* (menyala secara bawaan), garis mesh, lipatan, dan
   bayangan dari gambar menjadi dua layer di atas warna: *Detail kain – gelap* (hitam, multiply) dan *Detail kain –

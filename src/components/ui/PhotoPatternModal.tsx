@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { X, Shirt, ImagePlus, Trash2 } from 'lucide-react';
 import { InfoTip } from '@/components/ui/InfoTip';
-import { PhotoRect, guessAreas } from '@/utils/photoPattern';
+import { PhotoRect, PhotoMark, guessAreas } from '@/utils/photoPattern';
 import type { PhotoPatternRequest, PhotoPatternReply } from '@/workers/photoPattern.worker';
 import type { RecognisedPattern } from '@/utils/patternRecognise';
 
@@ -18,7 +18,8 @@ interface Shot {
   right: PhotoRect;
 }
 
-type Area = 'rect' | 'left' | 'right';
+/** What a mouse action on the photo does: draw one of the boxes, or mark a colour as pattern (keep) or not (drop). */
+type Area = 'rect' | 'left' | 'right' | 'keep' | 'drop';
 
 interface PhotoPatternModalProps {
   isOpen: boolean;
@@ -38,8 +39,16 @@ const patternName = (r: RecognisedPattern) => {
   return r.angle === 0 ? 'Satu strip tegak' : r.angle === 90 ? 'Satu pita mendatar' : `Satu pita miring ${Math.round(r.angle)}°`;
 };
 
-/** One photo with the body (and sleeve) boxes; dragging redraws the box being edited. */
-const ShotView: React.FC<{ shot: Shot; area: Area; sleeves: boolean; onRect: (r: PhotoRect) => void }> = ({ shot, area, sleeves, onRect }) => {
+/** One photo with the body (and sleeve) boxes; dragging redraws the box being edited, a click in mark mode marks a colour. */
+const ShotView: React.FC<{
+  shot: Shot;
+  area: Area;
+  sleeves: boolean;
+  onRect: (r: PhotoRect) => void;
+  marks?: PhotoMark[];
+  onMark?: (m: PhotoMark) => void;
+}> = ({ shot, area, sleeves, onRect, marks = [], onMark }) => {
+  const marking = area === 'keep' || area === 'drop';
   const ref = useRef<HTMLCanvasElement | null>(null);
   const drag = useRef<{ x: number; y: number } | null>(null);
   const scale = Math.min(VIEW / shot.image.width, (VIEW * 1.25) / shot.image.height);
@@ -65,12 +74,19 @@ const ShotView: React.FC<{ shot: Shot; area: Area; sleeves: boolean; onRect: (r:
       style={{ left: r.x * scale, top: r.y * scale, width: r.w * scale, height: r.h * scale }}
     />
   );
-  const dim = shot[area];
+  const dim = marking ? shot.rect : shot[area as 'rect' | 'left' | 'right'];
   return (
     <div
-      className="relative cursor-crosshair mx-auto"
+      className={`relative mx-auto ${marking && !onMark ? 'cursor-not-allowed' : 'cursor-crosshair'}`}
       style={{ width: vw, height: vh }}
-      onMouseDown={(e) => (drag.current = at(e))}
+      onMouseDown={(e) => {
+        if (marking) {
+          const p = at(e);
+          onMark?.({ x: Math.round(p.x), y: Math.round(p.y), keep: area === 'keep' });
+          return;
+        }
+        drag.current = at(e);
+      }}
       onMouseMove={(e) => {
         const s = drag.current;
         if (!s) return;
@@ -89,6 +105,13 @@ const ShotView: React.FC<{ shot: Shot; area: Area; sleeves: boolean; onRect: (r:
       {box(shot.rect, area === 'rect', 'border-sky-400', 'rect')}
       {sleeves && box(shot.left, area === 'left', 'border-amber-400', 'left')}
       {sleeves && box(shot.right, area === 'right', 'border-amber-400', 'right')}
+      {marks.map((m, i) => (
+        <span
+          key={i}
+          className={`absolute w-3 h-3 -ml-1.5 -mt-1.5 rounded-full border-2 border-white pointer-events-none ${m.keep ? 'bg-emerald-500' : 'bg-rose-500'}`}
+          style={{ left: m.x * scale, top: m.y * scale }}
+        />
+      ))}
     </div>
   );
 };
@@ -100,6 +123,8 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
   const [minShare, setMinShare] = useState(8);
   const [withSleeves, setWithSleeves] = useState(true);
   const [area, setArea] = useState<Area>('rect');
+  // colours marked on the front photo
+  const [marks, setMarks] = useState<PhotoMark[]>([]);
   const [result, setResult] = useState<{ palette: string[]; texture: HTMLCanvasElement; recognised: RecognisedPattern | null } | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -155,12 +180,16 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
         back: back ? shot(back) : null,
         minShare: minShare / 100,
         withSleeves,
+        marks,
       };
       setBusy(true);
       worker.current?.postMessage(req);
     }, 200);
     return () => clearTimeout(t);
-  }, [isOpen, front, back, minShare, withSleeves]);
+  }, [isOpen, front, back, minShare, withSleeves, marks]);
+
+  // marks belong to one photo
+  useEffect(() => setMarks([]), [front?.image]);
 
   // preview: the shirt pieces of the texture (front, back and sleeves)
   useEffect(() => {
@@ -199,6 +228,8 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
     }, 'image/png');
   };
 
+  // the sleeve boxes only exist with "sleeves from the photo"
+  const mode: Area = !withSleeves && (area === 'left' || area === 'right') ? 'rect' : area;
   const slot = (title: string, shot: Shot | null, set: (s: Shot | null) => void, input: React.RefObject<HTMLInputElement | null>, optional: boolean) => (
     <section className="space-y-2 min-w-0">
       <div className="flex items-center justify-between">
@@ -211,11 +242,25 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
       </div>
       {shot ? (
         <>
-          <ShotView shot={shot} area={withSleeves ? area : 'rect'} sleeves={withSleeves} onRect={(r) => set({ ...shot, [withSleeves ? area : 'rect']: r })} />
+          <ShotView
+            shot={shot}
+            area={mode}
+            sleeves={withSleeves}
+            onRect={(r) => set({ ...shot, [mode]: r })}
+            // colours are marked on the front photo (its colours are the pattern colours)
+            marks={optional ? [] : marks}
+            onMark={optional ? undefined : (m) => setMarks((prev) => [...prev, m])}
+          />
           <p className="text-[10px] text-slate-500 text-center">
-            {area === 'rect' || !withSleeves
-              ? 'Tarik kotak di badan baju (tanpa lengan dan kerah).'
-              : 'Tarik kotak di lengan: dari bahu sampai ujung lengan.'}
+            {mode === 'keep' || mode === 'drop'
+              ? optional
+                ? 'Tandai warna di foto depan.'
+                : mode === 'keep'
+                  ? 'Klik warna yang termasuk pola (misalnya sash yang hilang).'
+                  : 'Klik warna yang bukan pola (misalnya tulisan sponsor).'
+              : mode === 'rect'
+                ? 'Tarik kotak di badan baju (tanpa lengan dan kerah).'
+                : 'Tarik kotak di lengan: dari bahu sampai ujung lengan.'}
           </p>
         </>
       ) : (
@@ -265,28 +310,56 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto grid grid-cols-1 lg:grid-cols-[1fr_1fr_1.3fr] gap-5 p-5">
-          {(front || back) && withSleeves && (
+          {(front || back) && (
             <div className="lg:col-span-2 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400 -mb-2">
               <span>Kotak yang ditarik:</span>
               {(
                 [
                   ['rect', 'Badan'],
-                  ['left', 'Lengan kiri gambar'],
-                  ['right', 'Lengan kanan gambar'],
+                  ...(withSleeves
+                    ? [
+                        ['left', 'Lengan kiri gambar'],
+                        ['right', 'Lengan kanan gambar'],
+                      ]
+                    : []),
                 ] as [Area, string][]
               ).map(([k, label]) => (
                 <button
                   key={k}
                   type="button"
                   onClick={() => setArea(k)}
-                  className={`px-2 py-1 rounded border ${area === k ? 'border-sky-500 bg-sky-500/15 text-sky-200' : 'border-slate-700 hover:bg-slate-800'}`}
+                  className={`px-2 py-1 rounded border ${mode === k ? 'border-sky-500 bg-sky-500/15 text-sky-200' : 'border-slate-700 hover:bg-slate-800'}`}
                 >
                   {label}
                 </button>
               ))}
+              <span className="ml-2 flex items-center gap-1">
+                Tandai warna:
+                <InfoTip text="Klik di foto depan. + Warna pola: warna itu selalu dipakai, walaupun kecil (sash yang hilang). − Buang warna: warna itu tidak dipakai (tulisan sponsor yang terbaca sebagai pola)." />
+              </span>
+              {(
+                [
+                  ['keep', '+ Warna pola', 'border-emerald-500 bg-emerald-500/15 text-emerald-200'],
+                  ['drop', '− Buang warna', 'border-rose-500 bg-rose-500/15 text-rose-200'],
+                ] as [Area, string, string][]
+              ).map(([k, label, on]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setArea(k)}
+                  className={`px-2 py-1 rounded border ${mode === k ? on : 'border-slate-700 hover:bg-slate-800'}`}
+                >
+                  {label}
+                </button>
+              ))}
+              {marks.length > 0 && (
+                <button type="button" onClick={() => setMarks([])} className="px-2 py-1 rounded border border-slate-700 hover:bg-slate-800">
+                  {`Hapus tanda (${marks.length})`}
+                </button>
+              )}
             </div>
           )}
-          {(front || back) && withSleeves && <div className="hidden lg:block" />}
+          {(front || back) && <div className="hidden lg:block" />}
           {slot('Depan', front, setFront, frontInput, false)}
           {slot('Belakang', back, setBack, backInput, true)}
           <section className="space-y-2 min-w-0">

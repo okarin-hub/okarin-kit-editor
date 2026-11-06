@@ -29,6 +29,13 @@ function newCanvas(w: number, h: number): HTMLCanvasElement {
   return c;
 }
 
+/** A point of the photo (its own pixels) the user clicked: its colour is a pattern colour (keep) or not. */
+export interface PhotoMark {
+  x: number;
+  y: number;
+  keep: boolean;
+}
+
 function draw(img: CanvasImageSource & { width: number; height: number }, rect: PhotoRect, maxSize: number) {
   const k = Math.min(1, maxSize / Math.max(rect.w, rect.h));
   const c = newCanvas(Math.max(1, Math.round(rect.w * k)), Math.max(1, Math.round(rect.h * k)));
@@ -105,6 +112,19 @@ export function guessAreas(img: Photo): { body: PhotoRect; left: PhotoRect; righ
  * (a small sleeve box alone would take the stripes themselves for shading).
  */
 export function extractSleeves(img: Photo, left: PhotoRect, right: PhotoRect, palette: PatternResult): PhotoSleeves {
+  // sleeves in a colour of their own (raglan): plain bands in that colour, the body's colours do not fit them
+  const own = ownSleeveColour(img, [left, right], palette.palette);
+  if (own) {
+    const solid = (r: PhotoRect) => {
+      const k = Math.min(1, 512 / Math.max(r.w, r.h));
+      const c = newCanvas(Math.max(1, Math.round(r.w * k)), Math.max(1, Math.round(r.h * k)));
+      const ctx = c.getContext('2d')!;
+      ctx.fillStyle = own;
+      ctx.fillRect(0, 0, c.width, c.height);
+      return c;
+    };
+    return { left: solid(left), right: solid(right), colour: own };
+  }
   const x0 = Math.min(left.x, right.x), y0 = Math.min(left.y, right.y);
   const area = { x: x0, y: y0, w: Math.max(left.x + left.w, right.x + right.w) - x0, h: Math.max(left.y + left.h, right.y + right.h) - y0 };
   const flat = flattenWithPalette(img, area, palette);
@@ -115,6 +135,39 @@ export function extractSleeves(img: Photo, left: PhotoRect, right: PhotoRect, pa
     return straightenSleeve(img, r, c);
   };
   return { left: band(left), right: band(right) };
+}
+
+/**
+ * The colour of sleeves that have one the body does not (navy raglan sleeves on a white shirt): most of the shirt
+ * pixels in the sleeve boxes are far from every body colour, and most of those lie close to their median colour.
+ * Null when the sleeves are in the body's colours, or mixed (a patterned sleeve, logos).
+ * shortcut: a patterned sleeve in colours of its own is not read; it keeps the body's colours.
+ */
+export function ownSleeveColour(img: Photo, boxes: PhotoRect[], bodyHex: string[]): string | null {
+  const full = draw(img, { x: 0, y: 0, w: img.width, h: img.height }, 400);
+  const W = full.c.width, H = full.c.height;
+  const ink = inkTest(full.d, W, H);
+  const body = bodyHex.map((hx) => lab(...([1, 3, 5].map((o) => parseInt(hx.slice(o, o + 2), 16)) as [number, number, number])));
+  let shirt = 0;
+  const off: number[] = [];
+  for (const r of boxes) {
+    for (let y = Math.max(0, Math.floor(r.y * full.k)); y < Math.min(H, Math.ceil((r.y + r.h) * full.k)); y++) {
+      for (let x = Math.max(0, Math.floor(r.x * full.k)); x < Math.min(W, Math.ceil((r.x + r.w) * full.k)); x++) {
+        const p = y * W + x;
+        if (!ink(p)) continue;
+        shirt++;
+        const f = lab(full.d[p * 4], full.d[p * 4 + 1], full.d[p * 4 + 2]);
+        if (Math.min(...body.map((b) => fdist(f, b))) > 25) off.push(p);
+      }
+    }
+  }
+  if (shirt < 200 || off.length < shirt * 0.5) return null;
+  const ch = (o: number) => median(off.map((p) => full.d[p * 4 + o]));
+  const rgb = [ch(0), ch(1), ch(2)];
+  const m = lab(rgb[0], rgb[1], rgb[2]);
+  const near = off.filter((p) => fdist(lab(full.d[p * 4], full.d[p * 4 + 1], full.d[p * 4 + 2]), m) < 20).length;
+  if (near < off.length * 0.6) return null;
+  return `#${rgb.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')}`.toUpperCase();
 }
 
 /**
@@ -291,10 +344,16 @@ export function extractPattern(
   rect: PhotoRect,
   minShare = 0.08,
   /** the pattern colours of the front: the back is read with them (its big number and name are not pattern) */
-  palette?: PatternResult
+  palette?: PatternResult,
+  /** points of the photo the user marked: their colour is a pattern colour (keep) or not (drop) */
+  marks: PhotoMark[] = []
 ): PatternResult {
   const { c, ctx, d } = draw(img, rect, 512);
   const w = c.width, h = c.height, N = w * h;
+  // the marks inside the box, as pixels of the drawn box
+  const markAt = marks
+    .map((m) => ({ ...m, x: Math.floor(((m.x - rect.x) * w) / rect.w), y: Math.floor(((m.y - rect.y) * h) / rect.h) }))
+    .filter((m) => m.x >= 0 && m.y >= 0 && m.x < w && m.y < h);
   // Lab, with the lighting taken out of the lightness: each pixel is compared with the mean lightness around it
   // (radius 8 % of the area). Shading and folds change slowly over a large area and drop out; the pattern,
   // which changes over a short distance, stays. Two pattern colours a few shades apart then separate clearly.
@@ -387,9 +446,42 @@ export function extractPattern(
     label[p] = n.k;
     count[n.k]++;
   }
+  // shades of one colour (the lit and the shaded side, a faint tone-on-tone print): the same hue and a similar
+  // lightness. Light blue and navy share a hue too, but lie far apart in lightness.
+  const sum = centres.map(() => [0, 0]);
+  for (let p = 0; p < N; p += 3) {
+    sum[label[p]][0] += feats[p * 3];
+    sum[label[p]][1]++;
+  }
+  const L = sum.map(([s, n]) => s / Math.max(1, n));
+  const hue = (k: number) => (Math.atan2(centres[k][2], centres[k][1]) * 180) / Math.PI;
+  const chroma = (k: number) => Math.hypot(centres[k][1], centres[k][2]);
+  const same = (i: number, k: number) =>
+    chroma(i) > 10 && chroma(k) > 10 && Math.abs(((hue(i) - hue(k) + 540) % 360) - 180) < 12 && Math.abs(L[i] - L[k]) < 25;
+
+  // colours the user marked: always a pattern colour, however small (a thin sash), or never one (a sponsor word)
+  const forced = new Set(markAt.filter((m) => m.keep).map((m) => label[m.y * w + m.x]));
+  const dropped = new Set(markAt.filter((m) => !m.keep).map((m) => label[m.y * w + m.x]));
+  forced.forEach((k) => dropped.delete(k));
+  // a smaller colour that forms a band across the box (a sash) is pattern, a word or a badge is not; its lit and
+  // shaded halves are judged together (each alone is ragged)
+  const shades = (k: number) => centres.map((_, j) => j).filter((j) => j === k || (!dropped.has(j) && same(k, j)));
+  const shadeShare = (k: number) => shades(k).reduce((s, j) => s + count[j] / N, 0);
+  const isBand = (k: number) => {
+    const members = new Set(shades(k));
+    if (shadeShare(k) < 0.015) return false;
+    const grp = new Int16Array(N);
+    for (let p = 0; p < N; p++) if (members.has(label[p])) grp[p] = 1;
+    return bandShape(grp, w, h, 1);
+  };
+  // a colour split by the light into a lit and a shaded cluster counts with both (they are joined below)
+  const big = (i: number) => count[i] / N >= minShare || (count[i] / N >= 0.005 && shadeShare(i) >= minShare);
   const pattern = palette
     ? centres.map((_, i) => i)
-    : centres.map((_, i) => i).filter((i) => count[i] / N >= minShare).sort((a, b) => count[b] - count[a]);
+    : centres
+        .map((_, i) => i)
+        .filter((i) => (big(i) || forced.has(i) || (count[i] / N >= 0.005 && isBand(i))) && !dropped.has(i))
+        .sort((a, b) => count[b] - count[a]);
   if (!pattern.length) pattern.push(count.indexOf(Math.max(...count)));
   // a colour that lies between two other pattern colours is their blend (the soft edge of a brush stroke, a
   // print's dither), not a colour of its own: it is left out and its pixels take the colour around them
@@ -409,29 +501,26 @@ export function extractPattern(
           return fdist(c, p) < Math.max(6, Math.sqrt(len2) * 0.12) && count[k] < count[i] && count[k] < count[j];
         })
       );
-    const blends = pattern.filter(blend);
+    const blends = pattern.filter((k) => !forced.has(k) && blend(k));
     for (const k of blends) pattern.splice(pattern.indexOf(k), 1);
   }
-  // shades of one colour (the lit and the shaded side, a faint tone-on-tone print) are one pattern colour: the same
-  // hue and a similar lightness. Light blue and navy share a hue too, but lie far apart in lightness and stay two.
+  // shades of one colour are one pattern colour (see `same`)
   const root = centres.map((_, i) => i);
-  if (!palette && pattern.length > 1) {
-    const sum = centres.map(() => [0, 0]);
-    for (let p = 0; p < N; p += 3) {
-      sum[label[p]][0] += feats[p * 3];
-      sum[label[p]][1]++;
-    }
-    const L = sum.map(([s, n]) => s / Math.max(1, n));
-    const hue = (k: number) => (Math.atan2(centres[k][2], centres[k][1]) * 180) / Math.PI;
-    const chroma = (k: number) => Math.hypot(centres[k][1], centres[k][2]);
-    const same = (i: number, k: number) =>
-      chroma(i) > 10 && chroma(k) > 10 && Math.abs(((hue(i) - hue(k) + 540) % 360) - 180) < 12 && Math.abs(L[i] - L[k]) < 25;
+  if (!palette) {
     // pattern runs from the biggest colour down: a colour joins a bigger one of the same hue
     pattern.forEach((k, n) => {
+      // a marked colour is its own colour, even a faint tone-on-tone print
+      if (forced.has(k)) return;
       const i = pattern.slice(0, n).find((j) => root[j] === j && same(j, k));
       if (i !== undefined) root[k] = i;
     });
     for (const k of pattern.filter((k) => root[k] !== k)) pattern.splice(pattern.indexOf(k), 1);
+    // a small shade of a pattern colour (the darker half of a sash) is that colour, not a logo to fill over
+    centres.forEach((_, k) => {
+      if (pattern.includes(k) || dropped.has(k) || root[k] !== k) return;
+      const j = pattern.find((i) => same(i, k));
+      if (j !== undefined) root[k] = j;
+    });
   }
   const keep = new Int16Array(centres.length).fill(-1);
   pattern.forEach((k, i) => (keep[k] = i));
@@ -557,6 +646,10 @@ export function extractPattern(
           }
         }
         const win = votes.indexOf(Math.max(...votes));
+        // a second colour with a big share is a pattern area joined through a soft edge (a sash fading into the
+        // shirt), not a fold: leave the pixels as they are
+        const second = Math.max(...votes.filter((_, i) => i !== win), 0);
+        if (second >= Math.min(members.length * 0.2, N * 0.03)) continue;
         for (const q of members) out[q] = win;
       }
     }
@@ -616,6 +709,54 @@ export function extractPattern(
     ctx.fill(new Path2D(path), 'evenodd');
   }
   return { canvas: c, palette: palHex, centres: pattern.map((k) => centres[k]), lightWeight };
+}
+
+/**
+ * Whether the pixels of colour k form one solid band across the box (a sash): long along their main direction
+ * (at least half the box width and 2.5 times their width), and solid. Solid is told by the thickness of the shape
+ * (2 × area / outline length): a band is nearly as thick as it is wide, the strokes of a word are much thinner than
+ * its height, so a sponsor name across the chest is not a band.
+ */
+export function bandShape(label: Int16Array, w: number, h: number, k: number): boolean {
+  let n = 0, sx = 0, sy = 0, edge = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const p = y * w + x;
+      if (label[p] !== k) continue;
+      n++;
+      sx += x;
+      sy += y;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1 || label[p - 1] !== k || label[p + 1] !== k || label[p - w] !== k || label[p + w] !== k) edge++;
+    }
+  }
+  if (n < 50) return false;
+  const mx = sx / n, my = sy / n;
+  let xx = 0, yy = 0, xy = 0;
+  for (let p = 0; p < w * h; p++) {
+    if (label[p] !== k) continue;
+    const dx = (p % w) - mx, dy = ((p / w) | 0) - my;
+    xx += dx * dx;
+    yy += dy * dy;
+    xy += dx * dy;
+  }
+  // main direction, then the spread along it and across it (2 % to 98 %, so stray pixels do not count)
+  const a = 0.5 * Math.atan2(2 * xy, xx - yy);
+  const ux = Math.cos(a), uy = Math.sin(a);
+  const along: number[] = [], across: number[] = [];
+  for (let p = 0; p < w * h; p++) {
+    if (label[p] !== k) continue;
+    const dx = (p % w) - mx, dy = ((p / w) | 0) - my;
+    along.push(dx * ux + dy * uy);
+    across.push(-dx * uy + dy * ux);
+  }
+  const span = (v: number[]) => {
+    v.sort((x, y) => x - y);
+    return v[Math.floor(v.length * 0.98)] - v[Math.floor(v.length * 0.02)];
+  };
+  const length = span(along), width = Math.max(1, span(across));
+  const thickness = (2 * n) / Math.max(1, edge);
+  // a badge in the band and its soft edges cost some thickness: 0.4 still leaves letters (about 0.2) out
+  return length >= 0.5 * w && length >= 2.5 * width && thickness >= 0.4 * width;
 }
 
 /**
@@ -732,6 +873,8 @@ const BACK_BODY = { x: 380, y: 0, w: 264, h: 452 };
 export interface PhotoSleeves {
   left: HTMLCanvasElement;
   right: HTMLCanvasElement;
+  /** plain sleeves in a colour the body does not have (raglan sleeves): that colour */
+  colour?: string;
 }
 
 /**
@@ -771,7 +914,8 @@ export function buildKitTexture(
   for (const id of ['front', 'back', 'leftSleeve', 'rightSleeve'] as const) {
     ctx.beginPath();
     tracePolygons(ctx, partPolygons(PART_MAP[id]));
-    ctx.fillStyle = front.palette[0];
+    // the sleeve pieces (long sleeve part included) take the sleeves' own colour when they have one (raglan)
+    ctx.fillStyle = id.endsWith('Sleeve') && sleeves?.front.colour ? sleeves.front.colour : front.palette[0];
     ctx.fill();
   }
   ctx.save();

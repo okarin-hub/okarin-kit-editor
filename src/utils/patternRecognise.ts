@@ -138,7 +138,10 @@ export function recognisePattern(front: PatternResult, sleeves: PhotoSleeves | n
 
   // sleeves: their main colour, and whether they are patterned
   let sleeve = colours[ground], sleevesPatterned = false;
-  if (sleeves) {
+  if (sleeves?.colour) {
+    // plain sleeves in a colour of their own (raglan)
+    sleeve = sleeves.colour;
+  } else if (sleeves) {
     const sc = groups.map(() => 0);
     let total = 0;
     for (const band of [sleeves.left, sleeves.right]) {

@@ -2,7 +2,7 @@
  * Runs the jersey photo pattern off the main thread (it takes seconds on a large photo): the photos come in as
  * ImageBitmaps with their boxes, the kit texture goes back as an ImageBitmap.
  */
-import { PhotoRect, extractPattern, extractSleeves, buildKitTexture } from '@/utils/photoPattern';
+import { PhotoRect, PhotoMark, extractPattern, extractSleeves, buildKitTexture } from '@/utils/photoPattern';
 import { recognisePattern, RecognisedPattern } from '@/utils/patternRecognise';
 
 export interface WorkerShot {
@@ -18,6 +18,8 @@ export interface PhotoPatternRequest {
   back: WorkerShot | null;
   minShare: number;
   withSleeves: boolean;
+  /** colours marked on the front photo (pattern colour or not) */
+  marks: PhotoMark[];
 }
 
 export type PhotoPatternReply =
@@ -25,9 +27,9 @@ export type PhotoPatternReply =
   | { id: number; error: string };
 
 self.onmessage = (e: MessageEvent<PhotoPatternRequest>) => {
-  const { id, front, back, minShare, withSleeves } = e.data;
+  const { id, front, back, minShare, withSleeves, marks } = e.data;
   try {
-    const f = extractPattern(front.image, front.rect, minShare);
+    const f = extractPattern(front.image, front.rect, minShare, undefined, marks);
     const b = back ? extractPattern(back.image, back.rect, minShare, f) : null;
     const sleevesOf = (s: WorkerShot) => extractSleeves(s.image, s.left, s.right, f);
     const sleeves = withSleeves ? { front: sleevesOf(front), back: back ? sleevesOf(back) : null } : null;
