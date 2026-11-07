@@ -8,10 +8,10 @@
  * Picks the parts the viewer uses, renames them to stable ids, welds duplicate vertices and keeps only
  * position, normal and the kit UV (the skin, second UV and vertex colours are not used), which makes
  * the file a fraction of the export's size. Part ids:
- *   shirt_out, shirt_out_tight
- *   sleeve_{short|long}_{normal|kappa}[_tight]
- *   pants_out, pants_out_tight, pants_leg_001..016 (ShortsModel), socks_{short|middle|long}
- *   collar_001..133 (Collar)
+ *   shirt_{out|in}[_tight] (in = tucked into the shorts)
+ *   sleeve_{short|long}_{normal|kappa}[_tight][_captain], sleeve_gk[_tight][_captain] (goalkeeper, long only)
+ *   pants_out, pants_out_tight, pants_in, pants_leg_001..016 (ShortsModel), socks_{short|middle|long}
+ *   collar_001..133 (Collar). The PS4 collars of the scene (collar_E01..) are copies of collars 001.. and are left out.
  */
 const fs = require('fs');
 const path = require('path');
@@ -24,6 +24,8 @@ const out = process.argv[3] || path.join(root, 'public/model/pes_kit.glb');
 const PARTS = {
   shirt_out: 'shirt_out',
   shirt_out_tight: 'Shirt_OUT',
+  shirt_in: 'shirt_in',
+  shirt_in_tight: 'Shirt_IN',
   sleeve_short_normal: '1.SHORT_Sleeve',
   sleeve_short_kappa: '3.SHORT_Sleeve_Kappa',
   sleeve_long_normal: '5.LONG_Sleeve',
@@ -32,8 +34,22 @@ const PARTS = {
   sleeve_short_kappa_tight: '3. Short_Kappa',
   sleeve_long_normal_tight: '1. Long..',
   sleeve_long_kappa_tight: '3. Long__Kappa',
+  // with the captain's armband piece (reads the Captain Armband area of the texture)
+  sleeve_short_normal_captain: '2.SHORT_Sleeve_with_Captin',
+  sleeve_short_kappa_captain: '4.SHORT_Sleeve_Kappa_with_Captin',
+  sleeve_long_normal_captain: '6.LONG_Sleeve_with_Captin',
+  sleeve_long_kappa_captain: '8.LONG_Sleeve_Kappa_with_Captin',
+  sleeve_short_normal_tight_captain: '2. Short_With_Captin',
+  sleeve_short_kappa_tight_captain: '4. SHORT_Kappa_with_Captin',
+  sleeve_long_normal_tight_captain: '2. LONG_with_Captin',
+  sleeve_long_kappa_tight_captain: '4.  Long_Kappa_With_Captin',
+  sleeve_gk: 'GK_sleeve',
+  sleeve_gk_captain: 'with_Captin',
+  sleeve_gk_tight: 'GK_Sleeve.',
+  sleeve_gk_tight_captain: 'GK_with_Captin',
   pants_out: '2. Pants_out_sub',
   pants_out_tight: '3. Pants_Out_Tight',
+  pants_in: '1. Pants_IN_sub',
   socks_short: 'socks_short',
   socks_middle: 'socks_middle',
   socks_long: 'socks_long',

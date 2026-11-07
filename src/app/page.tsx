@@ -508,6 +508,21 @@ export default function Home() {
     setSelectedZoneId(id);
   }, []);
 
+  // New order (bottom first) of some layers, e.g. one group of the layer list: they swap into the array slots they
+  // already hold, so the other layers keep their places (later in the array = drawn on top)
+  const handleSetZoneOrder = useCallback((ids: string[]) => {
+    setTplBundle((prev) => {
+      const wanted = new Set(ids);
+      const slots = prev.def.zones.flatMap((z, i) => (wanted.has(z.id) ? [i] : []));
+      if (slots.length !== ids.length) return prev;
+      const byId = new Map(prev.def.zones.map((z) => [z.id, z]));
+      const zones = [...prev.def.zones];
+      slots.forEach((slot, k) => (zones[slot] = byId.get(ids[k])!));
+      if (zones.every((z, i) => z === prev.def.zones[i])) return prev;
+      return { ...prev, def: { ...prev.def, modified: true, zones } };
+    });
+  }, []);
+
   const handleDeleteZone = useCallback((zoneId: string) => {
     setTplBundle((prev) => {
       const zones = { ...prev.state.zones };
@@ -1612,6 +1627,7 @@ export default function Home() {
                 onAddZone={handleAddZone}
                 onDuplicateZone={handleDuplicateZone}
                 onMoveZone={handleMoveZone}
+                onSetZoneOrder={handleSetZoneOrder}
                 onDeleteZone={handleDeleteZone}
                 onSaveTemplate={handleSaveTemplate}
                 onStartDraw={handleStartDraw}

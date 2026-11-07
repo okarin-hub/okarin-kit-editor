@@ -2,6 +2,33 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## 0.5.2 — Patch stabil: urutan layer ala Photoshop, menu Pakaian, ukuran tampilan, perbaikan kerah
+
+- **Preview 3D: ban kapten, lengan kiper, baju dimasukkan.** *Kiper* (lengan panjang kiper, biasa atau ketat), *Ban
+  kapten* (lengan dengan ban kapten, menampilkan area *Ban Kapten* di teksturmu), dan *Dimasukkan* (baju lebih pendek
+  dan celana yang sesuai). Semuanya jalan dengan setiap model lengan dan baju ketat.
+- **Preview 3D: satu tombol *Pakaian*** di pojok tampilan 3D menggantikan deretan tombol. Tombolnya menampilkan pilihan
+  aktif (mis. *Kiper · Sedang · Ban kapten*) dan membuka menu kecil berisi lengan, panjang kaus kaki, ban kapten, dan baju
+  dimasukkan; klik di luar atau Esc menutupnya.
+- **Ukuran tampilan** (aplikasi Windows): *Tampilan → Ukuran tampilan* dengan *Otomatis*, *Kecil* 90 %, *Normal* 100 %,
+  *Besar* 115 %, dan *Ekstra besar* 130 %. *Otomatis* = 100 % di layar sekitar 1366 px dan 115 % di layar 1920 px ke
+  atas. Cara kerjanya seperti zoom browser, jadi canvas dan mouse tetap tepat, dan pilihannya diingat saat aplikasi
+  dibuka lagi. Di browser pakai Ctrl + / Ctrl −.
+- **Tab Layer: urutan daftar = urutan tumpukan, dan pola bisa dinaikkan ke atas objek.** Dulu objek dalam satu grup
+  ditampilkan dari yang paling bawah (objek terakhir di daftar justru yang digambar paling atas), menyeret objek di
+  dalam grupnya tidak berbuat apa-apa, dan pola (misalnya garis-garis preset) tidak pernah bisa di atas objek. Sekarang
+  yang paling atas di daftar tampil paling depan; objek, pola, dan layer PSD yang tidak di-clip bisa diseret ke atas
+  baris mana pun di grupnya, dan panah naik / turun pola juga bisa melewati objek. Pola yang dinaikkan digambar tepat di
+  atas objek itu di 2D, 3D, dan export. Layer Base (*Base* di PSD, layer warna dasar dari Import PNG) jadi latar grupnya,
+  seperti Background di Photoshop: tampil paling bawah, di bawah pola, dan tidak bisa diseret. Dulu warna dasar hasil
+  Import PNG tampil paling atas di daftar padahal digambar paling bawah.
+- **Kerah dan celana tidak tumpang tindih lagi.** Area celana dulu masuk ke kedua ujung *Collar Strip* (x 336–340 dan
+  684–688) dan turun sampai y 982, padahal celana di model hanya membaca sampai x 320 / mulai x 704 dan sampai y 972.
+  Celana kini berhenti di x 330 / 694 dan y 977. *Collar Strip* juga mencakup baris yang dibaca model kerah di bawahnya
+  (sampai y 1024, dan x 200–850 di bawah celana): dulu 71 kerah mengambil warna latar gelap di sana. Diukur di ke-133
+  kerah: 73 % titik teksturnya kini jatuh di Collar Strip (dulu 54 %), sisanya di leher baju seperti sebelumnya.
+- Model 3D kini berisi 179 part (5,1 MB); kerah PS4 di scene CometKIT adalah salinan kerah PC, jadi tidak dimasukkan.
+
 ## 0.5.1 — Patch stabil: pemilih warna mulus
 
 - **Menggeser pemilih warna kembali mulus.** Setiap langkah geser membuat ulang tekstur 3D: seluruh kit digambar,

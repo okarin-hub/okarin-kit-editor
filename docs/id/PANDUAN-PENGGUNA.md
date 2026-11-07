@@ -16,7 +16,7 @@
 ```
 
 - **Menu bar** – *File* (kit baru, buka / simpan proyek, import desain, export), *Edit* (undo, redo, pengaturan, preset warna),
-  *Tampilan* (garis bagian, label bagian, template PES asli, *Kecepatan zoom (scroll)*), *Alat* (pola dari foto
+  *Tampilan* (garis bagian, label bagian, template PES asli, *Kecepatan zoom (scroll)*, *Ukuran tampilan*), *Alat* (pola dari foto
   jersey dan config.txt kitserver, keduanya eksperimental; generator fontset), *Bantuan* (panduan, pintasan, cek
   pembaruan, kredit, tentang). *Kit baru* bertanya dulu; *Undo* mengembalikan kit sebelumnya.
 - **Rail alat (kiri)** – pilih / geser, bentuk bebas, bentuk titik, garis jahit titik, garis jahit bebas, kuas hapus
@@ -26,7 +26,9 @@
   men-zoom canvas ke satu bagian.
 - **Preview 3D** – seret untuk memutar, tahan tombol tengah mouse (tombol scroll) lalu geser ke atas / bawah untuk
   melihat dari atas atau bawah, scroll untuk zoom. Tombol mengganti kamera (depan, belakang, dada, bawah,
-  penuh); bar di bawah mengatur panjang lengan dan panjang kaus kaki di preview.
+  penuh); tombol *Pakaian* di pojok membuka pilihan lengan (pendek, panjang, kiper), panjang kaus kaki, ban kapten
+  (menampilkan area *Ban Kapten* di teksturmu), dan baju dimasukkan ke celana di preview; game mengambil semua ini
+  dari pemain.
   - **Geser layer template di model:** pilih template yang punya layer (Classic, Raglan …), pilih layernya di tab
     *Layer*, lalu seret di model 3D (kursor berubah jadi tanda geser di atasnya). Pola, logo, dan lis digeser di 2D.
 - **Part model 3D** – di mode Split dan 3D, toolbar (di samping zoom) punya *Kerah*, *Model lengan* (Normal /
@@ -37,6 +39,9 @@
   yang terbuka juga menampilkan namanya.
 - **Kecepatan zoom** – *Tampilan → Kecepatan zoom (scroll)*: pelan, normal, atau cepat, untuk canvas 2D, preview 3D,
   dan pratinjau fontset.
+- **Ukuran tampilan** – *Tampilan → Ukuran tampilan* (aplikasi Windows): *Otomatis* (100 % di layar ~1366 px, 115 % di
+  layar 1920 px ke atas), *Kecil* 90 %, *Normal* 100 %, *Besar* 115 %, *Ekstra besar* 130 %. Semuanya membesar atau
+  mengecil bersama, seperti zoom browser; pilihannya diingat. Di browser pakai Ctrl + / Ctrl −.
 
 Teksturnya adalah tekstur kit PES 2021 (1024 × 1024). **Punggung baju disimpan terbalik** (ujung bawah di atas,
 leher di tengah) dan celana disimpan diputar 90°. Editor sudah menanganinya untukmu.

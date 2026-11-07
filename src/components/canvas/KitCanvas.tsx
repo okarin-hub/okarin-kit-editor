@@ -15,7 +15,7 @@ import {
   Transformer,
 } from 'react-konva';
 import useImage from 'use-image';
-import { drawPatternLayersForPart, patternLayersForPart } from '@/utils/patternRenderer';
+import { drawPatternLayersForPart, patternLayersForPart, patternsUnderLayers } from '@/utils/patternRenderer';
 import { preloadImage, subscribeAssets } from '@/utils/imageCache';
 import { renderKitCanvas } from '@/utils/textureGenerator';
 import { drawTemplateForPart, setLiveErase, SEAM_CURVE_TENSION } from '@/utils/templateRenderer';
@@ -184,6 +184,9 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
 }) => {
   // Part shapes for the chosen sleeve length
   const shapeParts = partsForSleeveShape(templateBundle?.state.sleeveShape);
+  // patterns placed above a template layer are drawn with the template layers (static layer), not here
+  // shortcut: in 2D the pattern eraser does not reach those raised patterns (3D / export do), upgrade if users erase them
+  const underPatterns = patternsUnderLayers(templateBundle?.state.patterns, templateBundle?.def.zones.map((z) => z.id) ?? []);
   // Imported finished design (replaces or overlays the generated parts)
   const [baseImg] = useImage(baseTexture?.src ?? '', 'anonymous');
   const replaceWithImport = !!baseTexture && baseTexture.mode === 'replace' && !!baseImg;
@@ -751,7 +754,7 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
         <Layer id="pattern-layer" ref={patternLayerRef} listening={false}>
           {shapeParts.renderOrder.map((part) => {
             const config = partsConfig[part.id];
-            if (!config || !config.visible || patternLayersForPart(templateBundle?.state.patterns, part.id).length === 0) return null;
+            if (!config || !config.visible || patternLayersForPart(underPatterns, part.id).length === 0) return null;
             const isDimmed =
               viewState.activePartId !== 'all' && viewState.activePartId !== part.id;
             return (
@@ -763,7 +766,7 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
                   }}
                   listening={false}
                 >
-                  <RenderPattern part={part} layers={templateBundle?.state.patterns ?? []} />
+                  <RenderPattern part={part} layers={underPatterns} />
                 </Group>
               </Group>
             );

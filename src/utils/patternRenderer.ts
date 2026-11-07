@@ -437,6 +437,12 @@ export function patternLayersForPart(layers: PatternLayer[] | undefined, partId:
   return (layers ?? []).filter((l) => l.visible && l.pattern && l.pattern !== 'none' && l.parts.includes(partId));
 }
 
+/** The pattern layers of the pattern pass: all but those placed above a template layer that still exists. */
+export function patternsUnderLayers(layers: PatternLayer[] | undefined, zoneIds: Iterable<string>): PatternLayer[] {
+  const ids = new Set(zoneIds);
+  return (layers ?? []).filter((l) => !l.above || !ids.has(l.above));
+}
+
 /** Draws every visible pattern layer of a part (the caller clips to the part's shape). */
 export function drawPatternLayersForPart(
   ctx: CanvasRenderingContext2D,

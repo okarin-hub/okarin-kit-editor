@@ -12,7 +12,7 @@ interface KitModelBarProps {
 
 const box = 'flex items-center gap-0.5 bg-slate-900/90 border border-slate-800 p-0.5 rounded-lg shrink-0';
 const iconBtn = 'h-6 w-6 flex items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-slate-800';
-const label = 'px-1.5 text-[11px] font-semibold text-slate-400 whitespace-nowrap';
+const label = 'px-1 text-[11px] font-semibold text-slate-400 whitespace-nowrap';
 
 /**
  * Number with ‹ › arrows that wrap around 1..max; typing commits only values in range. `raw` is the config value
@@ -68,7 +68,7 @@ export const KitModelBar: React.FC<KitModelBarProps> = ({ kitConfig, onKitConfig
   const sleeves = c.ShortSleevesModel === '2' || c.ShortSleevesModel === '3' ? c.ShortSleevesModel : '1';
 
   return (
-    <div className="flex items-center gap-1.5 min-w-0 overflow-x-auto" role="group" aria-label="Model 3D">
+    <div className="flex items-center gap-1 min-w-0 overflow-x-auto" role="group" aria-label="Model 3D">
       <Stepper name="Kerah" title="Nomor kerah (Collar di config.txt kitserver)" raw={c.Collar} max={COLLARS} onChange={(n) => set('Collar', n)} />
       <div className={box}>
         <span className={label}>Model lengan</span>

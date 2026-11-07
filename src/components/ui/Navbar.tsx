@@ -25,7 +25,7 @@ import {
 import { PRESET_KITS, KitPreset } from '@/constants/presets';
 import { CanvasViewState } from '@/types/kit';
 import { MenuHeading, MenuItem, MenuSeparator, TopMenu } from '@/components/ui/Menus';
-import { getZoomSpeed, setZoomSpeed, ZoomSpeed } from '@/utils/uiPrefs';
+import { applyUiScale, canSetUiScale, getUiScale, getZoomSpeed, setUiScale, setZoomSpeed, UiScale, uiScaleFactor, ZoomSpeed } from '@/utils/uiPrefs';
 import type { HelpKind } from '@/components/ui/HelpDialogs';
 
 interface NavbarProps {
@@ -74,6 +74,14 @@ export const Navbar: React.FC<NavbarProps> = ({
   // wheel zoom speed (kept in this browser / app, read after mount)
   const [zoomSpeed, setZoomSpeedState] = useState<ZoomSpeed>('normal');
   useEffect(() => setZoomSpeedState(getZoomSpeed()), []);
+  // the interface size is applied once at start (the menu bar is always on screen)
+  const [uiScale, setUiScaleState] = useState<UiScale>('auto');
+  const [scalable, setScalable] = useState(false);
+  useEffect(() => {
+    setUiScaleState(getUiScale());
+    setScalable(canSetUiScale());
+    applyUiScale();
+  }, []);
   const barRef = useRef<HTMLDivElement | null>(null);
 
   // close on an outside click or Escape
@@ -229,6 +237,32 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onClick={() => {
                     setZoomSpeed(id);
                     setZoomSpeedState(id);
+                  }}
+                />
+              ))}
+              <MenuSeparator />
+              <MenuHeading>Ukuran tampilan</MenuHeading>
+              {!scalable && (
+                <MenuItem label="Di browser: pakai Ctrl + / Ctrl −" title="Zoom bawaan browser mengubah ukuran seluruh tampilan" disabled onClick={() => {}} />
+              )}
+              {scalable && (
+                [
+                  ['auto', 'Otomatis', 'Sesuai lebar layar: 100% di layar sekitar 1366 px, 115% di layar 1920 px ke atas'],
+                  ['small', 'Kecil', 'Teks dan tombol lebih kecil, ruang kerja lebih luas'],
+                  ['medium', 'Normal', 'Ukuran asli'],
+                  ['large', 'Besar', 'Teks dan tombol lebih besar'],
+                  ['xlarge', 'Ekstra besar', 'Untuk layar besar atau jarak pandang jauh'],
+                ] as const
+              ).map(([id, label, hint]) => (
+                <MenuItem
+                  key={id}
+                  label={label}
+                  shortcut={`${Math.round(uiScaleFactor(id) * 100)}%`}
+                  title={hint}
+                  checked={uiScale === id}
+                  onClick={() => {
+                    setUiScale(id);
+                    setUiScaleState(id);
                   }}
                 />
               ))}

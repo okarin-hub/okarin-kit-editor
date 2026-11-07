@@ -1,9 +1,9 @@
-import { KitPartDefinition, KitTemplate, KitZoneDef, Pt, SeamConfig, TemplateState } from '@/types/kit';
+import { KitPartDefinition, KitTemplate, KitZoneDef, PatternLayer, Pt, SeamConfig, TemplateState } from '@/types/kit';
 import { partPolygons, tracePolygons, insetPolygon } from '@/utils/partShape';
 
 const hasShape = (z: KitZoneDef) => !!(z.rects?.length || z.polygons?.length || z.ellipses?.length);
 import { getCachedImage, preloadImage } from '@/utils/imageCache';
-import { tintedTile } from '@/utils/patternRenderer';
+import { drawPatternLayersForPart, patternLayersForPart, tintedTile } from '@/utils/patternRenderer';
 import { zonePath, drawMaskTransformed, zoneParts, zoneMatrix } from '@/utils/zoneGeometry';
 
 /**
@@ -235,10 +235,20 @@ export function drawTemplateForPart(
   state: TemplateState,
   fabricHex: string,
   /** 'base' = only the base zones (drawn under the patterns); 'top' = the rest and the seams. */
-  which: 'base' | 'top' = 'top'
+  which: 'base' | 'top' = 'top',
+  /** false: leave out the patterns placed above a layer (the pattern eraser's "without patterns" pass) */
+  withPatterns = true
 ): void {
   // layers clipped to another layer are drawn with it (only inside it, and only while it is shown)
   const byId = new Set(template.zones.map((z) => z.id));
+  // patterns placed right above a layer of this pass, by that layer's id (in their array order = bottom first)
+  const passIds = new Set(template.zones.filter((z) => !!z.base === (which === 'base')).map((z) => z.id));
+  const patternsAbove = new Map<string, PatternLayer[]>();
+  if (withPatterns)
+    (state.patterns ?? []).forEach((l) => {
+      if (l.above && passIds.has(l.above) && patternLayersForPart([l], part.id).length)
+        patternsAbove.set(l.above, [...(patternsAbove.get(l.above) ?? []), l]);
+    });
   const clipped = new Map<string, KitTemplate['zones']>();
   template.zones.forEach((z) => {
     if (z.clipTo && byId.has(z.clipTo) && state.zones[z.id]?.visible) clipped.set(z.clipTo, [...(clipped.get(z.clipTo) ?? []), z]);
@@ -252,7 +262,7 @@ export function drawTemplateForPart(
   );
   const extraSeams = (template.seams ?? []).filter((s) => s.part === part.id);
   const seams = which === 'top' ? state.seams : { ...state.seams, enabled: false };
-  if (zones.length === 0 && !(seams.enabled && part.regions.length)) return;
+  if (zones.length === 0 && patternsAbove.size === 0 && !(seams.enabled && part.regions.length)) return;
 
   ctx.save();
   // Everything stays inside the pieces of this part
@@ -305,7 +315,7 @@ export function drawTemplateForPart(
     return g.canvas as HTMLCanvasElement;
   };
 
-  zones.forEach((zone) => {
+  const drawZone = (zone: KitTemplate['zones'][number]) => {
     const zs = state.zones[zone.id];
     const clips = clipped.get(zone.id) ?? [];
     if (!clips.length && !eraseMaskOf(zone.id, zs.erase)) {
@@ -328,6 +338,13 @@ export function drawTemplateForPart(
     });
     // the part clip of ctx still applies (it is kept in device space)
     blit(ctx, base, zone.blend);
+  };
+  // in layer order; a pattern placed above a layer comes right after it (even where that layer is not on this part)
+  const drawn = new Set(zones.map((z) => z.id));
+  template.zones.forEach((zone) => {
+    if (drawn.has(zone.id)) drawZone(zone);
+    const above = patternsAbove.get(zone.id);
+    if (above) drawPatternLayersForPart(ctx, part, above);
   });
 
   // 2. Seams

@@ -48,7 +48,8 @@ welcome (see [Contributing](CONTRIBUTING.md)).
 | 19 | P3 | **Sleeve and sock length in 3D are preview buttons.** Collar, shorts model, Kappa sleeves and the tight kit follow the kit config, but the game takes sleeve and sock length from the player, so the preview can't know them. (Long sleeves now use the model's own long sleeve, no longer a generated tube.) |
 | 20 | P2 | **The shirt hem covers the top of the shorts** in the preview, so a logo placed near the waist of the shorts area is hidden under the shirt. The shorts leg piece (ShortsModel 1–16) shows the outer side from x 17; x 0–17 is not on the model. |
 | 21 | P3 | Cloth material is simple (no normal map or realistic lighting). |
-| 49 | P3 | **Not in the 3D model yet** (planned for a next update): captain-armband sleeves, goalkeeper sleeves, the PS4 collars, the shirt tucked into the shorts, and Collar 134–135 / ShortsModel 0 and 17 (the preview shows model 1 for those). |
+| 51 | P3 | **Some wide collars share pixels with the shorts** (e.g. 63–67, 70, 71, 77, 79, 81–86, 90, 100, 102, 103, 106, 107, 110, 114, 125): their model reads x 704–848 (or 205–320) at y 967–972, where the shorts are too. That is the PES texture layout, so in the game too those collar edges show the shorts design there. |
+| 49 | P3 | **Not in the 3D model:** Collar 134–135 and ShortsModel 0 / 17 have no model in the CometKIT scene; the preview shows model 1 for them. The scene's PS4 collars are copies of the PC collars and are left out. Goalkeeper sleeves exist only as long sleeves and without a Kappa cut. |
 ## App and distribution
 
 | # | Pri | Issue |

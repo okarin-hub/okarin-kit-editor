@@ -101,8 +101,10 @@ const SEEDS: PartSeed[] = [
     // two rectangles so the piece never overlaps the sleeve bottom or the collar strip
     regions: [R(0, 583, 222, 393), R(222, 605, 114, 371)],
     outline: [
-      // top at y 579.5, below the sock colour (see the sock outline); the shorts UV starts at 583.5
-      [[0, 579.5], [0, 982], [340.5, 982], [340.5, 604], [155.5, 603.5], [146, 588.5], [145.5, 579.5]],
+      // top at y 579.5, below the sock colour (see the sock outline); the shorts UV starts at 583.5.
+      // Right edge at x 330: the shorts UV ends at 319.8, the Collar Strip starts at 336
+      // bottom at y 977: the shorts UV ends at 972.5, the wide collars read the rows below
+      [[0, 579.5], [0, 977], [330, 977], [330, 604], [155.5, 603.5], [146, 588.5], [145.5, 579.5]],
     ],
     bounds: R(0, 583, 336, 393),
     innerGuides: ['M 0 773 L 345 773'],
@@ -116,7 +118,8 @@ const SEEDS: PartSeed[] = [
     category: 'shorts',
     regions: [R(802, 583, 222, 393), R(688, 605, 114, 371)],
     outline: [
-      [[879, 579.5], [878, 588.5], [868.5, 603.5], [684, 604], [684, 982], [1024, 982], [1024, 579.5]],
+      // left edge at x 694: the shorts UV starts at 704, the Collar Strip ends at 688
+      [[879, 579.5], [878, 588.5], [868.5, 603.5], [694, 604], [694, 977], [1024, 977], [1024, 579.5]],
     ],
     bounds: R(688, 583, 336, 393),
     innerGuides: ['M 680 773 L 1024 773'],
@@ -159,6 +162,12 @@ const SEEDS: PartSeed[] = [
     indoName: 'Pita Kerah (Collar)',
     category: 'details',
     regions: [R(336, 938, 352, 42)],
+    // The collar models read below the strip too (down to y 1016, the wide ones x 205..848): nothing else uses the
+    // rows under the shorts (y 977+), so they belong to the collar. A few wide collars also read x 704..848 /
+    // 205..320 at y 967..972, which the shorts use as well: the same pixels in the game, left to the shorts.
+    outline: [
+      [[333, 938], [691, 938], [691, 977], [850, 977], [850, 1024], [200, 1024], [200, 977], [333, 977]],
+    ],
     bounds: R(336, 938, 352, 42),
     badgeAnchor: { x: 512, y: 959 },
     description: 'Pita tekstur kerah yang melingkari leher model 3D PES 2021.',
@@ -274,9 +283,9 @@ export function getAccentRects(partId: KitPartId, stripeW: number): KitRect[] {
     // shorts (right of the image) and right-to-left on the right shorts, so the hem is a vertical strip.
     // The leg pieces of the model (ShortsModel 1-15) start at x 16.8 / 1007, so the hem sits there, not at x 0.
     case 'leftShorts':
-      return [R(16, 579.5, stripeW, 402.5)];
+      return [R(16, 579.5, stripeW, 397.5)];
     case 'rightShorts':
-      return [R(1008 - stripeW, 579.5, stripeW, 402.5)];
+      return [R(1008 - stripeW, 579.5, stripeW, 397.5)];
     case 'leftSock':
     case 'rightSock':
       return [R(b.x, b.y, b.width, stripeW)];

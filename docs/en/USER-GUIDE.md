@@ -16,7 +16,7 @@
 ```
 
 - **Menu bar** – *File* (new kit, open / save project, import design, export), *Edit* (undo, redo, settings, colour presets),
-  *View* (part outlines, part labels, original PES template, *Zoom speed (scroll)*), *Tools* (pattern from a jersey
+  *View* (part outlines, part labels, original PES template, *Zoom speed (scroll)*, *Interface size*), *Tools* (pattern from a jersey
   photo and kitserver config.txt, both experimental; fontset generator), *Help* (guide, shortcuts, update check,
   credits, about). *New kit* asks first; *Undo* brings the old kit back.
 - **Tool rail (left)** – select / move, freehand shape, point shape, stitch line by points, stitch line freehand,
@@ -25,8 +25,10 @@
 - **2D canvas** – scroll to zoom, drag to pan. Click a part to select it. The *All parts* list in the toolbar zooms
   the canvas onto one part.
 - **3D preview** – drag to rotate, hold the middle mouse button (wheel button) and drag up / down to look from
-  above or below, scroll to zoom. Buttons switch the camera (front, back, chest, bottom, full); the bar at the
-  bottom sets the sleeve length and the sock length of the preview.
+  above or below, scroll to zoom. Buttons switch the camera (front, back, chest, bottom, full); the
+  *Outfit* button in the corner opens the preview's sleeves (short, long, goalkeeper), sock length, the captain's
+  armband (it shows the *Captain Armband* area of your texture) and a shirt tucked into the shorts; the game takes
+  these from the player.
   - **Move a template layer on the model:** pick a template with layers (Classic, Raglan …), select a layer in the
     *Layer* tab, then drag it on the 3D model (the cursor turns into a move cursor over it). Patterns, logos and
     trims are moved in 2D.
@@ -38,6 +40,9 @@
   tab also shows its name.
 - **Zoom speed** – *View → Zoom speed (scroll)*: slow, normal or fast, for the 2D canvas, the 3D preview and the
   fontset preview.
+- **Interface size** – *View → Interface size* (Windows app): *Automatic* (100 % on a ~1366 px screen, 115 % on 1920 px
+  and wider), *Small* 90 %, *Normal* 100 %, *Large* 115 %, *Extra large* 130 %. Everything grows or shrinks together,
+  like the browser's zoom; the choice is kept. In a browser use Ctrl + / Ctrl −.
 
 The texture is the PES 2021 kit texture (1024 × 1024). The **back of the shirt is stored upside-down** (hem at the
 top, neck in the middle), and the shorts are stored rotated by 90°. The editor handles this for you.

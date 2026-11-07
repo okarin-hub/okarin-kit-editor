@@ -26,7 +26,7 @@ const DOCS: { title: string; text: string }[] = [
   },
   {
     title: 'Daftar layer',
-    text: "Layer dikelompokkan per Baju, Celana, Kaus kaki, dan Aksesoris; klik nama grup untuk membuka atau menutupnya. Layer bantuan dari PSD (mesh, panduan, jahitan, bayangan, latar) dikumpulkan di \"Layer bantuan PSD\". Kolom cari muncul saat layernya banyak. Klik nama layer untuk membuka pengaturannya; layer yang dipilih tampil di canvas 2D dengan kotak biru: seret untuk menggeser, tarik sudut untuk mengubah ukuran, dan tarik pegangan atas untuk memutar.",
+    text: "Layer dikelompokkan per Baju, Celana, Kaus kaki, dan Aksesoris; klik nama grup untuk membuka atau menutupnya. Layer bantuan dari PSD (mesh, panduan, jahitan, bayangan, latar) dikumpulkan di \"Layer bantuan PSD\". Kolom cari muncul saat layernya banyak. Klik nama layer untuk membuka pengaturannya; layer yang dipilih tampil di canvas 2D dengan kotak biru: seret untuk menggeser, tarik sudut untuk mengubah ukuran, dan tarik pegangan atas untuk memutar. Urutan daftar sama dengan urutan tumpukan: layer paling atas tampil paling depan. Seret objek atau pola ke atas atau ke bawah di grupnya untuk mengubah urutannya (pola juga bisa dinaikkan ke atas objek), atau ke grup lain untuk memindahkannya.",
   },
   {
     title: 'Layer di banyak bagian',
@@ -34,7 +34,7 @@ const DOCS: { title: string; text: string }[] = [
   },
   {
     title: 'Pola',
-    text: "Pola ada di grup tab Layer: klik + Pola di grup Baju, Celana, Kaus kaki, atau Aksesoris untuk menambah. Seret baris pola ke grup lain untuk memindahkannya; tahan Ctrl saat melepas untuk menyalinnya. Pola digambar di atas warna dasar dan di bawah layer template; pola yang lebih atas tampil lebih depan. Tiap pola punya ukuran, rotasi, posisi, cermin, dan bagian grup yang ditutupinya. Simetris menggambar pola di satu sisi lalu mencerminkannya ke sisi lawan (cocok untuk diagonal dan sash). Matikan Berulang untuk menampilkan pola hanya sekali.",
+    text: "Pola ada di grup tab Layer: klik + Pola di grup Baju, Celana, Kaus kaki, atau Aksesoris untuk menambah. Seret baris pola ke grup lain untuk memindahkannya; tahan Ctrl saat melepas untuk menyalinnya. Pola digambar di atas warna dasar dan di bawah objek, kecuali kalau dinaikkan ke atas objek (panah atau seret); yang lebih atas di daftar tampil lebih depan. Tiap pola punya ukuran, rotasi, posisi, cermin, dan bagian grup yang ditutupinya. Simetris menggambar pola di satu sisi lalu mencerminkannya ke sisi lawan (cocok untuk diagonal dan sash). Matikan Berulang untuk menampilkan pola hanya sekali.",
   },
   {
     title: 'Alat gambar',

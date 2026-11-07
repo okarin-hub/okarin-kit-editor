@@ -78,6 +78,8 @@ interface TemplatePanelProps {
   onAddZone: (kind: NewZoneKind, part: KitPartId) => void;
   onDuplicateZone: (zoneId: string) => void;
   onMoveZone: (zoneId: string, part: KitPartId, copy: boolean) => void;
+  /** New order (bottom first) of these layers; they take the array slots they hold now. */
+  onSetZoneOrder: (ids: string[]) => void;
   onDeleteZone: (zoneId: string) => void;
   onSaveTemplate: (name: string) => Promise<{ ok: boolean; message: string }>;
   onStartDraw: (kind: 'free' | 'poly' | 'stitch' | 'stitchFree') => void;
@@ -218,6 +220,7 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
   onAddZone,
   onDuplicateZone,
   onMoveZone,
+  onSetZoneOrder,
   onDeleteZone,
   onSaveTemplate,
   onStartDraw,
@@ -313,16 +316,78 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
     openPatternEditor({ id: copy.id, g });
   };
 
-  // the list shows the top layer first: "up" swaps with the next layer of the same group, further back in the array
-  const movePattern = (l: PatternLayer, g: KitCategory, dir: 'up' | 'down') => {
-    const same = patterns.filter((x) => inGroup(x, g));
-    const other = same[same.indexOf(l) + (dir === 'up' ? 1 : -1)];
-    if (!other) return;
+  // ---- A group of the layer list is one stack, top first: objects / template layers, each with the patterns placed
+  // right above it, then the patterns under all layers. Moving a row moves it in that stack; the stack is then turned
+  // back into the layer order and each pattern's place (`above`).
+  type StackEntry = { kind: 'zone' | 'pattern'; id: string };
+  const mainZonesOf = (g: KitCategory) => template.zones.filter((z) => z.group === g && !(z.mask && helperName(z.name)));
+  // Base layers (a PSD's "Base", the colour layer of Import PNG) are the group's background, like Photoshop's: always at
+  // the bottom, under the patterns; the renderer draws them first. Top to bottom: layers with the patterns placed
+  // above them, the patterns under all layers, then the base layers (with the patterns placed above them).
+  const stackOf = (g: KitCategory): StackEntry[] => {
+    const zones = mainZonesOf(g);
+    const ids = new Set(zones.map((z) => z.id));
+    const pats = patterns.filter((l) => inGroup(l, g));
+    const out: StackEntry[] = [];
+    const push = (z: KitZoneDef) => {
+      pats.filter((l) => l.above === z.id).reverse().forEach((l) => out.push({ kind: 'pattern', id: l.id }));
+      out.push({ kind: 'zone', id: z.id });
+    };
+    zones.filter((z) => !z.base).reverse().forEach(push);
+    pats.filter((l) => !l.above || !ids.has(l.above)).reverse().forEach((l) => out.push({ kind: 'pattern', id: l.id }));
+    zones.filter((z) => z.base).reverse().forEach(push);
+    return out;
+  };
+  const applyStack = (stack: StackEntry[]) => {
+    const bottomFirst = [...stack].reverse();
+    let anchor: string | undefined;
+    const place = new Map<string, string | undefined>();
+    const patternOrder: string[] = [];
+    bottomFirst.forEach((e) => {
+      if (e.kind === 'zone') anchor = e.id;
+      else {
+        place.set(e.id, anchor);
+        patternOrder.push(e.id);
+      }
+    });
+    // the group's patterns take, in their new order, the array slots they hold now (other patterns keep theirs)
+    const slots = patterns.flatMap((l, i) => (place.has(l.id) ? [i] : []));
     const next = [...patterns];
-    const i = next.indexOf(l);
-    const j = next.indexOf(other);
-    [next[i], next[j]] = [next[j], next[i]];
-    onChangePatterns(next);
+    let changed = false;
+    slots.forEach((slot, k) => {
+      const src = patterns.find((x) => x.id === patternOrder[k])!;
+      const above = place.get(src.id);
+      if (src !== patterns[slot] || src.above !== above) changed = true;
+      const moved: PatternLayer = { ...src };
+      if (above) moved.above = above;
+      else delete moved.above;
+      next[slot] = moved;
+    });
+    if (changed) onChangePatterns(next);
+    // base layers stay under the others (a layer dropped below one goes back up, as it is drawn there)
+    const isBase = (id: string) => !!template.zones.find((z) => z.id === id)?.base;
+    const zoneOrder = bottomFirst.filter((e) => e.kind === 'zone').map((e) => e.id);
+    onSetZoneOrder([...zoneOrder.filter(isBase), ...zoneOrder.filter((id) => !isBase(id))]);
+  };
+  /** Moves a row of group g right above row `target`. */
+  const moveInStack = (g: KitCategory, id: string, target: string) => {
+    const stack = stackOf(g);
+    const from = stack.findIndex((e) => e.id === id);
+    if (from < 0 || id === target) return;
+    const [entry] = stack.splice(from, 1);
+    const at = stack.findIndex((e) => e.id === target);
+    if (at < 0) return;
+    stack.splice(at, 0, entry);
+    applyStack(stack);
+  };
+  /** One step up (towards the front) or down in the group's stack; patterns can pass objects. */
+  const stepInStack = (g: KitCategory, id: string, dir: 'up' | 'down') => {
+    const stack = stackOf(g);
+    const i = stack.findIndex((e) => e.id === id);
+    const j = dir === 'up' ? i - 1 : i + 1;
+    if (i < 0 || j < 0 || j >= stack.length) return;
+    [stack[i], stack[j]] = [stack[j], stack[i]];
+    applyStack(stack);
   };
 
   // Drop the dragged pattern on a group (or above one of its rows): it moves there, or with copy a copy goes there
@@ -339,6 +404,11 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
     else if (d.from !== g) {
       const kept = l.parts.filter((p) => !fromIds.includes(p));
       moved = { ...l, parts: kept.some((p) => toIds.includes(p)) ? kept : [...kept, ...toIds] };
+    }
+    // in another group the layer it sat above is not in the list: it goes under the layers there
+    if (d.from !== g && moved.above) {
+      moved = { ...moved };
+      delete moved.above;
     }
     const next = copy ? [...patterns] : patterns.filter((x) => x.id !== l.id);
     // above a row = later in the array; dropped on the group itself a moved layer keeps its place, a copy goes over the original
@@ -359,7 +429,11 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
     const d = drag;
     setDrag(null);
     setDropAt(null);
-    if (d.from !== g) onMoveZone(d.id, objectPart(g), copy);
+    const z = template.zones.find((x) => x.id === d.id);
+    const movable = !!(z && (z.rects?.length || z.ellipses?.length || z.polygons?.length));
+    if (d.from !== g) {
+      if (movable) onMoveZone(d.id, objectPart(g), copy);
+    }
     else if (copy) onDuplicateZone(d.id);
     setGroupOpen((prev) => ({ ...prev, [g]: true }));
   };
@@ -529,12 +603,39 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
   const renderZoneRow = (z: KitZoneDef) => {
     const zs = state.zones[z.id] ?? { color: z.defaultColor, visible: z.defaultVisible };
     const selected = selectedZoneId === z.id;
-    // shape layers (not PSD image layers) can be dragged to another group
+    // shape layers (not PSD image layers) can be dragged to another group; any layer not clipped to another one can
+    // be dragged up or down in its group (a clipped layer stays with its base)
     const movable = !!(z.rects?.length || z.ellipses?.length || z.polygons?.length);
+    // a base layer is the group's background (always at the bottom), like Photoshop's Background layer
+    const draggable = (movable || !z.clipTo) && !z.base;
+    const dropHere = dropAt?.g === z.group && dropAt.before === z.id;
+    // a layer or a pattern of this group dropped here goes right above this layer
+    const acceptsDrop = () => !!drag && drag.from === z.group && drag.id !== z.id;
     return (
-      <div key={z.id} data-zone-row={z.id} data-layer-anchor={z.id}>
+      <div
+        key={z.id}
+        data-zone-row={z.id}
+        data-layer-anchor={z.id}
+        onDragOver={(e) => {
+          if (!acceptsDrop()) return;
+          dropEffect(e);
+          e.stopPropagation();
+          if (!dropHere) setDropAt({ g: z.group, before: z.id });
+        }}
+        onDrop={(e) => {
+          if (!acceptsDrop() || !drag) return;
+          e.preventDefault();
+          e.stopPropagation();
+          // a copied pattern (Ctrl / Alt) goes the usual way: over the original
+          if (drag.kind === 'pattern' && (e.ctrlKey || e.altKey)) return dropPattern(z.group, drag.id, true);
+          moveInStack(z.group, drag.id, z.id);
+          setDrag(null);
+          setDropAt(null);
+        }}
+        className={`border-t-2 ${dropHere ? 'border-sky-400' : 'border-transparent'}`}
+      >
         <div
-          draggable={movable}
+          draggable={draggable}
           onDragStart={(e) => {
             e.dataTransfer.effectAllowed = 'copyMove';
             e.dataTransfer.setData('text/plain', z.id);
@@ -544,9 +645,9 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
             setDrag(null);
             setDropAt(null);
           }}
-          className={`${rowClass(selected, zs.visible)} ${movable ? 'cursor-grab active:cursor-grabbing' : ''} ${drag?.id === z.id ? 'opacity-40' : ''}`}
+          className={`${rowClass(selected, zs.visible)} ${draggable ? 'cursor-grab active:cursor-grabbing' : ''} ${drag?.id === z.id ? 'opacity-40' : ''}`}
         >
-          {movable && <GripVertical className="w-3 h-3 -mx-1 shrink-0 text-slate-600" aria-hidden />}
+          {draggable && <GripVertical className="w-3 h-3 -mx-1 shrink-0 text-slate-600" aria-hidden />}
           <button
             type="button"
             onClick={() => onUpdateZone(z.id, { visible: !zs.visible })}
@@ -618,26 +719,33 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
 
   const renderPatternRow = (l: PatternLayer, g: KitCategory) => {
     const open = openPattern?.id === l.id && openPattern.g === g;
-    const same = patterns.filter((x) => inGroup(x, g));
-    const k = same.indexOf(l);
+    // place in the group's stack (objects and patterns together): the arrows can pass objects
+    const stack = stackOf(g);
+    const k = stack.findIndex((e) => e.id === l.id);
     const others = (['shirt', 'shorts', 'socks', 'details'] as KitCategory[]).filter((x) => x !== g && inGroup(l, x));
     const dropHere = dropAt?.g === g && dropAt.before === l.id;
     const name = l.name ?? 'Pola';
+    // patterns from anywhere (moved / copied over this one), and layers of this group (they go right above it)
+    const acceptsDrop = () => !!drag && drag.id !== l.id && (drag.kind === 'pattern' || drag.from === g);
     return (
       <div
         key={l.id}
         data-layer-anchor={`${l.id}-${g}`}
         onDragOver={(e) => {
-          if (drag?.kind !== 'pattern') return;
+          if (!acceptsDrop()) return;
           dropEffect(e);
           e.stopPropagation();
           if (!dropHere) setDropAt({ g, before: l.id });
         }}
         onDrop={(e) => {
-          if (drag?.kind !== 'pattern') return;
+          if (!acceptsDrop() || !drag) return;
           e.preventDefault();
           e.stopPropagation();
-          dropPattern(g, l.id, e.ctrlKey || e.altKey);
+          const copy = e.ctrlKey || e.altKey;
+          if (drag.kind === 'pattern' && (copy || drag.from !== g)) return dropPattern(g, l.id, copy);
+          moveInStack(g, drag.id, l.id);
+          setDrag(null);
+          setDropAt(null);
         }}
         className={`border-t-2 ${dropHere ? 'border-sky-400' : 'border-transparent'}`}
       >
@@ -696,8 +804,8 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           <span className={`flex items-center gap-1 ${rowExtra(open)}`}>
             <button
               type="button"
-              disabled={k === same.length - 1}
-              onClick={() => movePattern(l, g, 'up')}
+              disabled={k <= 0}
+              onClick={() => stepInStack(g, l.id, 'up')}
               className="text-slate-500 hover:text-white disabled:opacity-30"
               title="Naikkan (lebih depan)"
               aria-label="Naikkan (lebih depan)"
@@ -706,8 +814,8 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
             </button>
             <button
               type="button"
-              disabled={k === 0}
-              onClick={() => movePattern(l, g, 'down')}
+              disabled={k < 0 || k >= stack.length - 1}
+              onClick={() => stepInStack(g, l.id, 'down')}
               className="text-slate-500 hover:text-white disabled:opacity-30"
               title="Turunkan"
               aria-label="Turunkan"
@@ -1351,7 +1459,7 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
         id="layers"
         title="Layer"
         icon={<Layers className="w-3.5 h-3.5 text-slate-400" />}
-        info="Pola selalu di bawah layer template dan di atas warna dasar; pola yang lebih atas tampil lebih depan. Klik + Pola atau + Objek di grup untuk menambah. Seret pola atau objek ke grup lain untuk memindahkannya, tahan Ctrl saat melepas untuk menyalinnya."
+        info="Yang paling atas di daftar tampil paling depan. Klik + Pola atau + Objek di grup untuk menambah. Seret pola atau objek ke atas atau ke bawah untuk mengubah urutannya (pola juga bisa dinaikkan ke atas objek), atau ke grup lain untuk memindahkannya; tahan Ctrl saat melepas untuk menyalinnya."
         badge={template.zones.length + patterns.length || undefined}
         action={
           template.zones.length > 0 ? (
@@ -1533,9 +1641,23 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
 
               {open && (
                 <>
-                  {/* Patterns first so they are easy to find; they are drawn over the base colour and under the template layers */}
-                  {groupPatterns.map((l) => renderPatternRow(l, g))}
-                  {main.map(renderZoneRow)}
+                  {/* Top of the list = top of the stack: objects / template layers with the patterns placed above
+                      them, then the patterns under all of them (while searching: the matches, objects first) */}
+                  {q ? (
+                    <>
+                      {[...main].reverse().map(renderZoneRow)}
+                      {groupPatterns.map((l) => renderPatternRow(l, g))}
+                    </>
+                  ) : (
+                    stackOf(g).map((e) => {
+                      if (e.kind === 'zone') {
+                        const z = main.find((x) => x.id === e.id);
+                        return z ? renderZoneRow(z) : null;
+                      }
+                      const l = patterns.find((x) => x.id === e.id);
+                      return l ? renderPatternRow(l, g) : null;
+                    })
+                  )}
 
                   {helpers.length > 0 && (
                     <>

@@ -88,6 +88,8 @@ export interface PatternLayer extends PatternSettings {
   parts: KitPartId[];
   /** Draw the pattern turned 180 degrees on the (upside-down) back panel so it matches the front when worn. */
   backFlip?: boolean;
+  /** Id of the template layer (object) this pattern is drawn right above; unset = under all template layers. */
+  above?: string;
 }
 
 export interface KitPartConfig {

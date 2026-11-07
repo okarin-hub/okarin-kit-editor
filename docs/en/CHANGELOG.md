@@ -2,6 +2,35 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## 0.5.2 — Stable patch: Photoshop-style layer order, outfit menu, interface size, collar fix
+
+- **3D preview: captain's armband, goalkeeper sleeves, tucked-in shirt.** *GK* (goalkeeper long sleeves, normal or
+  tight), *Captain* (the sleeve with the armband, which shows the *Captain Armband* area of your texture) and
+  *Tucked in* (shorter shirt and the matching shorts). They work with every sleeve model and with the tight kit.
+- **3D preview: one *Outfit* button** in the corner of the 3D view instead of the row of buttons. It shows what is
+  picked (e.g. *GK · Mid · Captain*) and opens a small menu with sleeves, sock length, captain's armband and tucked-in
+  shirt; a click outside or Esc closes it.
+- **Interface size** (Windows app): *View → Interface size* with *Automatic*, *Small* 90 %, *Normal* 100 %, *Large*
+  115 % and *Extra large* 130 %. *Automatic* is 100 % on screens around 1366 px and 115 % on 1920 px and wider. It
+  works like the browser's zoom, so the canvases and the mouse stay exact, and it is kept for the next start. In a
+  browser use Ctrl + / Ctrl −.
+- **Layer tab: the list is the stacking order, and patterns can go above objects.** The objects of a group were
+  listed bottom-first (the last one in the list was the one drawn on top), dragging an object within its group did
+  nothing, and a pattern (like the stripes of a preset) could never go above an object. Now the top of the list is
+  the front of the kit; objects, patterns and PSD layers that are not clipped can be dragged above any row of their
+  group, and a pattern's up / down arrows pass objects too. A raised pattern is drawn right above that object in 2D,
+  3D and the export. Base layers (a PSD's *Base*, the colour layer of Import PNG) are the group's background, like
+  Photoshop's: listed at the bottom, under the patterns, and not draggable. Before, the base colour of an imported
+  PNG showed at the top of the list while it was drawn at the bottom.
+- **Collar and shorts no longer overlap.** The shorts areas reached into both ends of the *Collar Strip* (x 336–340
+  and 684–688) and down to y 982, while the shorts on the model only read up to x 320 / from x 704 and down to y 972.
+  The shorts now end at x 330 / 694 and y 977. The *Collar Strip* also covers the rows the collar models read below
+  it (down to y 1024, and x 200–850 under the shorts): 71 collars used to pick up the dark background colour there.
+  Measured over all 133 collars: 73 % of their texture points now land on the Collar Strip (54 % before), the rest
+  on the shirt neck as before.
+- The 3D model now has 179 parts (5.1 MB); the PS4 collars of the CometKIT scene are copies of the PC collars and
+  are not included.
+
 ## 0.5.1 — Stable patch: smooth colour picker
 
 - **Dragging in a colour picker is smooth again.** Every step of the drag rebuilt the 3D texture: the whole kit

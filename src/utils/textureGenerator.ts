@@ -8,7 +8,7 @@ import {
   BaseTexture,
   TemplateBundle,
 } from '@/types/kit';
-import { drawPatternLayersForPart } from '@/utils/patternRenderer';
+import { drawPatternLayersForPart, patternsUnderLayers } from '@/utils/patternRenderer';
 import { drawTemplateForPart } from '@/utils/templateRenderer';
 import { drawCreditText } from '@/utils/creditRenderer';
 import { partPolygons, pointInPolygons, tracePolygons } from '@/utils/partShape';
@@ -113,7 +113,7 @@ export function renderKitCanvas(
         }
         c.restore();
         // template layers that are part of the base (a PSD's Base layer) go under the patterns
-        if (templateBundle) drawTemplateForPart(c, part, templateBundle.def, templateBundle.state, config.color, 'base');
+        if (templateBundle) drawTemplateForPart(c, part, templateBundle.def, templateBundle.state, config.color, 'base', withPatterns);
       }
 
       // Clip to the part's shape so patterns and sashes never spill onto other pieces
@@ -123,7 +123,9 @@ export function renderKitCanvas(
       c.clip();
 
       // Pattern (shared renderer keeps 2D editor, 3D and export identical)
-      if (withPatterns) drawPatternLayersForPart(c, part, templateBundle?.state.patterns);
+      // (patterns placed above a template layer are drawn with the template layers)
+      if (withPatterns)
+        drawPatternLayersForPart(c, part, patternsUnderLayers(templateBundle?.state.patterns, templateBundle?.def.zones.map((z) => z.id) ?? []));
 
       // Cuff / hem / collar accent striping
       if (config.cuffStripeEnabled && config.cuffStripeVisible !== false && config.cuffStripeColor) {
@@ -140,7 +142,7 @@ export function renderKitCanvas(
     // Template zones (collar trim, side panels, cuffs ...) and seam / stitch lines
     if (templateBundle) {
       // where the eraser brush painted (withPatterns = false) the imported PSD / PNG layers are left out too
-      drawTemplateForPart(c, part, templateBundle.def, templateBundle.state, config.color, 'top');
+      drawTemplateForPart(c, part, templateBundle.def, templateBundle.state, config.color, 'top', withPatterns);
     }
 
     // Fabric texture on top of the colours, patterns and zones (and of an imported design), so it is never covered

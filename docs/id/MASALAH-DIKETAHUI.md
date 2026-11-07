@@ -48,7 +48,8 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 | 19 | P3 | **Panjang lengan dan kaus kaki di 3D hanya tombol preview.** Kerah, model celana, lengan Kappa, dan baju ketat mengikuti config kit, tapi game mengambil panjang lengan dan kaus kaki dari pemain, jadi preview tidak bisa tahu. (Lengan panjang kini memakai lengan panjang asli dari model, bukan tabung buatan lagi.) |
 | 20 | P2 | **Hem baju menutupi bagian atas celana** di preview, jadi logo yang ditaruh dekat pinggang di area celana tersembunyi di bawah baju. Bagian kaki celana (ShortsModel 1–16) menampilkan sisi luar mulai x 17; x 0–17 tidak ada di model. |
 | 21 | P3 | Material kain masih sederhana (tanpa normal map atau pencahayaan realistis). |
-| 49 | P3 | **Belum ada di model 3D** (direncanakan di update berikutnya): lengan dengan ban kapten, lengan kiper, kerah PS4, baju yang dimasukkan ke celana, dan Collar 134–135 / ShortsModel 0 dan 17 (preview memakai model 1 untuk nilai itu). |
+| 51 | P3 | **Beberapa kerah lebar berbagi piksel dengan celana** (mis. 63–67, 70, 71, 77, 79, 81–86, 90, 100, 102, 103, 106, 107, 110, 114, 125): modelnya membaca x 704–848 (atau 205–320) di y 967–972, tempat celana juga berada. Itu layout tekstur PES, jadi di game pun ujung kerah itu menampilkan desain celana di sana. |
+| 49 | P3 | **Tidak ada di model 3D:** Collar 134–135 dan ShortsModel 0 / 17 tidak punya model di scene CometKIT; preview memakai model 1 untuk nilai itu. Kerah PS4 di scene itu salinan kerah PC, jadi tidak dimasukkan. Lengan kiper hanya ada sebagai lengan panjang dan tanpa potongan Kappa. |
 ## Aplikasi dan distribusi
 
 | # | Pri | Masalah |
