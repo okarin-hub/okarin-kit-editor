@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Eye,
   EyeOff,
@@ -28,6 +28,12 @@ import {
   GripVertical,
   Sparkles,
   Search,
+  Folder,
+  FolderOpen,
+  Group,
+  Ungroup,
+  Merge,
+  X,
 } from 'lucide-react';
 import {
   BaseTexture,
@@ -71,6 +77,12 @@ interface TemplatePanelProps {
   activePartId: KitPartId | 'all';
   selectedZoneId: string | null;
   onSelectZone: (zoneId: string | null) => void;
+  /** Every selected layer, the main one last (Ctrl / Shift click in the list picks more). */
+  selectedZoneIds: string[];
+  onSelectZones: (ids: string[]) => void;
+  onGroupZones: (ids: string[]) => void;
+  onUngroup: (groupId: string) => void;
+  onMergeZones: (ids: string[]) => void;
   onSelectTemplate: (template: KitTemplate) => void;
   onUpdateZone: (zoneId: string, update: Partial<TemplateZoneState>) => void;
   onResetZone: (zoneId: string) => void;
@@ -213,6 +225,11 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
   activePartId,
   selectedZoneId,
   onSelectZone,
+  selectedZoneIds,
+  onSelectZones,
+  onGroupZones,
+  onUngroup,
+  onMergeZones,
   onSelectTemplate,
   onUpdateZone,
   onResetZone,
@@ -281,7 +298,9 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
   useEffect(() => {
     if (selectedZoneId) setOpenPattern(null);
   }, [selectedZoneId]);
-  const [drag, setDrag] = useState<{ kind: 'pattern' | 'zone'; id: string; from: KitCategory } | null>(null);
+  const [drag, setDrag] = useState<{ kind: 'pattern' | 'zone' | 'folder'; id: string; from: KitCategory } | null>(null);
+  // layer-list folders that are folded shut
+  const [closedFolders, setClosedFolders] = useState<Set<string>>(new Set());
   const [dropAt, setDropAt] = useState<{ g: KitCategory; before: string | null } | null>(null);
   const inGroup = (l: PatternLayer, g: KitCategory) => l.parts.some((p) => groupPartIds(g).includes(p));
   const updatePattern = (id: string, patch: Partial<PatternLayer>) =>
@@ -369,17 +388,114 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
     const zoneOrder = bottomFirst.filter((e) => e.kind === 'zone').map((e) => e.id);
     onSetZoneOrder([...zoneOrder.filter(isBase), ...zoneOrder.filter((id) => !isBase(id))]);
   };
-  /** Moves a row of group g right above row `target`. */
-  const moveInStack = (g: KitCategory, id: string, target: string) => {
+  // ---- Folders (layer groups): a run of layers sharing KitZoneDef.layerGroup; a pattern placed above a member is in it too
+  const zoneById = (id: string) => template.zones.find((z) => z.id === id);
+  const folderOf = (e: StackEntry): string | undefined => {
+    if (e.kind === 'zone') return zoneById(e.id)?.layerGroup;
+    const above = patterns.find((x) => x.id === e.id)?.above;
+    return above ? zoneById(above)?.layerGroup : undefined;
+  };
+  /**
+   * Moves a row of group g right above row `target`. A layer joins the folder it lands in (or leaves it when it lands
+   * outside); `folder` overrides that (null = outside, e.g. dropped on a folder's own row).
+   */
+  const moveInStack = (g: KitCategory, id: string, target: string, folder?: string | null) => {
     const stack = stackOf(g);
     const from = stack.findIndex((e) => e.id === id);
     if (from < 0 || id === target) return;
+    const targetEntry = stack.find((e) => e.id === target);
+    if (!targetEntry) return;
     const [entry] = stack.splice(from, 1);
-    const at = stack.findIndex((e) => e.id === target);
-    if (at < 0) return;
-    stack.splice(at, 0, entry);
+    stack.splice(stack.indexOf(targetEntry), 0, entry);
     applyStack(stack);
+    if (entry.kind === 'zone') {
+      const want = folder === undefined ? folderOf(targetEntry) : folder ?? undefined;
+      if (zoneById(entry.id)?.layerGroup !== want) onUpdateZoneDef(entry.id, { layerGroup: want });
+    }
   };
+  /** Moves a whole folder (its layers and the patterns placed above them) right above row `target`. */
+  const moveFolder = (g: KitCategory, folderId: string, target: string) => {
+    const stack = stackOf(g);
+    const block = stack.filter((e) => folderOf(e) === folderId);
+    const rest = stack.filter((e) => folderOf(e) !== folderId);
+    let at = rest.findIndex((e) => e.id === target);
+    if (!block.length || at < 0) return;
+    // landing inside another folder: go above that whole folder (no folders in folders)
+    const other = folderOf(rest[at]);
+    if (other) at = rest.findIndex((e) => folderOf(e) === other);
+    rest.splice(at, 0, ...block);
+    applyStack(rest);
+  };
+  /** The selected layers that can form a group / be merged: not a base layer, all in one group of the list. */
+  const pickedLayers = () => {
+    const picked = template.zones.filter((z) => selectedZoneIds.includes(z.id) && !z.base);
+    return new Set(picked.map((z) => z.group)).size === 1 ? picked : [];
+  };
+  const groupSelected = () => {
+    const members = pickedLayers();
+    if (!members.length) return;
+    const g = members[0].group;
+    const ids = new Set(members.map((z) => z.id));
+    // each member with the patterns placed above it (listed right before it), gathered where the top member is
+    const stack = stackOf(g);
+    const inBlock = (e: StackEntry) =>
+      e.kind === 'zone' ? ids.has(e.id) : ids.has(patterns.find((x) => x.id === e.id)?.above ?? '');
+    const first = stack.findIndex(inBlock);
+    const rest = stack.filter((e) => !inBlock(e));
+    rest.splice(stack.slice(0, first).filter((e) => !inBlock(e)).length, 0, ...stack.filter(inBlock));
+    applyStack(rest);
+    onGroupZones([...ids]);
+    setGroupOpen((prev) => ({ ...prev, [g]: true }));
+  };
+  const mergeSelected = () => {
+    const members = pickedLayers();
+    if (members.length >= 2) onMergeZones(members.map((z) => z.id));
+  };
+  /** Click on a layer name: select it; Ctrl adds / removes it, Shift picks the run from the main selection to it. */
+  const clickZone = (z: KitZoneDef, e: React.MouseEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      onSelectZones(selectedZoneIds.includes(z.id) ? selectedZoneIds.filter((id) => id !== z.id) : [...selectedZoneIds, z.id]);
+    } else if (e.shiftKey && selectedZoneId) {
+      const order = stackOf(z.group).filter((x) => x.kind === 'zone').map((x) => x.id);
+      const a = order.indexOf(selectedZoneId);
+      const b = order.indexOf(z.id);
+      if (a < 0 || b < 0) return onSelectZones([z.id]);
+      const run = order.slice(Math.min(a, b), Math.max(a, b) + 1);
+      onSelectZones([...run.filter((id) => id !== z.id), z.id]);
+    } else onSelectZone(selectedZoneId === z.id && selectedZoneIds.length === 1 ? null : z.id);
+  };
+  // Ctrl+G group, Ctrl+Shift+G ungroup, Ctrl+E merge (Photoshop's keys), while this panel is open. Ctrl+E is also
+  // Export kit: it merges only while two or more layers that can merge are picked (then Export does not open).
+  const shortcutRef = useRef({ groupSelected, mergeSelected, pickedLayers, selectedZoneId, onUngroup, zoneById });
+  shortcutRef.current = { groupSelected, mergeSelected, pickedLayers, selectedZoneId, onUngroup, zoneById };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const t = e.target as HTMLElement;
+      if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable) return;
+      if (document.querySelector('[aria-modal="true"]')) return;
+      const k = e.key.toLowerCase();
+      const s = shortcutRef.current;
+      if (k === 'g' && !e.shiftKey) {
+        if (!s.pickedLayers().length) return;
+        e.preventDefault();
+        s.groupSelected();
+      } else if (k === 'g' && e.shiftKey) {
+        const lg = s.selectedZoneId ? s.zoneById(s.selectedZoneId)?.layerGroup : undefined;
+        if (lg) {
+          e.preventDefault();
+          s.onUngroup(lg);
+        }
+      } else if (k === 'e' && !e.shiftKey && s.pickedLayers().length >= 2) {
+        e.preventDefault();
+        e.stopPropagation(); // not Export this time
+        s.mergeSelected();
+      }
+    };
+    // capture: runs before the app's own Ctrl+E (Export) handler on window
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, []);
   /** One step up (towards the front) or down in the group's stack; patterns can pass objects. */
   const stepInStack = (g: KitCategory, id: string, dir: 'up' | 'down') => {
     const stack = stackOf(g);
@@ -425,6 +541,11 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
   };
   // shape layers keep their order; dragged onto another group they move to its part
   const dropOn = (g: KitCategory, before: string | null, copy: boolean) => {
+    if (drag?.kind === 'folder') {
+      setDrag(null);
+      setDropAt(null);
+      return;
+    }
     if (drag?.kind !== 'zone') return dropPattern(g, before, copy);
     const d = drag;
     setDrag(null);
@@ -600,9 +721,103 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
     );
   };
 
+  /** A folder of the layer list: fold, show / hide all, pick all (then move / scale / turn them together), ungroup, drag. */
+  const renderFolderRow = (fid: string, g: KitCategory, members: KitZoneDef[], firstEntry: string) => {
+    const name = template.layerGroups?.find((x) => x.id === fid)?.name ?? 'Grup';
+    const open = !closedFolders.has(fid);
+    const shown = members.some((z) => state.zones[z.id]?.visible ?? z.defaultVisible);
+    const allPicked = members.length > 0 && members.every((z) => selectedZoneIds.includes(z.id));
+    const dropHere = dropAt?.g === g && dropAt.before === `folder:${fid}`;
+    // a layer or folder dropped on the folder row goes above the folder, outside it
+    const acceptsDrop = () => !!drag && drag.from === g && drag.id !== fid && drag.kind !== 'pattern';
+    return (
+      <div
+        key={`folder-${fid}`}
+        onDragOver={(e) => {
+          if (!acceptsDrop()) return;
+          dropEffect(e);
+          e.stopPropagation();
+          if (!dropHere) setDropAt({ g, before: `folder:${fid}` });
+        }}
+        onDrop={(e) => {
+          if (!acceptsDrop() || !drag) return;
+          e.preventDefault();
+          e.stopPropagation();
+          if (drag.kind === 'folder') moveFolder(g, drag.id, firstEntry);
+          else moveInStack(g, drag.id, firstEntry, null);
+          setDrag(null);
+          setDropAt(null);
+        }}
+        className={`border-t-2 ${dropHere ? 'border-sky-400' : 'border-transparent'}`}
+      >
+        <div
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', fid);
+            setDrag({ kind: 'folder', id: fid, from: g });
+          }}
+          onDragEnd={() => {
+            setDrag(null);
+            setDropAt(null);
+          }}
+          className={`${rowClass(allPicked, shown)} cursor-grab active:cursor-grabbing ${drag?.id === fid ? 'opacity-40' : ''}`}
+        >
+          <GripVertical className="w-3 h-3 -mx-1 shrink-0 text-slate-600" aria-hidden />
+          <button
+            type="button"
+            onClick={() => members.forEach((z) => onUpdateZone(z.id, { visible: !shown }))}
+            className="text-slate-400 hover:text-white"
+            title={shown ? 'Sembunyikan semua isi grup' : 'Tampilkan semua isi grup'}
+            aria-label={shown ? 'Sembunyikan semua isi grup' : 'Tampilkan semua isi grup'}
+          >
+            {shown ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              setClosedFolders((prev) => {
+                const next = new Set(prev);
+                if (next.has(fid)) next.delete(fid);
+                else next.add(fid);
+                return next;
+              })
+            }
+            className="text-amber-300/80 hover:text-amber-200"
+            aria-expanded={open}
+            title={open ? 'Tutup grup' : 'Buka grup'}
+            aria-label={open ? 'Tutup grup' : 'Buka grup'}
+          >
+            {open ? <FolderOpen className="w-3.5 h-3.5" /> : <Folder className="w-3.5 h-3.5" />}
+          </button>
+          <button
+            type="button"
+            onClick={() => onSelectZones(members.map((z) => z.id))}
+            aria-pressed={allPicked}
+            className="flex-1 min-w-0 text-left truncate font-semibold hover:text-white"
+            title="Klik untuk memilih semua isi grup (lalu geser, ubah ukuran, atau putar bersama)"
+          >
+            {name} <span className="font-normal text-slate-500">{members.length}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onUngroup(fid)}
+            className="text-slate-500 hover:text-white"
+            title="Lepas grup (Ctrl+Shift+G)"
+            aria-label="Lepas grup"
+          >
+            <Ungroup className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const renderZoneRow = (z: KitZoneDef) => {
     const zs = state.zones[z.id] ?? { color: z.defaultColor, visible: z.defaultVisible };
-    const selected = selectedZoneId === z.id;
+    // with several layers picked each is highlighted, and none opens its settings
+    const picked = selectedZoneIds.includes(z.id);
+    const selected = selectedZoneId === z.id && selectedZoneIds.length <= 1;
     // shape layers (not PSD image layers) can be dragged to another group; any layer not clipped to another one can
     // be dragged up or down in its group (a clipped layer stays with its base)
     const movable = !!(z.rects?.length || z.ellipses?.length || z.polygons?.length);
@@ -628,7 +843,8 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           e.stopPropagation();
           // a copied pattern (Ctrl / Alt) goes the usual way: over the original
           if (drag.kind === 'pattern' && (e.ctrlKey || e.altKey)) return dropPattern(z.group, drag.id, true);
-          moveInStack(z.group, drag.id, z.id);
+          if (drag.kind === 'folder') moveFolder(z.group, drag.id, z.id);
+          else moveInStack(z.group, drag.id, z.id);
           setDrag(null);
           setDropAt(null);
         }}
@@ -645,7 +861,7 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
             setDrag(null);
             setDropAt(null);
           }}
-          className={`${rowClass(selected, zs.visible)} ${draggable ? 'cursor-grab active:cursor-grabbing' : ''} ${drag?.id === z.id ? 'opacity-40' : ''}`}
+          className={`${rowClass(selected || picked, zs.visible)} ${draggable ? 'cursor-grab active:cursor-grabbing' : ''} ${drag?.id === z.id ? 'opacity-40' : ''}`}
         >
           {draggable && <GripVertical className="w-3 h-3 -mx-1 shrink-0 text-slate-600" aria-hidden />}
           <button
@@ -667,10 +883,11 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           />
           <button
             type="button"
-            onClick={() => onSelectZone(selected ? null : z.id)}
+            onClick={(e) => clickZone(z, e)}
             aria-expanded={selected}
+            aria-pressed={picked}
             className="flex-1 min-w-0 text-left truncate hover:text-white"
-            title="Klik untuk mengubah posisi, ukuran, bentuk, dan jahitan layer ini"
+            title="Klik untuk mengubah posisi, ukuran, bentuk, dan jahitan layer ini. Ctrl+klik / Shift+klik memilih beberapa layer"
           >
             {z.name}
           </button>
@@ -743,7 +960,8 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           e.stopPropagation();
           const copy = e.ctrlKey || e.altKey;
           if (drag.kind === 'pattern' && (copy || drag.from !== g)) return dropPattern(g, l.id, copy);
-          moveInStack(g, drag.id, l.id);
+          if (drag.kind === 'folder') moveFolder(g, drag.id, l.id);
+          else moveInStack(g, drag.id, l.id);
           setDrag(null);
           setDropAt(null);
         }}
@@ -1561,6 +1779,49 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           </div>
         )}
 
+        {/* Several layers picked (Ctrl / Shift click): group them or merge them */}
+        {selectedZoneIds.length > 1 &&
+          (() => {
+            const usable = pickedLayers();
+            const why = usable.length ? '' : 'Pilih layer dari satu grup saja (Baju, Celana, Kaus kaki, atau Aksesoris), bukan layer Base';
+            return (
+              <div className="sticky top-0 z-10 flex items-center gap-1.5 rounded-lg border border-sky-600/50 bg-sky-950/80 backdrop-blur px-2 py-1.5">
+                <span className="flex-1 min-w-0 truncate text-[11px] font-semibold text-sky-100">
+                  {selectedZoneIds.length} dipilih
+                </span>
+                <button
+                  type="button"
+                  onClick={groupSelected}
+                  disabled={!usable.length}
+                  title={why || 'Masukkan ke satu grup (Ctrl+G)'}
+                  className="flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-semibold text-slate-200 bg-slate-800 hover:bg-slate-700 disabled:opacity-40"
+                >
+                  <Group className="w-3.5 h-3.5" />
+                  Group
+                </button>
+                <button
+                  type="button"
+                  onClick={mergeSelected}
+                  disabled={usable.length < 2}
+                  title={why || 'Gabungkan jadi satu layer (Ctrl+E). Warna sama: tetap bentuk yang bisa diedit; warna beda: jadi layer gambar'}
+                  className="flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-semibold text-slate-200 bg-slate-800 hover:bg-slate-700 disabled:opacity-40"
+                >
+                  <Merge className="w-3.5 h-3.5" />
+                  Merge
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSelectZone(null)}
+                  title="Batalkan pilihan"
+                  aria-label="Batalkan pilihan"
+                  className="h-6 w-6 flex items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-slate-800"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            );
+          })()}
+
         {groups.map(({ g, zones }) => {
           // PSD helper layers (mesh, guides, stitch lines, shadows, background) go in their own closed sub-list
           const isHelper = (z: KitZoneDef) => !!z.mask && !!helperName(z.name);
@@ -1649,14 +1910,34 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
                       {groupPatterns.map((l) => renderPatternRow(l, g))}
                     </>
                   ) : (
-                    stackOf(g).map((e) => {
-                      if (e.kind === 'zone') {
-                        const z = main.find((x) => x.id === e.id);
-                        return z ? renderZoneRow(z) : null;
-                      }
-                      const l = patterns.find((x) => x.id === e.id);
-                      return l ? renderPatternRow(l, g) : null;
-                    })
+                    (() => {
+                      // a folder's row comes right above its first member; the members are indented under it
+                      const stack = stackOf(g);
+                      let prev: string | undefined;
+                      return stack.map((e) => {
+                        const fid = folderOf(e);
+                        const head =
+                          fid && fid !== prev
+                            ? renderFolderRow(
+                                fid,
+                                g,
+                                stack.filter((x) => x.kind === 'zone' && folderOf(x) === fid).map((x) => zoneById(x.id)!),
+                                stack.find((x) => folderOf(x) === fid)!.id
+                              )
+                            : null;
+                        prev = fid;
+                        if (fid && closedFolders.has(fid)) return head;
+                        const z = e.kind === 'zone' ? main.find((x) => x.id === e.id) : undefined;
+                        const l = e.kind === 'pattern' ? patterns.find((x) => x.id === e.id) : undefined;
+                        const row = z ? renderZoneRow(z) : l ? renderPatternRow(l, g) : null;
+                        return (
+                          <React.Fragment key={`${e.kind}-${e.id}`}>
+                            {head}
+                            {fid ? <div className="ml-2 pl-1.5 border-l border-slate-700/70">{row}</div> : row}
+                          </React.Fragment>
+                        );
+                      });
+                    })()
                   )}
 
                   {helpers.length > 0 && (

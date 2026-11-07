@@ -2,6 +2,20 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## 0.6.0 — Stabil: pilih beberapa layer, group, dan merge
+
+- **Kotak seleksi layer kembar menutupi semua kembarannya.** Dulu hanya membingkai yang pertama. Mengubah ukurannya ke
+  arah kembaran menjaga jarak antar-kembaran (hanya kembarannya yang membesar); geser dan putar tetap seperti biasa.
+- **Panah keyboard menggeser layer yang dipilih** (Shift = 10 px), seperti logo yang dipilih. Tidak saat mengetik di
+  kolom isian.
+- **Pilih beberapa layer, group, dan merge** (tab Layer, seperti Photoshop). Ctrl+klik / Shift+klik memilih beberapa
+  layer; satu kotak di canvas lalu menggeser, mengubah ukuran, dan memutar semuanya bersama, dan panah menggeser
+  semuanya. *Group* (Ctrl+G) memasukkannya ke folder di daftar: bisa ditutup, disembunyikan / ditampilkan, diseret naik
+  / turun sebagai satu, diklik untuk memilih semua isinya, dan *Lepas grup* (Ctrl+Shift+G). *Merge* (Ctrl+E saat 2+
+  layer dipilih; selain itu Ctrl+E tetap export) membuat satu layer: bentuk satu warna tetap bentuk yang bisa diedit,
+  selain itu jadi layer gambar yang tampilannya sama persis. Ctrl+Z membatalkannya. Template yang disimpan membawa folder
+  dan layer gambar hasil merge.
+
 ## 0.5.2 — Patch stabil: urutan layer ala Photoshop, menu Pakaian, ukuran tampilan, perbaikan kerah
 
 - **Preview 3D: ban kapten, lengan kiper, baju dimasukkan.** *Kiper* (lengan panjang kiper, biasa atau ketat), *Ban

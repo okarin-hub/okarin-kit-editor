@@ -278,7 +278,7 @@ export function drawTemplateForPart(
       g.globalAlpha = zs.opacity ?? 1;
       g.fillStyle = zs.color;
       zonePath(g, zone, zs);
-      g.fill('evenodd');
+      g.fill(zone.fill ?? 'evenodd');
       g.restore();
     }
     if (zone.mask) {

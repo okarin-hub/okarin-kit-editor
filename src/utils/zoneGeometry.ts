@@ -219,15 +219,22 @@ export function transformPoint(p: Pt, box: ZoneBox, zs: Partial<TemplateZoneStat
  * Offsets of the copies of a repeated zone: the zone itself first, then one step per copy along its own (rotated)
  * height or width, so the copies of a diagonal strip stay parallel to it.
  */
-export function repeatOffsets(zone: KitZoneDef, zs: Partial<TemplateZoneState>): Pt[] {
+/** How a zone repeats: number of copies, the (unrotated) axis they go along and the gap between them. */
+export function repeatLayout(zone: KitZoneDef, zs: Partial<TemplateZoneState>): { n: number; dir: 'x' | 'y'; gap: number } {
   // clamped here too: a project file from elsewhere could hold any number
   const n = clamp(Math.round(Number(zs.repeat) || 1), 1, 12);
+  const box = zoneBox(zone);
+  const dir = zs.repeatDir ?? (box.w * (zs.sx ?? 1) >= box.h * (zs.sy ?? 1) ? 'y' : 'x');
+  return { n, dir, gap: clamp(Number(zs.repeatGap ?? 12) || 0, 0, 1024) };
+}
+
+export function repeatOffsets(zone: KitZoneDef, zs: Partial<TemplateZoneState>): Pt[] {
+  const { n, dir, gap } = repeatLayout(zone, zs);
   if (n === 1) return [[0, 0]];
   const box = zoneBox(zone);
   const w = box.w * (zs.sx ?? 1);
   const h = box.h * (zs.sy ?? 1);
-  const dir = zs.repeatDir ?? (w >= h ? 'y' : 'x');
-  const step = (dir === 'y' ? h : w) + clamp(Number(zs.repeatGap ?? 12) || 0, 0, 1024);
+  const step = (dir === 'y' ? h : w) + gap;
   const a = rad(zs.rot ?? 0);
   const [ux, uy] = dir === 'y' ? [-Math.sin(a), Math.cos(a)] : [Math.cos(a), Math.sin(a)];
   return Array.from({ length: n }, (_, i) => [ux * step * i, uy * step * i] as Pt);
@@ -363,7 +370,7 @@ export function zoneHitTest(
     return Math.abs(x - b.cx - (zs.dx ?? 0)) <= (b.w * (zs.sx ?? 1)) / 2 && Math.abs(y - b.cy - (zs.dy ?? 0)) <= (b.h * (zs.sy ?? 1)) / 2;
   }
   zonePath(ctx, zone, zs);
-  if (ctx.isPointInPath(x, y, 'evenodd')) return true;
+  if (ctx.isPointInPath(x, y, zone.fill ?? 'evenodd')) return true;
   ctx.lineWidth = tolerance * 2;
   return ctx.isPointInStroke(x, y);
 }

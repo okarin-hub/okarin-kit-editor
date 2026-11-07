@@ -91,6 +91,7 @@ welcome (see [Contributing](CONTRIBUTING.md)).
 | 44 | P3 | Patterns are listed at the top of their group but are always drawn under the template layers of that group, so the list order between patterns and template layers is not the drawing order. |
 | 45 | P3 | All copies of a repeated object have the same size. Editing the points of a rotated repeated object straightens the repeat direction (it then follows the texture axes). |
 | 46 | P3 | **Read PSD:** the PSD is converted by the app while it is open (a 30-layer PSD takes about 10 to 30 seconds). A read-PSD template you changed in the editor (added, deleted or re-assigned layers) is not refreshed when the PSD is saved again; pick it again in the list. Colour slots join layers by their exact grey, so two unrelated layers that happen to have the same flat grey also share a colour, and one layer cannot be taken out of its slot yet. |
+| 52 | P3 | **Layer groups and Merge (0.6.0):** folders are named *Group 1, 2 …* and cannot be renamed yet; a merged image layer is stored inside the project / template (a few hundred KB each). A project from 0.6.0 opened in an older version shows no folders (the layers are all there), and a one-colour merge of overlapping shapes can show holes where they overlap. |
 
 ## Added in 0.4.0
 

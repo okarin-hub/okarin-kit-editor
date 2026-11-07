@@ -38,7 +38,8 @@ import {
 } from '@/types/kit';
 import { KitProject, ExportSettings, ExportTextureResolution, ExportDdsFormat } from '@/types/project';
 import { DEFAULT_PART_CONFIG, DEFAULT_CREDIT_CONFIG, PRESET_KITS, KitPreset } from '@/constants/presets';
-import { PES_2021_PARTS, PART_MAP, CANVAS_TEXTURE_SIZE, SHORTS_NUMBER_POS, migrateMarkings } from '@/constants/pes2021Parts';
+import { PES_2021_PARTS, PART_MAP, CANVAS_TEXTURE_SIZE, SHORTS_NUMBER_POS, migrateMarkings, partsForSleeveShape } from '@/constants/pes2021Parts';
+import { mergeZones } from '@/utils/layerMerge';
 import { bakeZone, moveZoneToPart, simplifyPath, zoneBox, zoneHitTest, zoneMatrix } from '@/utils/zoneGeometry';
 import { remapErase } from '@/utils/templateRenderer';
 import DrawBar from '@/components/ui/DrawBar';
@@ -324,9 +325,18 @@ export default function Home() {
 
   // Template handlers
   const [selectedZoneId, setSelectedZoneIdRaw] = useState<string | null>(null);
+  // more layers picked with Ctrl / Shift in the layer list (the main one stays selectedZoneId)
+  const [extraZoneIds, setExtraZoneIds] = useState<string[]>([]);
   const [editPoints, setEditPoints] = useState(false);
   const setSelectedZoneId = useCallback((id: string | null) => {
     setSelectedZoneIdRaw(id);
+    setExtraZoneIds([]);
+    setEditPoints(false);
+  }, []);
+  /** Several layers at once; the last one is the main selection. */
+  const handleSelectZones = useCallback((ids: string[]) => {
+    setSelectedZoneIdRaw(ids.length ? ids[ids.length - 1] : null);
+    setExtraZoneIds(ids.slice(0, -1));
     setEditPoints(false);
   }, []);
 
@@ -415,6 +425,63 @@ export default function Home() {
       },
     }));
   }, []);
+
+  // Layer groups (folders of the layer list): the members carry the group's id
+  const handleGroupZones = useCallback((ids: string[]) => {
+    const id = `lg-${Date.now().toString(36)}`;
+    setTplBundle((prev) => {
+      const used = new Set(prev.def.zones.map((z) => z.layerGroup).filter(Boolean));
+      const groups = (prev.def.layerGroups ?? []).filter((g) => used.has(g.id));
+      const name = `Grup ${groups.length + 1}`;
+      return {
+        ...prev,
+        def: {
+          ...prev.def,
+          modified: true,
+          layerGroups: [...groups, { id, name }],
+          zones: prev.def.zones.map((z) => (ids.includes(z.id) ? { ...z, layerGroup: id } : z)),
+        },
+      };
+    });
+  }, []);
+
+  const handleUngroup = useCallback((groupId: string) => {
+    setTplBundle((prev) => ({
+      ...prev,
+      def: {
+        ...prev.def,
+        modified: true,
+        layerGroups: (prev.def.layerGroups ?? []).filter((g) => g.id !== groupId),
+        zones: prev.def.zones.map((z) => {
+          if (z.layerGroup !== groupId) return z;
+          const out = { ...z };
+          delete out.layerGroup;
+          return out;
+        }),
+      },
+    }));
+  }, []);
+
+  // Merge layers into one (shape when they share colour / parts, else an image layer), in the top one's place
+  const handleMergeZones = useCallback((ids: string[]) => {
+    const newId = `custom-${Date.now().toString(36)}`;
+    const res = mergeZones(tplBundle.def, tplBundle.state, ids, newId, partsForSleeveShape(tplBundle.state.sleeveShape).map);
+    if (!res) return;
+    if (res.zone.mask) preloadImage(res.zone.mask);
+    setTplBundle((prev) => {
+      const pick = new Set(ids);
+      if (!prev.def.zones.some((z) => pick.has(z.id))) return prev;
+      const topId = [...prev.def.zones].reverse().find((z) => pick.has(z.id))!.id;
+      const zones = prev.def.zones.flatMap((z) => (z.id === topId ? [res.zone] : pick.has(z.id) ? [] : [z]));
+      const zoneStates = { ...prev.state.zones };
+      ids.forEach((id) => delete zoneStates[id]);
+      zoneStates[newId] = res.zs;
+      // patterns that sat above one of the merged layers sit above the merged one
+      const patterns = prev.state.patterns?.map((l) => (l.above && pick.has(l.above) ? { ...l, above: newId } : l));
+      return { def: { ...prev.def, modified: true, zones }, state: { ...prev.state, zones: zoneStates, patterns } };
+    });
+    handleSelectZones([newId]);
+  }, [tplBundle, handleSelectZones]);
 
   const handleAddZone = useCallback((kind: NewZoneKind, part: KitPartId) => {
     const b = PART_MAP[part].bounds;
@@ -785,8 +852,15 @@ export default function Home() {
     });
   }, []);
 
+  // every selected layer (that still exists), the main one last
+  const selectedZoneIds = useMemo(() => {
+    if (!selectedZoneId) return [];
+    const exists = new Set(tplBundle.def.zones.map((z) => z.id));
+    return [...extraZoneIds.filter((id) => id !== selectedZoneId && exists.has(id)), selectedZoneId];
+  }, [selectedZoneId, extraZoneIds, tplBundle.def.zones]);
+
   const zoneDrag3D = (() => {
-    if (!selectedZoneId || drawTool || brush.active || editPoints) return null;
+    if (!selectedZoneId || selectedZoneIds.length > 1 || drawTool || brush.active || editPoints) return null;
     const zone = tplBundle.def.zones.find((z) => z.id === selectedZoneId);
     if (!zone) return null;
     const zs = tplBundle.state.zones[zone.id] ?? { color: zone.defaultColor, visible: true };
@@ -806,6 +880,8 @@ export default function Home() {
         // library/templates, which is where the saved file is written
         const relMask = (url?: string) => {
           if (!url) return undefined;
+          // a merged image layer carries its picture inline; it stays in the saved file
+          if (url.startsWith('data:image/png;base64,')) return url;
           try {
             const p = new URL(url, 'http://x').searchParams.get('p') ?? '';
             return p.replace(/^templates\//, '') || undefined;
@@ -1516,6 +1592,7 @@ export default function Home() {
                   templateBundle={tplBundle}
                   fabricConfig={fabricConfig}
                   selectedZoneId={selectedZoneId}
+                  selectedZoneIds={selectedZoneIds}
                   onSelectZone={setSelectedZoneId}
                   onZoneTransform={handleUpdateZone}
                   drawTool={drawTool}
@@ -1621,6 +1698,11 @@ export default function Home() {
                 onSelectTemplate={handleSelectTemplate}
                 selectedZoneId={selectedZoneId}
                 onSelectZone={setSelectedZoneId}
+                selectedZoneIds={selectedZoneIds}
+                onSelectZones={handleSelectZones}
+                onGroupZones={handleGroupZones}
+                onUngroup={handleUngroup}
+                onMergeZones={handleMergeZones}
                 onUpdateZone={handleUpdateZone}
                 onResetZone={handleResetZone}
                 onUpdateZoneDef={handleUpdateZoneDef}

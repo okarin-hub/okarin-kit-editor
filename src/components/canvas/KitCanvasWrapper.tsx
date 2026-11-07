@@ -33,6 +33,7 @@ interface KitCanvasWrapperProps {
   templateBundle?: TemplateBundle | null;
   fabricConfig?: FabricConfig;
   selectedZoneId?: string | null;
+  selectedZoneIds?: string[];
   drawTool?: 'free' | 'poly' | 'stitch' | 'stitchFree' | null;
   drawPts?: Pt[];
   onViewChange?: (patch: Partial<CanvasViewState>) => void;

@@ -6,7 +6,8 @@ import { TEMPLATE_DIR, PSD_CACHE_DIR, psdFolder } from '@/lib/templateLoader';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const MAX_BYTES = 512 * 1024;
+// merged image layers carry their PNG inside the template (see templateLoader: 8 MB per layer)
+const MAX_BYTES = 16 * 1024 * 1024;
 
 /** POST { name, template } -> writes library/templates/<name>.json (never overwrites a file). */
 export async function POST(req: NextRequest) {
@@ -44,6 +45,7 @@ export async function POST(req: NextRequest) {
       description: typeof tpl.description === 'string' ? tpl.description : undefined,
       zones: tpl.zones,
       seams: Array.isArray(tpl.seams) ? tpl.seams : undefined,
+      layerGroups: Array.isArray(tpl.layerGroups) ? tpl.layerGroups : undefined,
     };
     fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
     return NextResponse.json({ ok: true, file: path.basename(file) });

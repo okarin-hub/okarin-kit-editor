@@ -115,6 +115,18 @@ Klik nama bagian (atau tombol roda gigi) untuk membuka editornya di bawah baris:
 *Edit titik bentuk* di pengaturan layer bentuk menampilkan titik-titiknya di canvas: seret titik, klik **+** di tengah
 sisi untuk menambah titik, klik kanan titik untuk menghapusnya.
 
+**Urutan, grup, dan merge (seperti Photoshop).** Yang paling atas di daftar tampil paling depan. Seret objek atau pola
+ke atas atau ke bawah di grupnya; pola juga bisa dinaikkan ke atas objek. Layer Base tetap paling bawah.
+- **Pilih beberapa:** `Ctrl`+klik menambah / mengurangi layer, `Shift`+klik memilih deretan sampai layer itu. Satu kotak
+  di canvas lalu menggeser, mengubah ukuran (proporsional), dan memutar semuanya bersama; panah menggeser semuanya.
+- **Group** (`Ctrl`+`G`, atau *Group* di bar yang muncul): layer masuk ke satu folder. Folder bisa ditutup, disembunyikan
+  / ditampilkan lewat matanya, diseret sebagai satu, diklik namanya untuk memilih semua isinya, dan dilepas dengan
+  tombolnya atau `Ctrl`+`Shift`+`G`. Lepas layer di dalam folder untuk menambahkannya, di baris folder untuk
+  mengeluarkannya.
+- **Merge** (`Ctrl`+`E` saat dua layer atau lebih dipilih, atau *Merge* di bar): satu layer menggantikan layer paling atas.
+  Bentuk satu warna (bagian sama, tanpa blend atau bekas kuas hapus) tetap satu bentuk yang titiknya masih bisa diedit;
+  selain itu jadi layer gambar yang tampilannya sama persis tapi warnanya tetap. `Ctrl`+`Z` membatalkannya.
+
 ### Layer pola
 Pola ada di grup daftar layer. **+ Pola** di samping grup (Baju, Celana, Kaus kaki, Aksesoris) menambah pola di sana;
 pola tampil paling atas di grupnya. **Seret** baris pola ke grup lain untuk memindahkannya, atau tahan `Ctrl` saat
@@ -240,4 +252,4 @@ vektor yang tajam: seluruh bentuknya (*siluet*) atau hanya bagian gelapnya (*det
 
 `Ctrl+Z` undo · `Ctrl+Y` redo · `Ctrl+S` buka / simpan proyek · `Ctrl+E` export · `Ctrl+,` pengaturan · `1` / `2` / `3` 2D / Split / 3D ·
 alat `V` `B` `P` `S` `J` `E` · `?` daftar pintasan · scroll = zoom · seret = geser · `Enter` selesai menggambar · `Esc` batal ·
-`Backspace` hapus titik terakhir · panah / `Shift`+panah menggeser logo terpilih 1 / 10 px · `Delete` menghapusnya.
+`Backspace` hapus titik terakhir · panah / `Shift`+panah menggeser logo atau layer terpilih 1 / 10 px · `Delete` menghapusnya.

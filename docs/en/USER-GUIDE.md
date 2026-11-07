@@ -116,6 +116,17 @@ left ↔ right). Clicking a part on the canvas or its focus button also opens th
 *Edit shape points* in a shape layer's settings shows its points on the canvas: drag a point, click a **+** in the
 middle of a side to add one, right-click a point to remove it.
 
+**Order, groups and merging (like Photoshop).** The top of the list is the front of the kit. Drag an object or a
+pattern up or down in its group; a pattern can go above an object too. Base layers stay at the bottom.
+- **Pick several:** `Ctrl`+click adds / removes a layer, `Shift`+click picks the run up to it. One box on the canvas
+  then moves, scales (keeping proportions) and turns them together; the arrow keys move them all.
+- **Group** (`Ctrl`+`G`, or *Group* in the bar that appears): the layers go in a folder. Fold it, hide / show it with
+  its eye, drag it as one, click its name to pick everything in it, *Ungroup* with its button or `Ctrl`+`Shift`+`G`.
+  Drop a layer inside a folder to add it, on the folder's own row to take it out.
+- **Merge** (`Ctrl`+`E` while two or more layers are picked, or *Merge* in the bar): one layer in place of the top
+  one. Shapes of one colour (same parts, no blend or eraser strokes) stay one shape you can still edit point by
+  point; anything else becomes an image layer that looks exactly the same but keeps its colours. `Ctrl`+`Z` undoes it.
+
 ### Pattern layers
 Patterns live in the groups of the layer list. **+ Pattern** next to a group (Shirt, Shorts, Socks, Accessories) adds
 one there; it is listed at the top of the group. **Drag** a pattern row onto another group to move it there, or hold
@@ -241,4 +252,4 @@ vector shape: the whole shape (*silhouette*) or only its dark parts (*detail*, w
 
 `Ctrl+Z` undo · `Ctrl+Y` redo · `Ctrl+S` open / save project · `Ctrl+E` export · `Ctrl+,` settings · `1` / `2` / `3` 2D / Split / 3D ·
 `V` `B` `P` `S` `J` `E` tools · `?` shortcut list · scroll = zoom · drag = pan · `Enter` finish drawing · `Esc` cancel ·
-`Backspace` remove last point · arrows / `Shift`+arrows nudge the selected logo by 1 / 10 px · `Delete` removes it.
+`Backspace` remove last point · arrows / `Shift`+arrows nudge the selected logo or layer by 1 / 10 px · `Delete` removes it.

@@ -76,7 +76,10 @@ const DOCS: { title: string; text: string }[] = [
 
 const SHORTCUTS: { keys: string; text: string }[] = [
   { keys: 'Ctrl + S', text: 'Buka / simpan proyek' },
-  { keys: 'Ctrl + E', text: 'Export kit' },
+  { keys: 'Ctrl + E', text: 'Export kit (merge kalau 2+ layer dipilih)' },
+  { keys: 'Ctrl / Shift + klik', text: 'Pilih beberapa layer di tab Layer' },
+  { keys: 'Ctrl + G', text: 'Group layer terpilih' },
+  { keys: 'Ctrl + Shift + G', text: 'Lepas grup' },
   { keys: 'Ctrl + ,', text: 'Pengaturan (bahasa, pengaturan layer)' },
   { keys: 'Ctrl + Z', text: 'Undo' },
   { keys: 'Ctrl + Y', text: 'Redo' },
@@ -85,7 +88,7 @@ const SHORTCUTS: { keys: string; text: string }[] = [
   { keys: 'Enter', text: 'Selesai menggambar' },
   { keys: 'Esc', text: 'Batal menggambar' },
   { keys: 'Backspace', text: 'Hapus titik terakhir' },
-  { keys: 'Panah / Shift + Panah', text: 'Geser logo terpilih 1 px / 10 px' },
+  { keys: 'Panah / Shift + Panah', text: 'Geser logo atau layer terpilih 1 px / 10 px' },
   { keys: 'Delete', text: 'Hapus logo terpilih' },
   { keys: 'V', text: 'Alat pilih dan geser' },
   { keys: 'B / P', text: 'Gambar bentuk bebas / titik' },

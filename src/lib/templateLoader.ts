@@ -25,6 +25,8 @@ const isPt = (p: unknown): boolean => Array.isArray(p) && p.length === 2 && isNu
 const isBox = (r: unknown): boolean => Array.isArray(r) && r.length === 4 && r.every(isNum);
 
 const INITIAL_KEYS = ['dx', 'dy', 'sx', 'sy', 'rot', 'opacity'] as const;
+/** Longest PNG data URL a template may carry for one layer (Merge makes those). */
+const MAX_INLINE_MASK = 8 * 1024 * 1024;
 // blend modes a template zone may use (what the PSD reader writes)
 const BLEND_OPS = new Set([
   'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'color-burn', 'hard-light', 'soft-light',
@@ -61,8 +63,16 @@ export function parseTemplate(json: any, relDirs: string[], fileName: string) {
 
     let mask: string | undefined;
     if (typeof z.mask === 'string' && z.mask) {
-      const rel = path.posix.join('templates', ...relDirs, z.mask.replace(/\\/g, '/'));
-      mask = `/api/library/file?p=${encodeURIComponent(rel)}`;
+      if (z.mask.startsWith('data:')) {
+        // an image layer made by Merge keeps its picture inside the template: only a PNG, of a sane size
+        if (!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(z.mask) || z.mask.length > MAX_INLINE_MASK) {
+          throw new Error(`zona "${zid}": mask di dalam file harus gambar PNG (data:image/png;base64) maks 8 MB`);
+        }
+        mask = z.mask;
+      } else {
+        const rel = path.posix.join('templates', ...relDirs, z.mask.replace(/\\/g, '/'));
+        mask = `/api/library/file?p=${encodeURIComponent(rel)}`;
+      }
     }
     if (!rects && !polygons && !ellipses && !mask) {
       throw new Error(`zona "${zid}": isi rects, polygons, ellipses, atau mask`);
@@ -97,6 +107,8 @@ export function parseTemplate(json: any, relDirs: string[], fileName: string) {
           : undefined,
       blend: BLEND_OPS.has(z.blend) ? z.blend : undefined,
       clipTo: typeof z.clipTo === 'string' && z.clipTo ? z.clipTo.slice(0, 80) : undefined,
+      layerGroup: typeof z.layerGroup === 'string' && z.layerGroup ? z.layerGroup.slice(0, 80) : undefined,
+      fill: z.fill === 'nonzero' ? ('nonzero' as const) : undefined,
       defaultColor: typeof z.defaultColor === 'string' ? z.defaultColor : '#ffffff',
       defaultVisible: z.defaultVisible !== false,
     };
@@ -108,6 +120,13 @@ export function parseTemplate(json: any, relDirs: string[], fileName: string) {
       )
     : undefined;
 
+  const layerGroups = Array.isArray(json.layerGroups)
+    ? json.layerGroups
+        .filter((g: any) => g && typeof g.id === 'string' && g.id && typeof g.name === 'string')
+        .slice(0, 200)
+        .map((g: any) => ({ id: g.id.slice(0, 80), name: g.name.slice(0, 60) }))
+    : undefined;
+
   return {
     id,
     name: String(json.name || id),
@@ -115,6 +134,7 @@ export function parseTemplate(json: any, relDirs: string[], fileName: string) {
     source: 'library' as const,
     zones,
     seams,
+    layerGroups: layerGroups?.length ? layerGroups : undefined,
   };
 }
 

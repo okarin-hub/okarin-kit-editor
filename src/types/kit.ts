@@ -244,6 +244,10 @@ export interface KitZoneDef {
   blend?: GlobalCompositeOperation;
   /** Clipping mask from the PSD: drawn only inside this zone (its base layer), and hidden with it. */
   clipTo?: string;
+  /** Layer group (folder of the layer list) this zone is in: an id of KitTemplate.layerGroups. */
+  layerGroup?: string;
+  /** Fill rule of the shapes: 'nonzero' joins overlapping shapes (a merge of shapes); default even-odd (holes). */
+  fill?: 'nonzero';
   defaultColor: string;
   defaultVisible: boolean;
 }
@@ -275,6 +279,8 @@ export interface KitTemplate {
   rev?: string;
   zones: KitZoneDef[];
   seams?: KitSeamDef[];
+  /** Folders of the layer list (their members carry KitZoneDef.layerGroup). */
+  layerGroups?: { id: string; name: string }[];
 }
 
 /** How the ends / corners of a zone are shaped. */

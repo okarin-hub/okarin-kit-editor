@@ -20,7 +20,7 @@ import { preloadImage, subscribeAssets } from '@/utils/imageCache';
 import { renderKitCanvas } from '@/utils/textureGenerator';
 import { drawTemplateForPart, setLiveErase, SEAM_CURVE_TENSION } from '@/utils/templateRenderer';
 import { zoomFactor } from '@/utils/uiPrefs';
-import { zoneBox, zoneMatrix } from '@/utils/zoneGeometry';
+import { bakeZone, repeatLayout, zoneBox, zoneMatrix } from '@/utils/zoneGeometry';
 import { drawCreditText } from '@/utils/creditRenderer';
 import { drawFabricForPart } from '@/utils/fabricRenderer';
 import { partPolygons, tracePolygons, polygonsBox } from '@/utils/partShape';
@@ -28,6 +28,7 @@ import {
   KitPartId,
   KitPartConfig,
   KitPartDefinition,
+  KitZoneDef,
   CanvasViewState,
   KitGraphicItem,
   PlayerMarkingsConfig,
@@ -67,6 +68,8 @@ interface KitCanvasProps {
   templateBundle?: TemplateBundle | null;
   fabricConfig?: FabricConfig;
   selectedZoneId?: string | null;
+  /** All selected layers (Ctrl / Shift click in the layer list); with more than one a shared box moves them together. */
+  selectedZoneIds?: string[];
   onSelectZone?: (zoneId: string | null) => void;
   onZoneTransform?: (zoneId: string, patch: Partial<TemplateZoneState>) => void;
   drawTool?: 'free' | 'poly' | 'stitch' | 'stitchFree' | null;
@@ -159,6 +162,7 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
   templateBundle,
   fabricConfig,
   selectedZoneId,
+  selectedZoneIds,
   onSelectZone,
   onZoneTransform,
   drawTool,
@@ -397,6 +401,66 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
       : null;
   const selectedZoneState = selectedZone ? templateBundle!.state.zones[selectedZone.id] : undefined;
   const zBox = selectedZone ? zoneBox(selectedZone) : null;
+  // A repeated layer's box covers all its copies: it keeps the first copy's centre as its origin (offset = half the
+  // first copy) and grows along the copies by n sizes plus the gaps (the gaps don't scale with the layer, so in the
+  // box's own unscaled units a gap is gap / scale).
+  const zRepeat = selectedZone && selectedZoneState ? repeatLayout(selectedZone, selectedZoneState) : { n: 1, dir: 'y' as const, gap: 0 };
+  // ---- Several layers selected: one upright box around all of them moves / scales / turns them together ----
+  const multiZones =
+    templateBundle && selectedZoneIds && selectedZoneIds.length > 1
+      ? templateBundle.def.zones.filter((z) => selectedZoneIds.includes(z.id))
+      : [];
+  const multi = multiZones.length > 1;
+  const zsOf = (z: KitZoneDef) => templateBundle?.state.zones[z.id] ?? { color: z.defaultColor, visible: z.defaultVisible };
+  let multiBox: { cx: number; cy: number; w: number; h: number } | null = null;
+  if (multi) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    const add = (x: number, y: number) => {
+      x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+    };
+    multiZones.forEach((z) => {
+      const zs = zsOf(z);
+      if (z.rects?.length || z.polygons?.length || z.ellipses?.length) {
+        (bakeZone(z, zs, true).polygons ?? []).forEach((p) => p.forEach(([x, y]) => add(x, y)));
+      } else {
+        // image layer: the corners of its box, moved / turned / scaled
+        const b = zoneBox(z);
+        const m = zoneMatrix(z, zs);
+        [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([sx, sy]) => {
+          const p = m.transformPoint(new DOMPoint(b.cx + (sx * b.w) / 2, b.cy + (sy * b.h) / 2));
+          add(p.x, p.y);
+        });
+      }
+    });
+    if (Number.isFinite(x0)) multiBox = { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, w: Math.max(4, x1 - x0), h: Math.max(4, y1 - y0) };
+  }
+  const multiRectRef = useRef<Konva.Rect | null>(null);
+  const multiTrRef = useRef<Konva.Transformer | null>(null);
+  // where everything was when a drag / transform of the shared box started
+  const multiStartRef = useRef<{ box: { cx: number; cy: number }; zones: { id: string; cx: number; cy: number; dx: number; dy: number; sx: number; sy: number; rot: number }[] } | null>(null);
+  const snapshotMulti = () => {
+    if (!multiBox) return;
+    multiStartRef.current = {
+      box: { cx: multiBox.cx, cy: multiBox.cy },
+      zones: multiZones.map((z) => {
+        const zs = zsOf(z);
+        const b = zoneBox(z);
+        return { id: z.id, cx: b.cx, cy: b.cy, dx: zs.dx ?? 0, dy: zs.dy ?? 0, sx: zs.sx ?? 1, sy: zs.sy ?? 1, rot: zs.rot ?? 0 };
+      }),
+    };
+  };
+  useEffect(() => {
+    if (!multiTrRef.current) return;
+    multiTrRef.current.nodes(multi && multiRectRef.current && !locked && !editPoints ? [multiRectRef.current] : []);
+    multiTrRef.current.getLayer()?.batchDraw();
+  });
+
+  const zBoxSize = zBox
+    ? {
+        w: zRepeat.dir === 'x' ? zBox.w * zRepeat.n + ((zRepeat.n - 1) * zRepeat.gap) / Math.abs(selectedZoneState?.sx ?? 1) : zBox.w,
+        h: zRepeat.dir === 'y' ? zBox.h * zRepeat.n + ((zRepeat.n - 1) * zRepeat.gap) / Math.abs(selectedZoneState?.sy ?? 1) : zBox.h,
+      }
+    : null;
 
   // Load the selected layer's eraser mask into a canvas the brush paints on (again after undo / redo)
   const eraseTargetId = brushActive && selectedZone ? selectedZone.id : null;
@@ -601,6 +665,28 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedGraphicId, graphicItems, onDeleteGraphic, onUpdateGraphic, onSelectGraphic]);
+
+  // Arrow keys nudge the selected template layer(s) too (Shift = 10 px), like a selected logo
+  const nudgeTargets = multi ? multiZones : selectedZone ? [selectedZone] : [];
+  useEffect(() => {
+    if (!nudgeTargets.length || locked || editPoints || selectedGraphicId) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const step = e.shiftKey ? 10 : 1;
+      const move: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+      const d = move[e.key];
+      if (!d) return;
+      e.preventDefault();
+      nudgeTargets.forEach((z) => {
+        const zs = zsOf(z);
+        onZoneTransform?.(z.id, { dx: (zs.dx ?? 0) + d[0], dy: (zs.dy ?? 0) + d[1] });
+      });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   return (
     <div
@@ -1033,7 +1119,73 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
               );
             })}
         {/* Template zone editor: drag to move, corner handles to resize, top handle to rotate */}
-        {selectedZone && selectedZoneState && zBox && !isExportingClean && !locked && !editPoints && (
+        {/* Several layers selected: one box moves / scales (keeping proportions) / turns them all around its centre */}
+        {multi && multiBox && !isExportingClean && !locked && !editPoints && (
+          <Group id="multi-edit-group">
+            <Rect
+              ref={multiRectRef}
+              x={multiBox.cx}
+              y={multiBox.cy}
+              offsetX={multiBox.w / 2}
+              offsetY={multiBox.h / 2}
+              width={multiBox.w}
+              height={multiBox.h}
+              fill="rgba(56,189,248,0.08)"
+              stroke="#38bdf8"
+              strokeWidth={1.5}
+              strokeScaleEnabled={false}
+              dash={[6, 4]}
+              draggable
+              onDragStart={snapshotMulti}
+              onDragMove={(e) => {
+                const s = multiStartRef.current;
+                if (!s) return;
+                const ddx = e.target.x() - s.box.cx;
+                const ddy = e.target.y() - s.box.cy;
+                s.zones.forEach((z) => onZoneTransform?.(z.id, { dx: Math.round(z.dx + ddx), dy: Math.round(z.dy + ddy) }));
+              }}
+              onTransformStart={snapshotMulti}
+              onTransformEnd={(e) => {
+                const node = e.target;
+                const s = multiStartRef.current;
+                if (!s) return;
+                const k = node.scaleX();
+                const turn = node.rotation();
+                const a = (turn * Math.PI) / 180;
+                // each layer's centre turns and scales about the box centre; its own size and angle follow
+                s.zones.forEach((z) => {
+                  const px = z.cx + z.dx - s.box.cx;
+                  const py = z.cy + z.dy - s.box.cy;
+                  const nx = node.x() + k * (px * Math.cos(a) - py * Math.sin(a));
+                  const ny = node.y() + k * (px * Math.sin(a) + py * Math.cos(a));
+                  onZoneTransform?.(z.id, {
+                    dx: Math.round(nx - z.cx),
+                    dy: Math.round(ny - z.cy),
+                    sx: Math.round(z.sx * k * 1000) / 1000,
+                    sy: Math.round(z.sy * k * 1000) / 1000,
+                    rot: Math.round((z.rot + turn) * 10) / 10,
+                  });
+                });
+                // the box is rebuilt around the result, upright
+                node.scale({ x: 1, y: 1 });
+                node.rotation(0);
+              }}
+            />
+            <Transformer
+              ref={multiTrRef}
+              rotateEnabled
+              keepRatio
+              enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
+              anchorFill="#0284c7"
+              anchorStroke="#ffffff"
+              anchorSize={9}
+              borderStroke="#38bdf8"
+              rotateAnchorOffset={24}
+              boundBoxFunc={(oldBox, newBox) => (Math.abs(newBox.width) < 6 || Math.abs(newBox.height) < 6 ? oldBox : newBox)}
+            />
+          </Group>
+        )}
+        {selectedZone && selectedZoneState && zBox && zBoxSize && !multi && !isExportingClean && !locked && !editPoints && (
           <Group id="zone-edit-group">
             <Rect
               ref={zoneRectRef}
@@ -1041,8 +1193,8 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
               y={zBox.cy + (selectedZoneState.dy ?? 0)}
               offsetX={zBox.w / 2}
               offsetY={zBox.h / 2}
-              width={zBox.w}
-              height={zBox.h}
+              width={zBoxSize.w}
+              height={zBoxSize.h}
               scaleX={selectedZoneState.sx ?? 1}
               scaleY={selectedZoneState.sy ?? 1}
               rotation={selectedZoneState.rot ?? 0}
@@ -1060,11 +1212,31 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
               }
               onTransformEnd={(e) => {
                 const node = e.target;
+                let sx = node.scaleX();
+                let sy = node.scaleY();
+                let x = node.x();
+                let y = node.y();
+                const { n, dir, gap } = zRepeat;
+                if (n > 1) {
+                  // the box is n copies + gaps long: the scale of one copy keeps the gaps as they are, and the first
+                  // copy's centre moves so the edge of the box that was not dragged stays put
+                  const base = dir === 'y' ? zBox.h : zBox.w;
+                  const s = dir === 'y' ? sy : sx;
+                  const len = (dir === 'y' ? node.height() : node.width()) * Math.abs(s);
+                  const one = (Math.sign(s) || 1) * Math.max(0.02, (len - (n - 1) * gap) / (n * base));
+                  const shift = (base * (Math.abs(one) - Math.abs(s))) / 2;
+                  const a = (node.rotation() * Math.PI) / 180;
+                  const [ux, uy] = dir === 'y' ? [-Math.sin(a), Math.cos(a)] : [Math.cos(a), Math.sin(a)];
+                  x += ux * shift;
+                  y += uy * shift;
+                  if (dir === 'y') sy = one;
+                  else sx = one;
+                }
                 onZoneTransform?.(selectedZone.id, {
-                  dx: Math.round(node.x() - zBox.cx),
-                  dy: Math.round(node.y() - zBox.cy),
-                  sx: Math.round(node.scaleX() * 1000) / 1000,
-                  sy: Math.round(node.scaleY() * 1000) / 1000,
+                  dx: Math.round(x - zBox.cx),
+                  dy: Math.round(y - zBox.cy),
+                  sx: Math.round(sx * 1000) / 1000,
+                  sy: Math.round(sy * 1000) / 1000,
                   rot: Math.round(node.rotation() * 10) / 10,
                 });
               }}

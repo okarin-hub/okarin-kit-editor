@@ -2,6 +2,18 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## 0.6.0 — Stable: pick several layers, group and merge them
+
+- **The selection box of a repeated layer covers all its copies.** It only framed the first copy. Resizing it along
+  the copies keeps the gap between them (only the copies grow); moving and turning work as before.
+- **Arrow keys move the selected layer** (Shift = 10 px), like a selected logo. Not while typing in a field.
+- **Pick several layers, group them, merge them** (Layer tab, like Photoshop). Ctrl+click / Shift+click picks
+  layers; one box on the canvas then moves, scales and turns them together, and the arrow keys move them all.
+  *Group* (Ctrl+G) puts them in a folder of the list: fold it, show / hide it, drag it up or down as one, click it to
+  pick everything in it, *Ungroup* (Ctrl+Shift+G). *Merge* (Ctrl+E while 2+ layers are picked; otherwise Ctrl+E
+  still exports) makes one layer: shapes of one colour stay one editable shape, anything else becomes an image layer
+  that looks exactly the same. Ctrl+Z undoes it. Saved templates keep folders and merged image layers.
+
 ## 0.5.2 — Stable patch: Photoshop-style layer order, outfit menu, interface size, collar fix
 
 - **3D preview: captain's armband, goalkeeper sleeves, tucked-in shirt.** *GK* (goalkeeper long sleeves, normal or
