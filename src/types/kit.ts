@@ -262,6 +262,8 @@ export interface KitSeamDef {
   closed?: boolean;
   /** Draw a smooth curve through the points instead of straight segments. */
   smooth?: boolean;
+  /** Own seam style for this line; omitted = the general style of the Seams section. */
+  style?: Exclude<SeamConfig['style'], 'flat'>;
 }
 
 export interface KitTemplate {
@@ -319,8 +321,8 @@ export interface TemplateZoneState {
 
 export interface SeamConfig {
   enabled: boolean;
-  /** natural = soft seam + fine top-stitch, soft = soft seam only, stitch / double = visible stitching ('flat' is the old name of soft). */
-  style: 'natural' | 'soft' | 'stitch' | 'double' | 'flat';
+  /** natural = soft seam + fine top-stitch, soft = soft seam only, stitch / double = visible stitching, join = unbroken line with a shadow along it ('flat' is the old name of soft). */
+  style: 'natural' | 'soft' | 'stitch' | 'double' | 'join' | 'flat';
   opacity: number; // 0..1
   width: number; // px in texture space
   /** Fixed stitch colour. Omitted = automatic (light on dark fabric, dark on light fabric). */

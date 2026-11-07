@@ -2,6 +2,30 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## 0.6.1 — Stable patch: export matches the canvas, colour popup with hex paste, more for groups and stitches
+
+- **New stitch style: Joined.** One unbroken line with a shadow along it, like two pieces of cloth sewn together. It
+  works as the general style and on a single line.
+- **Export matches the 2D canvas where parts touch.** A layer running across two parts (sleeve and shirt, say) got a
+  line of base colour through it in the PNG, DDS and FTEX, and in the 3D preview's texture, because each part was painted in full before the next. The export
+  now draws in the same order as the canvas. The faint hairline at those joins is gone from the canvas too.
+- **New colour popup: paste a hex code.** Every colour swatch now opens the app's own popup with a code field: paste or
+  type `#aa11cc`, `aa11cc` or `0F0`. It also has a colour square, a hue bar and a screen colour picker.
+- **Groups: rename, duplicate, colour.** The folder row has a pencil (or double-click the name), a duplicate button and
+  a swatch that sets the colour of everything in the group, including patterns placed above its layers.
+- **Merged layer colour fixed.** Picking a colour on an image layer made by Merge came out darker than the colour
+  picked. The whole layer now takes the exact colour; tick *Use the image's original colours* to get the originals back.
+- **FTEX: a rare wrong chunk closed off.** A compressed chunk of exactly its original size would be read as raw data.
+- **Moving the canvas while drawing.** With a drawing tool or the eraser on, the middle and right mouse buttons used to
+  draw too. Now only the left button draws; hold the middle or right button and drag to move the canvas.
+- **Quick clicks no longer end a stitch line.** Two fast clicks on different spots counted as a double click. A line
+  now ends only on a double click on the same spot (shapes too).
+- **Every stitch line has its own style.** Pick natural, soft, visible or double in the line's row; *General* follows
+  the style below the list.
+- **Double and natural work on drawn lines and on layer edges.** Double on a drawn line or a layer edge looked the same
+  as visible, with no second row. It now draws a second row beside it, and natural's fine top-stitch on a drawn line
+  runs beside the seam instead of on top of it.
+
 ## 0.6.0 — Stable: pick several layers, group and merge them
 
 - **The selection box of a repeated layer covers all its copies.** It only framed the first copy. Resizing it along

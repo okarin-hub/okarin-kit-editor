@@ -87,6 +87,36 @@ function softSeam(
   stroke(rgba(t.light, a * 0.35), w * 0.9, w * 0.9, w * 0.9);
 }
 
+/**
+ * Two pieces of cloth sewn together: one unbroken line with a shadow on both sides. Not shifted to one side: the pieces
+ * lie turned in the texture (the back upside-down, the shorts sideways), so a fixed direction would differ per piece.
+ */
+function fabricJoin(
+  ctx: CanvasRenderingContext2D,
+  seams: SeamConfig,
+  fabricHex: string,
+  build: () => void
+): void {
+  const t = seamTones(seams, fabricHex);
+  const a = seams.opacity;
+  const w = Math.max(0.6, seams.width);
+  const stroke = (color: string, width: number) => {
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.setLineDash([]);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    build();
+    ctx.stroke();
+    ctx.restore();
+  };
+  stroke(rgba(t.shade, a * 0.14), w * 6);
+  stroke(rgba(t.shade, a * 0.24), w * 3.6);
+  stroke(rgba(t.shade, a * 0.42), w * 2);
+  stroke(rgba(t.shade, a * 0.95), w * 0.8);
+}
+
 /** Fine dashed top-stitch. */
 function topStitch(
   ctx: CanvasRenderingContext2D,
@@ -167,6 +197,26 @@ export function traceSeamPath(ctx: CanvasRenderingContext2D, points: Pt[], smoot
   }
   const last = ctrl[ctrl.length - 1];
   ctx.quadraticCurveTo(last[2], last[3], points[n - 1][0], points[n - 1][1]);
+}
+
+/** The line moved sideways by `d` px (each point along the mean normal of its two segments). */
+export function offsetLine(points: Pt[], d: number, closed?: boolean): Pt[] {
+  const n = points.length;
+  const unit = (a: Pt, b: Pt): Pt => {
+    const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    return [(b[0] - a[0]) / l, (b[1] - a[1]) / l];
+  };
+  return points.map((p, i) => {
+    const prev = i > 0 ? points[i - 1] : closed ? points[n - 1] : null;
+    const next = i < n - 1 ? points[i + 1] : closed ? points[0] : null;
+    const t1 = prev ? unit(prev, p) : null;
+    const t2 = next ? unit(p, next) : null;
+    const t: Pt = t1 && t2 ? [t1[0] + t2[0], t1[1] + t2[1]] : (t1 ?? t2 ?? [1, 0]);
+    const l = Math.hypot(t[0], t[1]) || 1;
+    // keep the gap even on corners (capped so a sharp turn does not shoot out)
+    const k = t1 && t2 ? 1 / Math.sqrt(Math.max(0.5, (t1[0] * t2[0] + t1[1] * t2[1] + 1) / 2)) : 1;
+    return [p[0] - (t[1] / l) * d * k, p[1] + (t[0] / l) * d * k];
+  });
 }
 
 /** The eraser mask being painted right now (2D editor), shown before it is saved into the zone state. */
@@ -265,9 +315,10 @@ export function drawTemplateForPart(
   if (zones.length === 0 && patternsAbove.size === 0 && !(seams.enabled && part.regions.length)) return;
 
   ctx.save();
-  // Everything stays inside the pieces of this part
+  // Everything stays inside the pieces of this part. A hair wider: two parts' soft clip edges would otherwise leave a
+  // thin line of what is underneath across a layer that runs over both.
   ctx.beginPath();
-  tracePolygons(ctx, partPolygons(part));
+  tracePolygons(ctx, partPolygons(part).map((p) => insetPolygon(p, -0.75)));
   ctx.clip();
 
   // 1. Coloured zones (move / scale / rotate / edge shaping / opacity come from the zone state)
@@ -285,7 +336,8 @@ export function drawTemplateForPart(
       const img = getCachedImage(zone.mask);
       if (img) {
         // masks keep the full 1024 px resolution (pattern tiles are downscaled to 512)
-        const tinted = zone.keepColor ? img : tintedTile(zone.mask, img, zs.color, 1024, true);
+        // an image layer from Merge (the only inline masks) holds real colours, not a grey shading mask
+        const tinted = zone.keepColor ? img : tintedTile(zone.mask, img, zs.color, 1024, zone.mask.startsWith('data:') ? 'flat' : true);
         if (tinted) {
           g.save();
           g.globalAlpha = zs.opacity ?? 1;
@@ -359,7 +411,9 @@ export function drawTemplateForPart(
     };
 
     if (seams.outline) partPolygons(part).forEach((poly) => {
-      if (style === 'stitch' || style === 'double') {
+      if (style === 'join') {
+        fabricJoin(ctx, seams, fabricHex, polyAt(poly, 0.5));
+      } else if (style === 'stitch' || style === 'double') {
         const inset = 3;
         contrastStitch(ctx, seams, fabricHex, polyAt(poly, inset));
         if (style === 'double') contrastStitch(ctx, seams, fabricHex, polyAt(poly, inset + 4));
@@ -377,8 +431,11 @@ export function drawTemplateForPart(
       const zs = state.zones[zone.id];
       if (!hasShape(zone) || zs.seam === false) return;
       const outline = () => zonePath(ctx, zone, zs);
-      if (style === 'stitch' || style === 'double') {
+      if (style === 'join') {
+        fabricJoin(ctx, seams, zs.color, outline);
+      } else if (style === 'stitch' || style === 'double') {
         contrastStitch(ctx, seams, zs.color, outline);
+        if (style === 'double') contrastStitch(ctx, seams, zs.color, () => zonePath(ctx, zone, zs, 4));
       } else {
         softSeam(ctx, seams, zs.color, outline);
         if (style === 'natural') {
@@ -387,12 +444,18 @@ export function drawTemplateForPart(
       }
     });
 
+    // A drawn line can have its own style; the second row / top-stitch runs beside it, not on top of it
     extraSeams.forEach((s) => {
-      const build = () => traceSeamPath(ctx, s.points, s.smooth, s.closed);
-      if (style === 'stitch' || style === 'double') contrastStitch(ctx, seams, fabricHex, build);
-      else {
-        softSeam(ctx, seams, fabricHex, build);
-        if (style === 'natural') topStitch(ctx, seams, fabricHex, build);
+      const st = s.style ?? style;
+      const along = (d: number) => () => traceSeamPath(ctx, d ? offsetLine(s.points, d, s.closed) : s.points, s.smooth, s.closed);
+      if (st === 'join') {
+        fabricJoin(ctx, seams, fabricHex, along(0));
+      } else if (st === 'stitch' || st === 'double') {
+        contrastStitch(ctx, seams, fabricHex, along(0));
+        if (st === 'double') contrastStitch(ctx, seams, fabricHex, along(4 + seams.width));
+      } else {
+        softSeam(ctx, seams, fabricHex, along(0));
+        if (st === 'natural') topStitch(ctx, seams, fabricHex, along(4 * Math.max(0.8, seams.width / 1.6)));
       }
     });
   }

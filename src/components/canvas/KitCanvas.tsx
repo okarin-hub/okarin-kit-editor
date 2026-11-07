@@ -620,8 +620,8 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
   }, [onViewChange, scale]);
 
   /** Dragging a logo, a transformer handle or an edit point must not pan the view. */
-  const startPan = (target: Konva.Node, evt: MouseEvent) => {
-    if (!onViewChange || (evt.button !== 0 && evt.button !== 1)) return;
+  const startPan = (target: Konva.Node, evt: MouseEvent, rightToo = false) => {
+    if (!onViewChange || !(evt.button === 0 || evt.button === 1 || (rightToo && evt.button === 2))) return;
     for (let n: Konva.Node | null = target; n; n = n.getParent()) {
       if (n.className === 'Transformer' || (n.draggable && n.draggable())) return;
     }
@@ -715,6 +715,11 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
         x={targetTransform.x + viewState.panX}
         y={targetTransform.y + viewState.panY}
         onMouseDown={(e) => {
+          // while drawing / erasing only the left button paints; middle or right button pans the view
+          if ((drawActive || brushActive) && e.evt.button !== 0) {
+            startPan(e.target, e.evt, true);
+            return;
+          }
           if (drawActive) {
             handleDrawDown(e.target.getStage());
             return;
@@ -743,7 +748,12 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
           if (drawActive) handleDrawUp();
           else if (brushActive) handleBrushUp();
         }}
-        onDblClick={() => {
+        onContextMenu={(e) => {
+          if (drawActive || brushActive) e.evt.preventDefault();
+        }}
+        onDblClick={(e) => {
+          // Konva counts two quick clicks anywhere as a double click; the browser's count needs the same spot
+          if (e.evt.button !== 0 || e.evt.detail < 2) return;
           if (drawActive && (drawTool === 'poly' || drawTool === 'stitch') && drawPtsRef.current.length >= (drawTool === 'poly' ? 3 : 2)) {
             onDrawFinish?.(drawPtsRef.current);
           }

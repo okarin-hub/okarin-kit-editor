@@ -32,6 +32,7 @@ import {
   FolderOpen,
   Group,
   Ungroup,
+  CopyPlus,
   Merge,
   X,
 } from 'lucide-react';
@@ -40,6 +41,7 @@ import {
   KitCategory,
   KitPartConfig,
   KitPartId,
+  KitSeamDef,
   KitTemplate,
   PatternLayer,
   KitZoneDef,
@@ -104,6 +106,9 @@ interface TemplatePanelProps {
   onChangeSleeveShape: (shape: 'yoke' | 'short') => void;
   onDeleteSeam: (key: string) => void;
   onToggleSeamCurve: (key: string) => void;
+  onRenameGroup: (groupId: string, name: string) => void;
+  onDuplicateGroup: (groupId: string) => void;
+  onSetSeamStyle: (key: string, style: KitSeamDef['style']) => void;
   /** Stitch line whose points are edited on the canvas, and the switch for it. */
   editSeam: string | null;
   onToggleEditSeam: (key: string) => void;
@@ -162,11 +167,12 @@ const rowExtra = (selected: boolean) =>
 /** Groups with more layers than this start closed. */
 const OPEN_GROUP_MAX = 8;
 
-const SEAM_STYLES: { id: SeamConfig['style']; label: string; hint: string }[] = [
+const SEAM_STYLES: { id: Exclude<SeamConfig['style'], 'flat'>; label: string; hint: string }[] = [
   { id: 'natural', label: 'Alami', hint: 'Bayangan lembut, garis jahit halus, dan top-stitch tipis' },
   { id: 'soft', label: 'Halus', hint: 'Hanya bayangan dan garis sambungan' },
   { id: 'stitch', label: 'Terlihat', hint: 'Jahitan putus-putus berkontras' },
   { id: 'double', label: 'Ganda', hint: 'Dua baris jahitan berkontras' },
+  { id: 'join', label: 'Sambung', hint: 'Garis utuh tanpa putus dengan bayangan di perbatasan dua kain' },
 ];
 
 const EDGES: { id: ZoneEdge; label: string; hint: string }[] = [
@@ -249,6 +255,9 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
   onChangeSleeveShape,
   onDeleteSeam,
   onToggleSeamCurve,
+  onRenameGroup,
+  onDuplicateGroup,
+  onSetSeamStyle,
   editSeam,
   onToggleEditSeam,
   onAddPsd,
@@ -301,6 +310,7 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
   const [drag, setDrag] = useState<{ kind: 'pattern' | 'zone' | 'folder'; id: string; from: KitCategory } | null>(null);
   // layer-list folders that are folded shut
   const [closedFolders, setClosedFolders] = useState<Set<string>>(new Set());
+  const [renameFolder, setRenameFolder] = useState<string | null>(null);
   const [dropAt, setDropAt] = useState<{ g: KitCategory; before: string | null } | null>(null);
   const inGroup = (l: PatternLayer, g: KitCategory) => l.parts.some((p) => groupPartIds(g).includes(p));
   const updatePattern = (id: string, patch: Partial<PatternLayer>) =>
@@ -721,9 +731,26 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
     );
   };
 
+  /** New colour for a layer. A layer made by Merge starts in its own colours, so picking one switches it to that colour. */
+  const recolorZone = (z: KitZoneDef, color: string) => {
+    onUpdateZone(z.id, { color, visible: true });
+    if (z.keepColor && z.mask?.startsWith('data:')) onUpdateZoneDef(z.id, { keepColor: undefined });
+  };
+
   /** A folder of the layer list: fold, show / hide all, pick all (then move / scale / turn them together), ungroup, drag. */
   const renderFolderRow = (fid: string, g: KitCategory, members: KitZoneDef[], firstEntry: string) => {
     const name = template.layerGroups?.find((x) => x.id === fid)?.name ?? 'Grup';
+    const renaming = renameFolder === fid;
+    const finishRename = (value: string) => {
+      if (value.trim() && value.trim() !== name) onRenameGroup(fid, value.trim());
+      setRenameFolder(null);
+    };
+    const recolorAll = (color: string) => {
+      members.forEach((z) => recolorZone(z, color));
+      const ids = new Set(members.map((z) => z.id));
+      if (patterns.some((l) => l.above && ids.has(l.above)))
+        onChangePatterns(patterns.map((l) => (l.above && ids.has(l.above) ? { ...l, patternColor: color } : l)));
+    };
     const open = !closedFolders.has(fid);
     const shown = members.some((z) => state.zones[z.id]?.visible ?? z.defaultVisible);
     const allPicked = members.length > 0 && members.every((z) => selectedZoneIds.includes(z.id));
@@ -751,7 +778,7 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
         className={`border-t-2 ${dropHere ? 'border-sky-400' : 'border-transparent'}`}
       >
         <div
-          draggable
+          draggable={!renaming}
           onDragStart={(e) => {
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', fid);
@@ -790,14 +817,58 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           >
             {open ? <FolderOpen className="w-3.5 h-3.5" /> : <Folder className="w-3.5 h-3.5" />}
           </button>
+          <input
+            type="color"
+            value={members[0] ? (state.zones[members[0].id]?.color ?? members[0].defaultColor) : '#ffffff'}
+            onChange={(e) => recolorAll(e.target.value)}
+            className="w-6 h-6 rounded border border-slate-700 bg-transparent cursor-pointer p-0.5 shrink-0"
+            title="Warna semua isi grup"
+            aria-label="Warna semua isi grup"
+          />
+          {renaming ? (
+            <input
+              type="text"
+              autoFocus
+              defaultValue={name}
+              maxLength={60}
+              onFocus={(e) => e.target.select()}
+              onBlur={(e) => finishRename(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') finishRename(e.currentTarget.value);
+                else if (e.key === 'Escape') setRenameFolder(null);
+              }}
+              aria-label="Nama grup"
+              className="flex-1 min-w-0 bg-slate-900 border border-sky-500 rounded px-1 py-0.5 text-[11px] text-white outline-none"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => onSelectZones(members.map((z) => z.id))}
+              onDoubleClick={() => setRenameFolder(fid)}
+              aria-pressed={allPicked}
+              className="flex-1 min-w-0 text-left truncate font-semibold hover:text-white"
+              title="Klik untuk memilih semua isi grup (lalu geser, ubah ukuran, atau putar bersama). Klik dua kali untuk mengganti nama"
+            >
+              {name} <span className="font-normal text-slate-500">{members.length}</span>
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => onSelectZones(members.map((z) => z.id))}
-            aria-pressed={allPicked}
-            className="flex-1 min-w-0 text-left truncate font-semibold hover:text-white"
-            title="Klik untuk memilih semua isi grup (lalu geser, ubah ukuran, atau putar bersama)"
+            onClick={() => setRenameFolder(fid)}
+            className="text-slate-500 hover:text-white"
+            title="Ganti nama grup"
+            aria-label="Ganti nama grup"
           >
-            {name} <span className="font-normal text-slate-500">{members.length}</span>
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onDuplicateGroup(fid)}
+            className="text-slate-500 hover:text-white"
+            title="Gandakan grup"
+            aria-label="Gandakan grup"
+          >
+            <CopyPlus className="w-3.5 h-3.5" />
           </button>
           <button
             type="button"
@@ -876,7 +947,7 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           <input
             type="color"
             value={zs.color}
-            onChange={(e) => onUpdateZone(z.id, { color: e.target.value, visible: true })}
+            onChange={(e) => recolorZone(z, e.target.value)}
             className="w-6 h-6 rounded border border-slate-700 bg-transparent cursor-pointer p-0.5 shrink-0"
             title="Warna layer"
             aria-label={`Warna ${z.name}`}
@@ -2055,43 +2126,58 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
             const key = s.id ?? `seam-${i}`;
             const part = PES_2021_PARTS.find((p) => p.id === s.part);
             return (
-              <div key={key} className="flex items-center gap-2 bg-slate-900/50 border border-slate-800 rounded-md px-2 py-1">
-                <Spline className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <span className="flex-1 min-w-0 truncate text-[11px] text-slate-200">{s.name ?? `Garis jahit ${i + 1}`}</span>
-                <span className="text-[10px] text-slate-500 truncate max-w-[80px]">{part?.name}</span>
-                {s.points.length >= 3 && (
+              <div key={key} className="bg-slate-900/50 border border-slate-800 rounded-md px-2 py-1.5 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Spline className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span className="flex-1 min-w-0 truncate text-[11px] text-slate-200">{s.name ?? `Garis jahit ${i + 1}`}</span>
+                  <span className="text-[10px] text-slate-500 truncate max-w-[80px]">{part?.name}</span>
                   <button
                     type="button"
-                    onClick={() => onToggleSeamCurve(key)}
-                    className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
-                      s.smooth
-                        ? 'bg-sky-600/30 border-sky-500 text-sky-100'
-                        : 'border-slate-700 text-slate-400 hover:bg-slate-800'
-                    }`}
-                    title={s.smooth ? 'Ubah jadi garis lurus' : 'Ubah jadi garis melengkung'}
+                    onClick={() => onDeleteSeam(key)}
+                    className="text-slate-500 hover:text-rose-400"
+                    title="Hapus garis jahit"
                   >
-                    Lengkung
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => onToggleEditSeam(key)}
-                  aria-pressed={editSeam === key}
-                  className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
-                    editSeam === key ? 'bg-pink-600/30 border-pink-500 text-pink-100' : 'border-slate-700 text-slate-400 hover:bg-slate-800'
-                  }`}
-                  title="Ubah bentuk di canvas 2D: seret titik, klik + di tengah sisi untuk menambah titik, klik kanan titik untuk menghapusnya"
-                >
-                  {editSeam === key ? 'Selesai' : 'Edit titik'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDeleteSeam(key)}
-                  className="text-slate-500 hover:text-rose-400"
-                  title="Hapus garis jahit"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                </div>
+                <div className="flex items-center gap-1.5 pl-5">
+                  <select
+                    value={s.style ?? ''}
+                    onChange={(e) => onSetSeamStyle(key, (e.target.value || undefined) as KitSeamDef['style'])}
+                    className="text-[10px] bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-slate-300 max-w-[76px]"
+                    title="Gaya jahitan garis ini. Umum = ikut gaya di bawah."
+                  >
+                    <option value="">Umum</option>
+                    {SEAM_STYLES.map((o) => (
+                      <option key={o.id} value={o.id}>{o.label}</option>
+                    ))}
+                  </select>
+                  {s.points.length >= 3 && (
+                    <button
+                      type="button"
+                      onClick={() => onToggleSeamCurve(key)}
+                      className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
+                        s.smooth
+                          ? 'bg-sky-600/30 border-sky-500 text-sky-100'
+                          : 'border-slate-700 text-slate-400 hover:bg-slate-800'
+                      }`}
+                      title={s.smooth ? 'Ubah jadi garis lurus' : 'Ubah jadi garis melengkung'}
+                    >
+                      Lengkung
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onToggleEditSeam(key)}
+                    aria-pressed={editSeam === key}
+                    className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
+                      editSeam === key ? 'bg-pink-600/30 border-pink-500 text-pink-100' : 'border-slate-700 text-slate-400 hover:bg-slate-800'
+                    }`}
+                    title="Ubah bentuk di canvas 2D: seret titik, klik + di tengah sisi untuk menambah titik, klik kanan titik untuk menghapusnya"
+                  >
+                    {editSeam === key ? 'Selesai' : 'Edit titik'}
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -2103,7 +2189,7 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
               <input type="checkbox" checked={!!seams.outline} onChange={(e) => onUpdateSeams({ outline: e.target.checked })} className="accent-sky-500" />
               Jahitan di tepi tiap bagian
             </label>
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-3 gap-1.5">
               {SEAM_STYLES.map((s) => (
                 <button
                   key={s.id}

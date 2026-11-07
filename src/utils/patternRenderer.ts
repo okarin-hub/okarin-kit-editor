@@ -75,7 +75,8 @@ export function tintedTile(
   img: HTMLImageElement,
   color: string,
   maxSize = 512,
-  shade = false
+  /** Template masks: the image's lightness shades the colour. 'flat' = its alpha only, every pixel gets the exact colour. */
+  shade: boolean | 'flat' = false
 ): HTMLCanvasElement | null {
   const key = `${src}|${color}|${maxSize}|${shade}`;
   const cached = tintedCache.get(key);
@@ -101,7 +102,7 @@ export function tintedTile(
     const n = parseInt(color.replace('#', '').padEnd(6, '0').slice(0, 6), 16) || 0;
     const cr = (n >> 16) & 255, cg = (n >> 8) & 255, cb = n & 255;
     for (let i = 0; i < d.length; i += 4) {
-      const g = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255;
+      const g = shade === 'flat' ? 1 : (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255;
       d[i] = cr * g; d[i + 1] = cg * g; d[i + 2] = cb * g;
     }
     cx.putImageData(data, 0, 0);

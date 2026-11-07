@@ -1,6 +1,7 @@
 import {
   KitPartId,
   KitPartConfig,
+  KitPartDefinition,
   KitGraphicItem,
   PlayerMarkingsConfig,
   FabricConfig,
@@ -81,76 +82,80 @@ export function renderKitCanvas(
     // and cuffs still draw on top of the image.
     const overImport = replaceMode && baseReady;
 
-    shapeParts.renderOrder.forEach((part) => {
-      const config = partsConfig[part.id];
-      if (!config || !config.visible) return;
-
-      c.save();
-      if (scaleRatio !== 1) {
-        c.scale(scaleRatio, scaleRatio);
-      }
-
-      const b = part.bounds;
-
-      // Base colour on every region of the part (skipped when an imported design is the base)
-      // over an imported design the colour is only painted when the user stacks it on top
-      const paintBase = !overImport || !!config.overDesign;
-      if (paintBase) {
+    // Same order as the 2D canvas: one step at a time over all parts. Painting part by part would let a later part's
+    // base colour cover what an earlier part already drew where the two touch (a line across a layer crossing them).
+    const eachPart = (clip: boolean, draw: (part: KitPartDefinition, config: KitPartConfig) => void) =>
+      shapeParts.renderOrder.forEach((part) => {
+        const config = partsConfig[part.id];
+        if (!config || !config.visible) return;
         c.save();
-        if (overImport) c.globalAlpha = config.overDesignOpacity ?? 1;
-        c.fillStyle = config.color;
-        if (part.outline) {
-          // shaped pieces get a few px of colour bleed past the edge so the 3D model never shows a dark fringe
+        if (scaleRatio !== 1) c.scale(scaleRatio, scaleRatio);
+        if (clip) {
+          // Clip to the part's shape so patterns and sashes never spill onto other pieces
           c.beginPath();
-          tracePolygons(c, part.outline);
-          c.fill();
-          c.strokeStyle = config.color;
-          c.lineWidth = 4;
-          c.lineJoin = 'round';
-          c.stroke();
-        } else {
-          part.regions.forEach((r) => c.fillRect(r.x, r.y, r.width, r.height));
+          tracePolygons(c, partPolygons(part));
+          c.clip();
         }
+        draw(part, config);
         c.restore();
-        // template layers that are part of the base (a PSD's Base layer) go under the patterns
-        if (templateBundle) drawTemplateForPart(c, part, templateBundle.def, templateBundle.state, config.color, 'base', withPatterns);
-      }
+      });
+    // Base colour is skipped when an imported design is the base, unless the user stacks it on top
+    const paintsBase = (config: KitPartConfig) => !overImport || !!config.overDesign;
 
-      // Clip to the part's shape so patterns and sashes never spill onto other pieces
-      c.save();
+    // A few px of colour bleed past the edge of shaped pieces, under everything, so the 3D model never shows a dark fringe
+    eachPart(false, (part, config) => {
+      if (!part.outline || !paintsBase(config)) return;
+      if (overImport) c.globalAlpha = config.overDesignOpacity ?? 1;
+      c.strokeStyle = config.color;
+      c.lineWidth = 4;
+      c.lineJoin = 'round';
       c.beginPath();
-      tracePolygons(c, partPolygons(part));
-      c.clip();
+      tracePolygons(c, part.outline);
+      c.stroke();
+    });
 
-      // Pattern (shared renderer keeps 2D editor, 3D and export identical)
-      // (patterns placed above a template layer are drawn with the template layers)
-      if (withPatterns)
-        drawPatternLayersForPart(c, part, patternsUnderLayers(templateBundle?.state.patterns, templateBundle?.def.zones.map((z) => z.id) ?? []));
-
-      // Cuff / hem / collar accent striping
-      if (config.cuffStripeEnabled && config.cuffStripeVisible !== false && config.cuffStripeColor) {
-        c.save();
-        c.fillStyle = config.cuffStripeColor;
-        getAccentRects(part.id, config.cuffStripeWidth || 14).forEach((r) =>
-          c.fillRect(r.x, r.y, r.width, r.height)
-        );
-        c.restore();
+    eachPart(false, (part, config) => {
+      if (!paintsBase(config)) return;
+      c.save();
+      if (overImport) c.globalAlpha = config.overDesignOpacity ?? 1;
+      c.fillStyle = config.color;
+      if (part.outline) {
+        c.beginPath();
+        tracePolygons(c, part.outline);
+        c.fill();
+      } else {
+        part.regions.forEach((r) => c.fillRect(r.x, r.y, r.width, r.height));
       }
+      c.restore();
+      // template layers that are part of the base (a PSD's Base layer) go under the patterns
+      if (templateBundle) drawTemplateForPart(c, part, templateBundle.def, templateBundle.state, config.color, 'base', withPatterns);
+    });
 
+    // Pattern (shared renderer keeps 2D editor, 3D and export identical)
+    // (patterns placed above a template layer are drawn with the template layers)
+    if (withPatterns)
+      eachPart(true, (part) =>
+        drawPatternLayersForPart(c, part, patternsUnderLayers(templateBundle?.state.patterns, templateBundle?.def.zones.map((z) => z.id) ?? []))
+      );
+
+    // Cuff / hem / collar accent striping
+    eachPart(true, (part, config) => {
+      if (config.cuffStripeEnabled && config.cuffStripeVisible !== false && config.cuffStripeColor) {
+        c.fillStyle = config.cuffStripeColor;
+        getAccentRects(part.id, config.cuffStripeWidth || 14).forEach((r) => c.fillRect(r.x, r.y, r.width, r.height));
+      }
       if (part.id === 'credit') drawCreditText(c, part.bounds, config);
+    });
 
     // Template zones (collar trim, side panels, cuffs ...) and seam / stitch lines
-    if (templateBundle) {
-      // where the eraser brush painted (withPatterns = false) the imported PSD / PNG layers are left out too
-      drawTemplateForPart(c, part, templateBundle.def, templateBundle.state, config.color, 'top', withPatterns);
-    }
+    // (where the eraser brush painted, withPatterns = false, the imported PSD / PNG layers are left out too)
+    if (templateBundle)
+      eachPart(false, (part, config) =>
+        drawTemplateForPart(c, part, templateBundle.def, templateBundle.state, config.color, 'top', withPatterns)
+      );
 
     // Fabric texture on top of the colours, patterns and zones (and of an imported design), so it is never covered
-    drawFabricForPart(c, part, fabricConfig);
-
-    c.restore(); // end clip
-      c.restore(); // end part scale
-    });
+    eachPart(true, (part) => drawFabricForPart(c, part, fabricConfig));
 
     // Imported design drawn over the parts (e.g. to trace or blend)
     if (baseTexture && baseTexture.mode === 'overlay' && baseReady) {

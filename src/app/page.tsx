@@ -67,6 +67,7 @@ import {
   loadFontsetSettings,
 } from '@/services/storageService';
 import type { FontsetSettings } from '@/components/ui/FontsetModal';
+import { ColorPopover } from '@/components/ui/ColorPopover';
 import { generateKitTexture, generateShowcaseCard, renderKitCanvas, preloadImage } from '@/utils/textureGenerator';
 import { encodeDDS } from '@/utils/ddsEncoder';
 import { encodeFtex } from '@/utils/ftexEncoder';
@@ -462,6 +463,49 @@ export default function Home() {
     }));
   }, []);
 
+  const handleRenameGroup = useCallback((groupId: string, name: string) => {
+    setTplBundle((prev) => ({
+      ...prev,
+      def: {
+        ...prev.def,
+        modified: true,
+        layerGroups: (prev.def.layerGroups ?? []).map((g) => (g.id === groupId ? { ...g, name: name.slice(0, 60) } : g)),
+      },
+    }));
+  }, []);
+
+  // A copy of the folder and its layers (with the patterns placed above them), shifted like a duplicated layer and picked
+  const handleDuplicateGroup = useCallback((groupId: string) => {
+    const stamp = Date.now().toString(36);
+    const newGroup = `lg-${stamp}`;
+    const members = tplBundle.def.zones.filter((z) => z.layerGroup === groupId);
+    if (!members.length) return;
+    const newIds = new Map(members.map((z, i) => [z.id, `custom-${stamp}-${i}`]));
+    setTplBundle((prev) => {
+      const zones = { ...prev.state.zones };
+      const copies = members.map((z) => {
+        const id = newIds.get(z.id)!;
+        const st = prev.state.zones[z.id] ?? { color: z.defaultColor, visible: true };
+        zones[id] = { ...st, dx: (st.dx ?? 0) + 24, dy: (st.dy ?? 0) + 24 };
+        return { ...z, id, layerGroup: newGroup };
+      });
+      const name = prev.def.layerGroups?.find((g) => g.id === groupId)?.name ?? 'Grup';
+      const patterns = prev.state.patterns?.flatMap((l, i) =>
+        l.above && newIds.has(l.above) ? [l, { ...l, id: `${l.id}-${stamp}-${i}`, above: newIds.get(l.above) }] : [l]
+      );
+      return {
+        def: {
+          ...prev.def,
+          modified: true,
+          layerGroups: [...(prev.def.layerGroups ?? []), { id: newGroup, name: `${name} (salinan)`.slice(0, 60) }],
+          zones: [...prev.def.zones, ...copies],
+        },
+        state: { ...prev.state, zones, patterns },
+      };
+    });
+    handleSelectZones([...newIds.values()]);
+  }, [tplBundle, handleSelectZones]);
+
   // Merge layers into one (shape when they share colour / parts, else an image layer), in the top one's place
   const handleMergeZones = useCallback((ids: string[]) => {
     const newId = `custom-${Date.now().toString(36)}`;
@@ -659,6 +703,17 @@ export default function Home() {
         ...prev.def,
         modified: true,
         seams: (prev.def.seams ?? []).map((s, i) => ((s.id ?? `seam-${i}`) === key ? { ...s, smooth: !s.smooth } : s)),
+      },
+    }));
+  }, []);
+
+  const handleSetSeamStyle = useCallback((key: string, style: KitSeamDef['style']) => {
+    setTplBundle((prev) => ({
+      ...prev,
+      def: {
+        ...prev.def,
+        modified: true,
+        seams: (prev.def.seams ?? []).map((s, i) => ((s.id ?? `seam-${i}`) === key ? { ...s, style } : s)),
       },
     }));
   }, []);
@@ -1502,6 +1557,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0d1017]">
+      <ColorPopover />
       {/* Top Navigation */}
       <Navbar
         onOpenHelp={setHelpKind}
@@ -1703,6 +1759,8 @@ export default function Home() {
                 onGroupZones={handleGroupZones}
                 onUngroup={handleUngroup}
                 onMergeZones={handleMergeZones}
+                onRenameGroup={handleRenameGroup}
+                onDuplicateGroup={handleDuplicateGroup}
                 onUpdateZone={handleUpdateZone}
                 onResetZone={handleResetZone}
                 onUpdateZoneDef={handleUpdateZoneDef}
@@ -1721,6 +1779,7 @@ export default function Home() {
                 onChangeSleeveShape={handleChangeSleeveShape}
                 onDeleteSeam={handleDeleteSeam}
                 onToggleSeamCurve={handleToggleSeamCurve}
+                onSetSeamStyle={handleSetSeamStyle}
                 editSeam={editSeam}
                 onToggleEditSeam={(key) => setEditSeam((cur) => (cur === key ? null : key))}
                 onAddPsd={handleAddPsd}

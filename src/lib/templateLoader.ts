@@ -117,7 +117,7 @@ export function parseTemplate(json: any, relDirs: string[], fileName: string) {
   const seams = Array.isArray(json.seams)
     ? json.seams.filter(
         (s: any) => s && (PART_IDS as readonly string[]).includes(s.part) && Array.isArray(s.points) && s.points.every(isPt)
-      )
+      ).map((s: any) => (s.style === undefined || ['natural', 'soft', 'stitch', 'double', 'join'].includes(s.style) ? s : { ...s, style: undefined }))
     : undefined;
 
   const layerGroups = Array.isArray(json.layerGroups)

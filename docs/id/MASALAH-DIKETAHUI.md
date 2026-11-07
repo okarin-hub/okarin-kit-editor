@@ -91,7 +91,7 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 | 44 | P3 | Pola tampil paling atas di grupnya tetapi selalu digambar di bawah layer template grup itu, jadi urutan daftar antara pola dan layer template bukan urutan gambarnya. |
 | 45 | P3 | Semua salinan objek kembar berukuran sama. Mengedit titik objek kembar yang diputar membuat arah kembarnya lurus lagi (mengikuti sumbu tekstur). |
 | 46 | P3 | **Baca PSD:** PSD dikonversi oleh app selama app terbuka (PSD 30 layer butuh sekitar 10 sampai 30 detik). Template baca-PSD yang sudah kamu ubah di editor (layer ditambah, dihapus, atau dipindah bagian) tidak diperbarui saat PSD disimpan ulang; pilih ulang dari daftar. Slot warna menggabungkan layer berdasarkan abu-abu yang persis sama, jadi dua layer yang kebetulan abu-abunya sama juga berbagi warna, dan satu layer belum bisa dilepas dari slotnya. |
-| 52 | P3 | **Grup layer dan Merge (0.6.0):** folder bernama *Grup 1, 2 …* dan belum bisa diganti namanya; layer gambar hasil merge disimpan di dalam proyek / template (beberapa ratus KB per gabungan). Proyek dari 0.6.0 yang dibuka di versi lama tidak menampilkan folder (layernya tetap lengkap), dan hasil merge satu warna dari bentuk yang bertumpuk bisa berlubang di bagian tumpukannya. |
+| 52 | P3 | **Grup layer dan Merge (0.6.0):** layer gambar hasil merge disimpan di dalam proyek / template (beberapa ratus KB per gabungan). Proyek dari 0.6.0 yang dibuka di versi lama tidak menampilkan folder (layernya tetap lengkap), dan hasil merge satu warna dari bentuk yang bertumpuk bisa berlubang di bagian tumpukannya. |
 
 ## Ditambahkan di 0.4.0
 

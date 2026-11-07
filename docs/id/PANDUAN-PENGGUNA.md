@@ -139,8 +139,10 @@ template, lis, logo, dan kain.
 ### Garis jahit
 Garis jahit adalah layer yang kamu gambar (lihat alat). Kartu ini mendaftarnya; tiap garis bisa diganti antara lurus
 dan **lengkung**, dan *Edit titik* membentuknya ulang di canvas (seret titik, klik **+** untuk menambah, klik kanan
-titik untuk menghapus). Opsi: tampil / sembunyi, gaya (alami, lembut, terlihat, ganda), kekuatan, ketebalan, warna
-benang, dan jahitan di tepi tiap bagian.
+titik untuk menghapus). Tiap garis punya daftar gaya sendiri: *Umum* mengikuti gaya di bawah daftar, atau pilih alami,
+halus, terlihat, ganda, atau sambung khusus untuk garis itu (ganda menggambar baris kedua di sampingnya, jadi garis tidak perlu
+digambar ulang). Opsi: tampil / sembunyi, gaya (alami, halus, terlihat, ganda), kekuatan, ketebalan, warna benang, dan
+jahitan di tepi tiap bagian.
 
 ## 5. Alat gambar
 
@@ -153,7 +155,11 @@ benang, dan jahitan di tepi tiap bagian.
 | Garis jahit (bebas) | seret untuk menggambar garis jahit |
 | Kuas hapus | dengan layer dipilih: hanya menghapus layer itu di area yang disapu (watermark atau logo yang tidak diinginkan di PSD / PNG impor); tanpa layer dipilih: menghapus pola |
 
-`Backspace` menghapus titik terakhir, `Esc` membatalkan.
+Kotak warna membuka popup berisi kotak warna, bar rona, dan kolom kode untuk paste kode hex. Folder di daftar layer bisa
+diganti namanya (pensil atau klik dua kali), digandakan, dan diganti warnanya dari barisnya.
+
+`Backspace` menghapus titik terakhir, `Esc` membatalkan. Selama alat gambar atau kuas hapus aktif, hanya tombol kiri yang
+menggambar: tahan tombol tengah atau kanan lalu seret untuk menggeser canvas.
 
 Bar di atas canvas menampilkan target kuas hapus (*Layer: …* atau *Pola*). *Pulihkan* mengecat kembali, *Reset*
 mengembalikan semua yang dihapus di layer itu (atau semua pola). Area yang dihapus menempel ke layer: ikut tergeser,

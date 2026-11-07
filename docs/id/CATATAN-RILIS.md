@@ -2,6 +2,31 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## 0.6.1 — Patch stabil: export sama dengan canvas, popup warna bisa paste hex, tambahan untuk grup dan jahitan
+
+- **Model jahitan baru: Sambung.** Satu garis utuh tanpa putus dengan bayangan di sepanjang garis, seperti dua kain yang dijahit
+  jadi satu. Bisa dipakai sebagai gaya umum atau untuk satu garis saja.
+- **Export sekarang sama dengan canvas 2D di sambungan antar bagian.** Layer yang melintasi dua bagian (misalnya lengan dan
+  baju) kena garis warna dasar di PNG, DDS, dan FTEX, juga di tekstur preview 3D, karena tiap bagian digambar penuh sebelum
+  bagian berikutnya. Sekarang urutan gambarnya sama dengan canvas. Garis tipis di sambungan itu juga hilang dari canvas.
+- **Popup warna baru: bisa paste kode hex.** Semua kotak warna sekarang membuka popup milik aplikasi dengan kolom kode:
+  paste atau ketik `#aa11cc`, `aa11cc`, atau `0F0`. Ada juga kotak warna, bar rona, dan pengambil warna dari layar.
+- **Grup: ganti nama, gandakan, warna.** Baris folder punya ikon pensil (atau klik dua kali namanya), tombol gandakan, dan
+  kotak warna untuk semua isi grup, termasuk pola yang ditaruh di atas layernya.
+- **Warna layer merge diperbaiki.** Memilih warna di layer gambar hasil Merge hasilnya lebih gelap dari warna yang dipilih.
+  Sekarang seluruh layer memakai warna persis itu; centang *Pakai warna asli gambar* untuk mengembalikan warna aslinya.
+- **FTEX: celah chunk langka ditutup.** Chunk terkompresi yang ukurannya pas sama dengan ukuran aslinya bisa terbaca sebagai
+  data mentah.
+- **Menggeser canvas sambil menggambar.** Saat alat gambar atau kuas hapus aktif, tombol tengah dan kanan mouse dulu ikut
+  menggambar. Sekarang hanya tombol kiri yang menggambar; tahan tombol tengah atau kanan lalu seret untuk menggeser canvas.
+- **Klik cepat tidak lagi mengakhiri garis jahit.** Dua klik cepat di tempat berbeda dulu terhitung klik dua kali. Sekarang
+  garis hanya selesai dengan klik dua kali di tempat yang sama (berlaku juga untuk bentuk).
+- **Tiap garis jahit punya gaya sendiri.** Pilih alami, halus, terlihat, atau ganda di baris garisnya; *Umum* mengikuti
+  gaya di bawah daftar.
+- **Ganda dan alami berfungsi di garis gambar dan tepi layer.** Ganda di garis gambar atau tepi layer dulu sama saja dengan
+  terlihat, tanpa baris kedua. Sekarang ada baris kedua di sampingnya, dan top-stitch halus gaya alami di garis gambar
+  berjalan di samping sambungan, bukan menumpuk di atasnya.
+
 ## 0.6.0 — Stabil: pilih beberapa layer, group, dan merge
 
 - **Kotak seleksi layer kembar menutupi semua kembarannya.** Dulu hanya membingkai yang pertama. Mengubah ukurannya ke

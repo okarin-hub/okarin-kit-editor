@@ -139,7 +139,9 @@ under the template layers, trims, logos and fabric.
 ### Stitch lines
 Stitch lines are layers you draw (see tools). The card lists them; each can be switched between straight and
 **curved**, and *Edit points* reshapes it on the canvas (drag a point, click a **+** to add one, right-click a point
-to remove it). Options: show / hide, style (natural, soft, visible, double), strength, thickness, thread colour, and
+to remove it). Each line has its own style list: *General* follows the style below the list, or pick natural, soft,
+visible, double or joined for that line only (double draws a second row beside it, so there is no need to draw the line
+again). Options: show / hide, style (natural, soft, visible, double), strength, thickness, thread colour, and
 stitching along the edge of every part.
 
 ## 5. Drawing tools
@@ -153,7 +155,11 @@ stitching along the edge of every part.
 | Stitch line (freehand) | drag to draw a stitch line |
 | Eraser brush | with a layer selected: erases that layer only where you brush (a watermark or an unwanted logo in an imported PSD / PNG); with no layer selected: erases the patterns |
 
-`Backspace` removes the last point, `Esc` cancels.
+Colour swatches open a popup with a colour square, a hue bar and a code field where you can paste a hex code. Folders of
+the layer list can be renamed (pencil or double-click), duplicated and recoloured from their row.
+
+`Backspace` removes the last point, `Esc` cancels. While a drawing tool or the eraser is on, only the left button
+draws: hold the middle or right button and drag to move the canvas.
 
 The bar above the canvas shows what the eraser brush works on (*Layer: …* or *Pattern*). *Restore* paints back,
 *Reset* brings back everything erased on that layer (or all patterns). The erased spots stick to the layer: they

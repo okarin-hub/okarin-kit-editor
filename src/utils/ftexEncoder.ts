@@ -127,7 +127,8 @@ export async function encodeFtex(
         data = c.raw;
       } else {
         encoded = pos - base;
-        data = c.comp;
+        // readers take a chunk as raw when both sizes match, so a compressed one of that exact size must not be written
+        data = c.comp.length === c.raw.length ? c.raw : c.comp;
       }
       index.setInt16(i * 8, data.length, true); // written size
       index.setInt16(i * 8 + 2, c.raw.length, true); // decompressed size
