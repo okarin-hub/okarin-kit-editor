@@ -2,6 +2,14 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## 0.6.5 — Patch stabil: tombol Delete di tab Layer, Kit baru mulai dari awal
+
+- **Tombol Delete di tab Layer.** Tekan *Delete* untuk menghapus layer terpilih, semua layer yang dipilih
+  (Ctrl / Shift + klik), satu grup penuh (klik namanya dulu), layer hasil merge, atau pola yang sedang dibuka. Undo
+  mengembalikannya.
+- **File → Kit baru benar-benar mulai dari awal.** Layer, warna, pola, logo, dan desain impor kembali ke bawaan;
+  sebelumnya layer dari file lama masih tertinggal di canvas.
+
 ## 0.6.4 — Patch stabil: posisi nama dan nomor diukur di game, penanda badge lengan
 
 - **Preset logo lengan di posisi badge.** *Lengan Kanan / Kiri* di tab Logo (dan logo baru di lengan) kini berada di

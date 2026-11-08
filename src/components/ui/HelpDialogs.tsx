@@ -89,7 +89,7 @@ const SHORTCUTS: { keys: string; text: string }[] = [
   { keys: 'Esc', text: 'Batal menggambar' },
   { keys: 'Backspace', text: 'Hapus titik terakhir' },
   { keys: 'Panah / Shift + Panah', text: 'Geser logo atau layer terpilih 1 px / 10 px' },
-  { keys: 'Delete', text: 'Hapus logo terpilih' },
+  { keys: 'Delete', text: 'Hapus logo atau layer terpilih' },
   { keys: 'V', text: 'Alat pilih dan geser' },
   { keys: 'B / P', text: 'Gambar bentuk bebas / titik' },
   { keys: 'S / J', text: 'Garis jahit titik / bebas' },

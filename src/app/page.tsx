@@ -1274,8 +1274,13 @@ export default function Home() {
   }, []);
 
   const handleReset = useCallback(() => {
-    setTplBundle((prev) => ({ ...prev, state: { ...prev.state, patterns: [] } }));
+    setTplBundle({ def: BUILTIN_TEMPLATES[0], state: DEFAULT_TEMPLATE_STATE });
     setPartsConfig(DEFAULT_PART_CONFIG);
+    setFabricConfig(DEFAULT_FABRIC_CONFIG);
+    setGraphicItems([]);
+    setBaseTexture(null);
+    setPatternMask(null);
+    setSelectedZoneId(null);
     setSelectedPresetId('classic-red');
     setViewState((prev) => ({
       ...prev,
@@ -1286,7 +1291,7 @@ export default function Home() {
       panY: 0,
     }));
     setSelectedGraphicId(null);
-  }, []);
+  }, [setSelectedZoneId]);
 
   // Graphics Management
   const handleSelectGraphic = useCallback((id: string | null) => {
@@ -1526,7 +1531,7 @@ export default function Home() {
   // New kit replaces the colours and patterns: ask first (Undo still brings them back)
   const { t } = useI18n();
   const confirmReset = useCallback(() => {
-    if (window.confirm(t('Mulai kit baru? Warna dan pola sekarang diganti dengan bawaan. Bisa dibatalkan dengan Undo (Ctrl+Z).'))) handleReset();
+    if (window.confirm(t('Mulai kit baru? Layer, warna, pola, logo, dan desain impor sekarang diganti dengan bawaan. Bisa dibatalkan dengan Undo (Ctrl+Z).'))) handleReset();
   }, [handleReset, t]);
 
   // Single-key shortcuts (not while typing or while a dialog is open): tools, view mode, save, export, help

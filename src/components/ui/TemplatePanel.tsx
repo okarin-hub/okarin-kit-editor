@@ -474,18 +474,32 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
       onSelectZones([...run.filter((id) => id !== z.id), z.id]);
     } else onSelectZone(selectedZoneId === z.id && selectedZoneIds.length === 1 ? null : z.id);
   };
-  // Ctrl+G group, Ctrl+Shift+G ungroup, Ctrl+E merge (Photoshop's keys), while this panel is open. Ctrl+E is also
+  // Delete removes the picked layers (a whole group when its header is clicked) or the open pattern; Ctrl+G group, Ctrl+Shift+G ungroup, Ctrl+E merge (Photoshop's keys), while this panel is open. Ctrl+E is also
   // Export kit: it merges only while two or more layers that can merge are picked (then Export does not open).
-  const shortcutRef = useRef({ groupSelected, mergeSelected, pickedLayers, selectedZoneId, onUngroup, zoneById });
-  shortcutRef.current = { groupSelected, mergeSelected, pickedLayers, selectedZoneId, onUngroup, zoneById };
+  const deleteOpenPattern = () => {
+    const l = openPattern && patterns.find((x) => x.id === openPattern.id);
+    if (!l || !openPattern) return false;
+    removePattern(l, openPattern.g);
+    return true;
+  };
+  const shortcutRef = useRef({ groupSelected, mergeSelected, pickedLayers, selectedZoneId, selectedZoneIds, onDeleteZone, deleteOpenPattern, onUngroup, zoneById });
+  shortcutRef.current = { groupSelected, mergeSelected, pickedLayers, selectedZoneId, selectedZoneIds, onDeleteZone, deleteOpenPattern, onUngroup, zoneById };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
       const t = e.target as HTMLElement;
       if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable) return;
       if (document.querySelector('[aria-modal="true"]')) return;
       const k = e.key.toLowerCase();
       const s = shortcutRef.current;
+      if (e.key === 'Delete' && !(e.ctrlKey || e.metaKey || e.altKey || e.shiftKey)) {
+        const ids = s.selectedZoneIds.length ? s.selectedZoneIds : s.selectedZoneId ? [s.selectedZoneId] : [];
+        if (ids.length) {
+          e.preventDefault();
+          ids.forEach((id) => s.onDeleteZone(id));
+        } else if (s.deleteOpenPattern()) e.preventDefault();
+        return;
+      }
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
       if (k === 'g' && !e.shiftKey) {
         if (!s.pickedLayers().length) return;
         e.preventDefault();

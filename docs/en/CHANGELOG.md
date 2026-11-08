@@ -2,6 +2,13 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## 0.6.5 — Stable patch: Delete key in the Layer tab, New kit starts clean
+
+- **Delete key in the Layer tab.** Press *Delete* to remove the selected layer, every picked layer (Ctrl / Shift +
+  click), a whole group (click its name first), a merged layer or the open pattern. Undo brings them back.
+- **File → New kit starts clean.** It now resets the layers, colours, patterns, logos and imported design to the
+  defaults; before, the previous file's layers stayed on the canvas.
+
 ## 0.6.4 — Stable patch: name and number placement measured in game, sleeve badge markers
 
 - **Sleeve logo preset at the badge spot.** *Right / Left sleeve* in the Logo tab (and a new logo on a sleeve) now
