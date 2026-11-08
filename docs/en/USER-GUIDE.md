@@ -184,8 +184,14 @@ corners (sharp follows the logo's corners).
 and width) and shadow. Select a text later to change any of them; dragging a corner of the text box scales the
 letters.
 
-**Name** – the player name and number on the back, and the shorts number: font, colour, outline, size, position.
-They are drawn in the texture only when you tick the option; the game normally uses its own fonts.
+**Name** – the player name and number on the back, the chest number and the shorts number: font, colour, outline,
+and under *Size & Position* the kitserver config values (*Name Y*, *Back number size*, *Chest number X* ...). These
+are the same values as in Kit Config and go into config.txt; the preview puts the name and numbers where the game
+does, as an estimate measured from in-game screenshots. *Show* switches the name and each number on or off. *PES font*
+lists the fonts saved with *Save to library* in the Fontset Generator (`library/fonts/font_pes`); with one picked, the
+preview cuts the characters from that font, so its colours and effects show (the colour and outline fields then only
+apply to characters the font does not have). They are drawn in the texture only when you tick the option;
+the game normally uses its own fonts.
 
 ## 8. Importing a finished design
 

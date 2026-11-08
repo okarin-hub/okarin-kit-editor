@@ -2,6 +2,21 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## 0.6.2 — Patch stabil: tab Nama memakai config kitserver, font PES di preview, savean project tetap ada
+
+- **Tab Nama mengikuti config kitserver.** Posisi dan ukuran sekarang memakai nilai config.txt (*Bentuk nama*, *Nama Y*, *Ukuran nama*,
+  *Regangan nama*, *Nomor punggung Y / ukuran / jarak*, *Nomor dada X / Y / ukuran*, *Nomor celana sisi / X / Y / ukuran*),
+  nilai yang sama dengan Kit Config, dengan batas kitserver. Canvas 2D, preview 3D, dan export menggambarnya di posisi
+  PES, hasil ukur dari screenshot di game. Nomor dada sekarang juga tampil di preview.
+- **Font PES di tab Nama.** Fontset Generator punya tombol *Simpan ke library*: kelima tekstur font disimpan sebagai
+  PNG di `library/fonts/font_pes/<nama>`. Pilih font itu di tab Nama pada *Font PES*, lalu preview menampilkan font
+  hasil generate itu sendiri, lengkap dengan warna, outline, logo, dan polanya.
+- **Bisa dimatikan satu per satu.** *Tampilkan* punya kotak untuk nama, nomor punggung, nomor dada, dan nomor celana,
+  untuk kit tanpa nomor dada atau nomor celana. Kotak nama adalah nilai config *Name*.
+- **Savean project tetap ada di aplikasi.** Aplikasi dulu memakai alamat lokal baru setiap kali dibuka, jadi project
+  yang disimpan di penyimpanan browser saat pembukaan sebelumnya tidak terlihat lagi. Sekarang alamatnya tetap, dan saat
+  pertama dibuka project dari pembukaan sebelumnya dikembalikan.
+
 ## 0.6.1 — Patch stabil: export sama dengan canvas, popup warna bisa paste hex, tambahan untuk grup dan jahitan
 
 - **Model jahitan baru: Sambung.** Satu garis utuh tanpa putus dengan bayangan di sepanjang garis, seperti dua kain yang dijahit

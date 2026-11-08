@@ -56,6 +56,27 @@ function walk(kind: string, pattern: RegExp): Entry[] {
   return out.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
 }
 
+/** PES fontsets the generator saved: library/fonts/font_pes/<name>/<kind>.png (the mtime keeps a re-saved sheet out of the image cache). */
+function readFontsets() {
+  const base = path.join(LIBRARY_ROOT, 'fonts', 'font_pes');
+  if (!fs.existsSync(base)) return [];
+  return fs
+    .readdirSync(base, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
+    .map((d) => {
+      const files: Record<string, string> = {};
+      for (const kind of ['back', 'chest', 'leg', 'name', 'name_ex']) {
+        const full = path.join(base, d.name, `${kind}.png`);
+        if (!fs.existsSync(full)) continue;
+        const rel = `fonts/font_pes/${d.name}/${kind}.png`;
+        files[kind] = `/api/library/file?p=${encodeURIComponent(rel)}&v=${Math.round(fs.statSync(full).mtimeMs)}`;
+      }
+      return { name: d.name, files };
+    })
+    .filter((f) => Object.keys(f.files).length)
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export async function GET() {
   try {
     const fonts = walk('fonts', FONT_EXT).map((f) => ({
@@ -75,6 +96,7 @@ export async function GET() {
         patterns: walk('patterns', IMAGE_EXT),
         textures: walk('textures', IMAGE_EXT),
         fonts,
+        fontsets: readFontsets(),
       },
       { headers: { 'Cache-Control': 'no-store' } }
     );

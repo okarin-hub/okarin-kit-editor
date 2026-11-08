@@ -1,32 +1,45 @@
 'use client';
 
-import React from 'react';
-import {
-  Type,
-  Hash,
-  Eye,
-  EyeOff,
-  AlertTriangle,
-  Sliders,
-  Palette,
-  Download,
-} from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Type, Eye, EyeOff } from 'lucide-react';
 import { PlayerMarkingsConfig } from '@/types/kit';
 import { AssetLibrary } from '@/hooks/useAssetLibrary';
 import FontPicker from '@/components/ui/FontPicker';
 import { InfoTip } from '@/components/ui/InfoTip';
+import { KIT_CONFIG_FIELDS, KitConfigField, parseKitConfig, setKitConfigValue } from '@/utils/kitConfig';
+
+const FIELD: Record<string, KitConfigField> = Object.fromEntries(KIT_CONFIG_FIELDS.map((f) => [f.key, f]));
+
+const CONFIG_SECTIONS: [string, string[]][] = [
+  ['Punggung', ['NameShape', 'NameY', 'NameSize', 'NameStretch', 'BackNumberY', 'BackNumberSize', 'BackNumberSpacing', 'BackNumberType']],
+  ['Nomor dada', ['ChestNumberX', 'ChestNumberY', 'ChestNumberSize']],
+  ['Celana', ['ShortsNumberSide', 'ShortsNumberX', 'ShortsNumberY', 'ShortsNumberSize']],
+];
+
+// values the preview does not show yet
+const NOTES: Record<string, string> = {
+  NameShape: 'Besar lengkungan di preview masih perkiraan.',
+  BackNumberType: 'Belum dipratinjau.',
+};
 
 interface MarkingsPanelProps {
   markings: PlayerMarkingsConfig;
   onUpdateMarkings: (update: Partial<PlayerMarkingsConfig>) => void;
   library: AssetLibrary;
+  /** config.txt text: the name / number placement values live there */
+  kitConfig: string;
+  onKitConfigChange: (text: string) => void;
 }
 
 export const MarkingsPanel: React.FC<MarkingsPanelProps> = ({
   markings,
   onUpdateMarkings,
   library,
+  kitConfig,
+  onKitConfigChange,
 }) => {
+  const cfg = useMemo(() => parseKitConfig(kitConfig), [kitConfig]);
+  const setValue = (key: string, value: string) => onKitConfigChange(setKitConfigValue(kitConfig, key, value));
   return (
     <div className="flex flex-col h-full select-none overflow-y-auto text-slate-300 p-4 space-y-5">
       {/* 1. Master Toggle & Info Card */}
@@ -142,6 +155,27 @@ export const MarkingsPanel: React.FC<MarkingsPanelProps> = ({
               />
             </div>
           </div>
+
+          {/* some kits have no chest or shorts number: each one can be switched off */}
+          <div>
+            <span className="text-[11px] text-slate-400 font-medium">Tampilkan</span>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-1">
+              {(
+                [
+                  // the name's switch is the config value the game reads (Name: 0 = On, 1 = Off)
+                  ['Nama', cfg.Name !== '1', (on: boolean) => setValue('Name', on ? '0' : '1')],
+                  ['Nomor punggung', markings.showBackNumber !== false, (on: boolean) => onUpdateMarkings({ showBackNumber: on })],
+                  ['Nomor dada', markings.showChestNumber !== false, (on: boolean) => onUpdateMarkings({ showChestNumber: on })],
+                  ['Nomor celana', markings.showShortsNumber !== false, (on: boolean) => onUpdateMarkings({ showShortsNumber: on })],
+                ] as [string, boolean, (on: boolean) => void][]
+              ).map(([label, on, set]) => (
+                <label key={label} className="flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer">
+                  <input type="checkbox" checked={on} onChange={(e) => set(e.target.checked)} className="accent-sky-500 cursor-pointer" />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -150,6 +184,27 @@ export const MarkingsPanel: React.FC<MarkingsPanelProps> = ({
         <span className="text-xs font-semibold text-slate-200">
           Tipografi & Warna
         </span>
+
+        <div>
+          <div className="flex items-center gap-1.5">
+            <label htmlFor="markings-fontset" className="text-[11px] text-slate-400">Font PES</label>
+            <InfoTip text="Font yang dibuat di Fontset Generator lalu disimpan dengan Simpan ke library (library/fonts/font_pes). Warna, outline, dan efeknya ikut font itu; karakter yang tidak ada di font memakai Gaya Font di bawah." />
+          </div>
+          <select
+            id="markings-fontset"
+            value={markings.fontset ?? ''}
+            onChange={(e) => onUpdateMarkings({ fontset: e.target.value || undefined })}
+            className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200"
+          >
+            <option value="">Tidak dipakai (pakai Gaya Font)</option>
+            {library.fontsets.map((f) => (
+              <option key={f.name} value={f.name}>{f.name}</option>
+            ))}
+            {markings.fontset && !library.fontsets.some((f) => f.name === markings.fontset) && (
+              <option value={markings.fontset}>{markings.fontset} (tidak ditemukan)</option>
+            )}
+          </select>
+        </div>
 
         <div>
           <label className="text-[11px] text-slate-400">Gaya Font</label>
@@ -233,101 +288,56 @@ export const MarkingsPanel: React.FC<MarkingsPanelProps> = ({
         </div>
       </div>
 
-      {/* 4. Position & Sizing Adjustments */}
+      {/* 4. Position & size: the kitserver config values (the same ones Kit Config writes to config.txt) */}
       <div className="space-y-3 pt-2 border-t border-slate-800">
-        <span className="text-xs font-semibold text-slate-200">
-          Ukuran & Posisi
-        </span>
-
-        {/* Number Size */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-[11px] text-slate-400">
-            <span>Ukuran Nomor Punggung</span>
-            <span className="font-mono">{markings.numberSize}px</span>
-          </div>
-          <input
-            type="range"
-            min="50"
-            max="220"
-            value={markings.numberSize}
-            onChange={(e) =>
-              onUpdateMarkings({ numberSize: parseInt(e.target.value) })
-            }
-            className="w-full accent-sky-500 cursor-pointer"
-          />
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-semibold text-slate-200">Ukuran & Posisi</span>
+          <InfoTip text="Nilai config kitserver (config.txt), sama dengan di menu Kit Config. Preview memakai ukuran yang diukur di game, jadi posisinya perkiraan." />
         </div>
-
-        {/* Shorts Number Size */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-[11px] text-slate-400">
-            <span>Ukuran Nomor Celana</span>
-            <span className="font-mono">{markings.shortsNumberSize}px</span>
+        {CONFIG_SECTIONS.map(([title, keys]) => (
+          <div key={title} className="space-y-2 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
+            <span className="text-[11px] font-semibold text-slate-300">{title}</span>
+            {keys.map((key) => {
+              const f = FIELD[key];
+              const raw = cfg[key];
+              const v = raw === undefined || raw === '' || !Number.isFinite(Number(raw)) ? (f.def ?? f.min ?? 0) : Number(raw);
+              const note = NOTES[key];
+              return (
+                <div key={key} className="space-y-1">
+                  <div className="flex justify-between items-center text-[11px] text-slate-400 gap-2">
+                    <span>{f.label}</span>
+                    {f.options ? (
+                      <select
+                        value={v}
+                        onChange={(e) => setValue(key, e.target.value)}
+                        className="bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-[11px] text-slate-200"
+                      >
+                        {f.options.map(([o, label]) => (
+                          <option key={o} value={o}>{label}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="font-mono">{v}</span>
+                    )}
+                  </div>
+                  {!f.options && (
+                    <input
+                      type="range"
+                      min={f.min}
+                      max={f.max}
+                      step={1}
+                      value={v}
+                      onChange={(e) => setValue(key, e.target.value)}
+                      aria-label={f.label}
+                      className="w-full accent-sky-500 cursor-pointer"
+                    />
+                  )}
+                  {note && <p className="text-[10px] text-slate-500">{note}</p>}
+                </div>
+              );
+            })}
           </div>
-          <input
-            type="range"
-            min="20"
-            max="90"
-            value={markings.shortsNumberSize}
-            onChange={(e) =>
-              onUpdateMarkings({ shortsNumberSize: parseInt(e.target.value) })
-            }
-            className="w-full accent-sky-500 cursor-pointer"
-          />
-        </div>
-
-        {/* Name Size */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-[11px] text-slate-400">
-            <span>Ukuran Nama Pemain</span>
-            <span className="font-mono">{markings.nameSize}px</span>
-          </div>
-          <input
-            type="range"
-            min="18"
-            max="42"
-            value={markings.nameSize}
-            onChange={(e) =>
-              onUpdateMarkings({ nameSize: parseInt(e.target.value) })
-            }
-            className="w-full accent-sky-500 cursor-pointer"
-          />
-        </div>
-
-        {/* Name Vertical Position */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-[11px] text-slate-400">
-            <span>Posisi Vertikal Nama (Y)</span>
-            <span className="font-mono">{markings.nameY}px</span>
-          </div>
-          <input
-            type="range"
-            min="60"
-            max="200"
-            value={markings.nameY}
-            onChange={(e) =>
-              onUpdateMarkings({ nameY: parseInt(e.target.value) })
-            }
-            className="w-full accent-sky-500 cursor-pointer"
-          />
-        </div>
-
-        {/* Number Vertical Position */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-[11px] text-slate-400">
-            <span>Posisi Vertikal Nomor (Y)</span>
-            <span className="font-mono">{markings.numberY}px</span>
-          </div>
-          <input
-            type="range"
-            min="160"
-            max="400"
-            value={markings.numberY}
-            onChange={(e) =>
-              onUpdateMarkings({ numberY: parseInt(e.target.value) })
-            }
-            className="w-full accent-sky-500 cursor-pointer"
-          />
-        </div>
+        ))}
       </div>
     </div>
   );

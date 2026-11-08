@@ -2,6 +2,21 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## 0.6.2 — Stable patch: Name tab on the kitserver config, PES fonts in the preview, saved projects kept
+
+- **Name tab follows the kitserver config.** Position and size are now the config.txt values (*Name shape*, *Name Y*, *Name size*,
+  *Name stretch*, *Back number Y / size / spacing*, *Chest number X / Y / size*, *Shorts number side / X / Y / size*),
+  the same values as in Kit Config, with kitserver's limits. The 2D canvas, the 3D preview and the export draw them
+  where PES puts them, measured from in-game screenshots. The chest number shows in the preview too.
+- **PES fonts in the Name tab.** The Fontset Generator has *Save to library*: it saves the five font textures as PNG
+  in `library/fonts/font_pes/<name>`. Pick that font in the Name tab under *PES font* and the preview shows the
+  generated font itself, with its colours, outline, logo and pattern.
+- **Switch each one off.** *Show* has a box for the name, the back number, the chest number and the shorts number, for
+  kits without a chest or shorts number. The name's box is the config value *Name*.
+- **Saved projects stay in the app.** The app picked a new local address on every start, and projects saved in the
+  browser storage of an earlier start went out of sight. It now keeps one address, and on the first start it brings
+  back the projects saved by earlier starts.
+
 ## 0.6.1 — Stable patch: export matches the canvas, colour popup with hex paste, more for groups and stitches
 
 - **New stitch style: Joined.** One unbroken line with a shadow along it, like two pieces of cloth sewn together. It

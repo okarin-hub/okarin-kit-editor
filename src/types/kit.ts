@@ -195,13 +195,12 @@ export interface PlayerMarkingsConfig {
   numberStrokeColor: string;
   numberStrokeWidth: number;
   nameColor: string;
-  nameSize: number;
-  numberSize: number;
-  shortsNumberSize: number;
-  nameY: number;
-  numberY: number;
-  shortsNumberX: number;
-  shortsNumberY: number;
+  /** PES fontset folder in library/fonts/font_pes; empty = draw with fontFamily */
+  fontset?: string;
+  /** preview switches (the name's own switch is the config value Name) */
+  showBackNumber?: boolean;
+  showChestNumber?: boolean;
+  showShortsNumber?: boolean;
 }
 
 /** A point in 1024x1024 texture space. */

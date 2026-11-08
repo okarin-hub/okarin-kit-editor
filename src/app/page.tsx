@@ -38,7 +38,7 @@ import {
 } from '@/types/kit';
 import { KitProject, ExportSettings, ExportTextureResolution, ExportDdsFormat } from '@/types/project';
 import { DEFAULT_PART_CONFIG, DEFAULT_CREDIT_CONFIG, PRESET_KITS, KitPreset } from '@/constants/presets';
-import { PES_2021_PARTS, PART_MAP, CANVAS_TEXTURE_SIZE, SHORTS_NUMBER_POS, migrateMarkings, partsForSleeveShape } from '@/constants/pes2021Parts';
+import { PES_2021_PARTS, PART_MAP, CANVAS_TEXTURE_SIZE, partsForSleeveShape } from '@/constants/pes2021Parts';
 import { mergeZones } from '@/utils/layerMerge';
 import { bakeZone, moveZoneToPart, simplifyPath, zoneBox, zoneHitTest, zoneMatrix } from '@/utils/zoneGeometry';
 import { remapErase } from '@/utils/templateRenderer';
@@ -49,7 +49,7 @@ import FontsetModal from '@/components/ui/FontsetModal';
 import PhotoPatternModal from '@/components/ui/PhotoPatternModal';
 import { newPatternLayer } from '@/components/ui/PatternLayersPanel';
 import { PATTERN_LABEL } from '@/constants/patterns';
-import { DEFAULT_KIT_CONFIG } from '@/utils/kitConfig';
+import { DEFAULT_KIT_CONFIG, parseKitConfig } from '@/utils/kitConfig';
 import {
   saveAutosaveState,
   loadAutosaveState,
@@ -168,14 +168,17 @@ export default function Home() {
     numberStrokeColor: '#1e293b',
     numberStrokeWidth: 2,
     nameColor: '#ffffff',
-    nameSize: 28,
-    numberSize: 84,
-    shortsNumberSize: 42,
-    nameY: 105,
-    numberY: 195,
-    shortsNumberX: SHORTS_NUMBER_POS.x,
-    shortsNumberY: SHORTS_NUMBER_POS.y,
   });
+
+  // the markings with the config values that place them (NameY, BackNumberSize ...)
+  const markingsView = useMemo(
+    () => ({
+      ...markings,
+      config: parseKitConfig(kitConfigText),
+      fontsetFiles: markings.fontset ? library.fontsets.find((f) => f.name === markings.fontset)?.files : undefined,
+    }),
+    [markings, kitConfigText, library.fontsets]
+  );
 
   const [isExportingClean, setIsExportingClean] = useState<boolean>(false);
 
@@ -227,7 +230,7 @@ export default function Home() {
     if (autosaved) {
       if (autosaved.partsConfig) setPartsConfig({ ...DEFAULT_PART_CONFIG, ...autosaved.partsConfig });
       if (autosaved.graphicItems) setGraphicItems(autosaved.graphicItems);
-      if (autosaved.markings) setMarkings(migrateMarkings(autosaved.markings));
+      if (autosaved.markings) setMarkings(autosaved.markings);
       if (autosaved.fabricConfig) setFabricConfig(autosaved.fabricConfig);
     }
     const savedFontset = loadFontsetSettings();
@@ -1106,7 +1109,7 @@ export default function Home() {
       const texture = renderKitCanvas(
         partsConfig,
         graphicItems,
-        markings,
+        markingsView,
         true, // Include markings for 3D viewer
         1024,
         fabricConfig,
@@ -1131,7 +1134,7 @@ export default function Home() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [partsConfig, graphicItems, markings, fabricConfig, baseTexture, patternMask, tplBundle, assetTick, viewMode]);
+  }, [partsConfig, graphicItems, markingsView, fabricConfig, baseTexture, patternMask, tplBundle, assetTick, viewMode]);
 
   // Resize listener to fit canvas neatly
   useEffect(() => {
@@ -1360,7 +1363,7 @@ export default function Home() {
   const handleLoadProject = useCallback((project: KitProject) => {
     setPartsConfig({ ...DEFAULT_PART_CONFIG, ...project.partsConfig });
     setGraphicItems(project.graphicItems);
-    setMarkings(migrateMarkings(project.markings));
+    setMarkings(project.markings);
     // older projects have none of these: keep the defaults / the current config
     setFabricConfig(project.fabricConfig ?? DEFAULT_FABRIC_CONFIG);
     if (project.kitConfig) setKitConfigText(project.kitConfig);
@@ -1398,13 +1401,13 @@ export default function Home() {
   // Kit texture as DDS, optionally wrapped as FTEX (shared by Export and the kitserver folder)
   const buildGameTexture = useCallback(
     async (resolution: ExportTextureResolution, includeMarkings: boolean, ddsFormat: ExportDdsFormat, mipmaps: boolean, ftex: boolean) => {
-      const canvas = renderKitCanvas(partsConfig, graphicItems, markings, includeMarkings, resolution, fabricConfig, activeBase, patternMask, tplBundle);
+      const canvas = renderKitCanvas(partsConfig, graphicItems, markingsView, includeMarkings, resolution, fabricConfig, activeBase, patternMask, tplBundle);
       const ctx = canvas?.getContext('2d');
       if (!canvas || !ctx) return null;
       const dds = encodeDDS(ctx.getImageData(0, 0, canvas.width, canvas.height), ddsFormat, mipmaps);
       return ftex ? await encodeFtex(dds) : dds;
     },
-    [partsConfig, graphicItems, markings, fabricConfig, baseTexture, patternMask, tplBundle]
+    [partsConfig, graphicItems, markingsView, fabricConfig, baseTexture, patternMask, tplBundle]
   );
 
   useEffect(() => {
@@ -1444,7 +1447,7 @@ export default function Home() {
         const card = await generateShowcaseCard(
           partsConfig,
           graphicItems,
-          markings,
+          markingsView,
           fabricConfig,
           settings.filename,
           activeBase,
@@ -1506,7 +1509,7 @@ export default function Home() {
     const dataUrl = generateKitTexture(
       partsConfig,
       graphicItems,
-      markings,
+      markingsView,
       settings.includeMarkings,
       settings.resolution,
       fabricConfig,
@@ -1516,7 +1519,7 @@ export default function Home() {
     );
 
     if (dataUrl) download(dataUrl, `${settings.filename}.png`);
-  }, [partsConfig, graphicItems, markings, fabricConfig, baseTexture, patternMask, tplBundle, buildGameTexture]);
+  }, [partsConfig, graphicItems, markings, markingsView, fabricConfig, baseTexture, patternMask, tplBundle, buildGameTexture]);
 
   // New kit replaces the colours and patterns: ask first (Undo still brings them back)
   const { t } = useI18n();
@@ -1642,7 +1645,7 @@ export default function Home() {
                   onSelectGraphic={handleSelectGraphic}
                   onUpdateGraphic={handleUpdateGraphic}
                   onDeleteGraphic={handleDeleteGraphic}
-                  markings={markings}
+                  markings={markingsView}
                   baseTexture={activeBase}
                   patternMask={patternMask}
                   templateBundle={tplBundle}
@@ -1815,6 +1818,8 @@ export default function Home() {
               <MarkingsPanel
                 markings={markings}
                 onUpdateMarkings={handleUpdateMarkings}
+                kitConfig={kitConfigText}
+                onKitConfigChange={setKitConfigText}
                 library={library}
               />
             )}

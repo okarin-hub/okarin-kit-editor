@@ -41,10 +41,14 @@ function ensureLibrary() {
   return target;
 }
 
-function freePort() {
+// localStorage (saved projects, settings) belongs to the page's origin, port included: a fixed port keeps
+// the same origin on every launch. A random port is only the fallback when this one is taken.
+const PREFERRED_PORT = 47821;
+
+function freePort(want = 0) {
   return new Promise((resolve, reject) => {
     const srv = net.createServer();
-    srv.listen(0, '127.0.0.1', () => {
+    srv.listen(want, '127.0.0.1', () => {
       const { port } = srv.address();
       srv.close(() => resolve(port));
     });
@@ -75,7 +79,7 @@ function waitForServer(port, timeoutMs = 60000) {
 }
 
 async function startServer() {
-  const port = await freePort();
+  const port = await freePort(PREFERRED_PORT).catch(() => freePort());
   const library = ensureLibrary();
   const dir = serverDir();
   serverProcess = spawn(process.execPath, [path.join(dir, 'server.js')], {
@@ -96,6 +100,106 @@ async function startServer() {
   });
   await waitForServer(port);
   return port;
+}
+
+/**
+ * Up to 0.6.1 the server got a random port on every launch, so each launch had its own localStorage and the
+ * saved projects of earlier launches went out of sight. Their data is still in the profile: this opens each old
+ * origin once in a hidden window (the http requests answered here with an empty page, the real server is not
+ * involved), reads its saved projects and merges them into the current origin. Merged ports are remembered.
+ */
+async function migrateOldOrigins(port) {
+  const { session } = require('electron');
+  const done = path.join(app.getPath('userData'), 'storage-migrated.json');
+  let merged = [];
+  try {
+    merged = JSON.parse(fs.readFileSync(done, 'utf8'));
+  } catch {}
+  const dir = path.join(app.getPath('userData'), 'Local Storage', 'leveldb');
+  const ports = new Set();
+  try {
+    for (const f of fs.readdirSync(dir)) {
+      if (!/\.(ldb|log)$/.test(f)) continue;
+      const text = fs.readFileSync(path.join(dir, f)).toString('latin1');
+      for (const m of text.matchAll(/http:\/\/127\.0\.0\.1:(\d{2,5})/g)) ports.add(Number(m[1]));
+    }
+  } catch {
+    return;
+  }
+  ports.delete(port);
+  const todo = [...ports].filter((p) => !merged.includes(p));
+  if (!todo.length) return;
+
+  const ses = session.defaultSession;
+  ses.protocol.handle('http', () => new Response('<!doctype html><title></title>', { headers: { 'content-type': 'text/html' } }));
+  const win = new BrowserWindow({ show: false, webPreferences: { sandbox: true, contextIsolation: true } });
+  try {
+    const projects = {};
+    let list = [];
+    const ok = [];
+    for (const p of todo) {
+      try {
+        await win.loadURL(`http://127.0.0.1:${p}/`);
+        const data = JSON.parse(
+          await win.webContents.executeJavaScript(
+            `JSON.stringify(Object.fromEntries(Object.keys(localStorage).filter(k=>k.startsWith('pes_kit_proj_')||k==='pes_kit_creator_saved_projects').map(k=>[k,localStorage.getItem(k)])))`
+          )
+        );
+        for (const [k, v] of Object.entries(data)) {
+          if (k === 'pes_kit_creator_saved_projects') {
+            try {
+              list = list.concat(JSON.parse(v));
+            } catch {}
+          } else projects[k] = projects[k] && stamp(projects[k]) >= stamp(v) ? projects[k] : v;
+        }
+        ok.push(p);
+      } catch {}
+    }
+    await win.loadURL(`http://127.0.0.1:${port}/`);
+    const result = await win.webContents.executeJavaScript(`(${mergeInto.toString()})(${JSON.stringify({ projects, list })})`);
+    if (result.failed) console.warn(`storage migration: ${result.failed} projects did not fit`);
+    fs.writeFileSync(done, JSON.stringify([...merged, ...ok]));
+  } finally {
+    win.destroy();
+    ses.protocol.unhandle('http');
+  }
+}
+
+function stamp(json) {
+  return /"updatedAt":"([^"]+)"/.exec(json)?.[1] || '';
+}
+
+// runs in the page of the current origin: a project already there is replaced only by a newer copy
+function mergeInto({ projects, list }) {
+  const LIST = 'pes_kit_creator_saved_projects';
+  const at = (s) => (s && /"updatedAt":"([^"]+)"/.exec(s)?.[1]) || '';
+  let current = [];
+  try {
+    current = JSON.parse(localStorage.getItem(LIST) || '[]');
+  } catch {}
+  const byId = new Map();
+  for (const m of [...current, ...list]) {
+    if (!m || !m.id) continue;
+    const old = byId.get(m.id);
+    if (!old || (m.updatedAt || '') > (old.updatedAt || '')) byId.set(m.id, m);
+  }
+  let failed = 0;
+  // newest first, so when the storage quota runs out the oldest projects are the ones left out
+  const keys = Object.keys(projects).sort((a, b) => (at(projects[b]) > at(projects[a]) ? 1 : -1));
+  for (const k of keys) {
+    const here = localStorage.getItem(k);
+    if (here && at(here) >= at(projects[k])) continue;
+    try {
+      localStorage.setItem(k, projects[k]);
+    } catch {
+      failed++;
+    }
+  }
+  // list only projects whose data is there
+  const metas = [...byId.values()].filter((m) => localStorage.getItem('pes_kit_proj_' + m.id));
+  metas.sort((a, b) => ((b.updatedAt || '') > (a.updatedAt || '') ? 1 : -1));
+  localStorage.setItem(LIST, JSON.stringify(metas));
+  return { failed, count: metas.length };
 }
 
 async function createWindow() {
@@ -119,6 +223,8 @@ async function createWindow() {
 
   try {
     const port = await startServer();
+    // a failed migration must not keep the app from opening
+    await migrateOldOrigins(port).catch((err) => console.warn('storage migration failed:', err));
     await mainWindow.loadURL(`http://127.0.0.1:${port}`);
   } catch (err) {
     dialog.showErrorBox('Okarin Kit Editor', `Gagal memulai aplikasi:\n${err && err.message ? err.message : err}`);

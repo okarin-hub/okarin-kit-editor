@@ -3,7 +3,6 @@ import {
   KitPartConfig,
   KitPartDefinition,
   KitGraphicItem,
-  PlayerMarkingsConfig,
   FabricConfig,
   FabricTextureType,
   BaseTexture,
@@ -17,11 +16,10 @@ import { drawFabricForPart } from '@/utils/fabricRenderer';
 import { getStyledLogo } from '@/utils/logoStyle';
 import { drawTextItem } from '@/utils/textItem';
 import { getCachedImage, preloadImage } from '@/utils/imageCache';
+import { drawPlayerMarkings, MarkingsView } from '@/utils/markingsLayout';
 import {
-  PART_MAP,
   CANVAS_TEXTURE_SIZE,
   BACK_NECK_Y,
-  BACK_CENTER_X,
   getAccentRects,
   DEFAULT_BACKGROUND_COLOR,
   partsForSleeveShape,
@@ -38,7 +36,7 @@ export { preloadImage };
 export function renderKitCanvas(
   partsConfig: Record<KitPartId, KitPartConfig>,
   graphicItems: KitGraphicItem[],
-  markings?: PlayerMarkingsConfig,
+  markings?: MarkingsView,
   includeMarkings = true,
   resolution = 1024,
   fabricConfig?: FabricConfig,
@@ -253,74 +251,11 @@ export function renderKitCanvas(
     ctx.restore();
   });
 
-  // 4. Render Player Markings (if enabled)
+  // 4. Player markings, placed from the kitserver config values
   if (markings && markings.showPreview && includeMarkings) {
     ctx.save();
-    if (scaleRatio !== 1) {
-      ctx.scale(scaleRatio, scaleRatio);
-    }
-
-    // The shirt back is stored upside-down in the PES template (hem at y = 0, neck at
-    // BACK_NECK_Y), so name/number are drawn rotated 180° about the neck-centre line.
-    // `nameY` / `numberY` are distances measured down the shirt from the neckline.
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(345, 0, 335, BACK_NECK_Y);
-    ctx.clip();
-
-    ctx.translate(BACK_CENTER_X, BACK_NECK_Y);
-    ctx.rotate(Math.PI);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    // Player Name
-    if (markings.playerName) {
-      ctx.font = `bold ${markings.nameSize}px ${markings.fontFamily}`;
-      ctx.fillStyle = markings.nameColor;
-      ctx.fillText(markings.playerName.toUpperCase(), 0, markings.nameY);
-    }
-
-    // Player Number
-    if (markings.playerNumber) {
-      ctx.font = `bold ${markings.numberSize}px ${markings.fontFamily}`;
-
-      if (markings.numberStrokeWidth > 0) {
-        ctx.strokeStyle = markings.numberStrokeColor;
-        ctx.lineWidth = markings.numberStrokeWidth;
-        ctx.strokeText(markings.playerNumber, 0, markings.numberY);
-      }
-
-      ctx.fillStyle = markings.numberColor;
-      ctx.fillText(markings.playerNumber, 0, markings.numberY);
-    }
-    ctx.restore();
-
-    // Shorts Number (on the texture-left shorts piece). The leg is stored sideways (hem at x 0), so the
-    // number is turned 90° to read upright on the leg.
-    if (markings.shortsNumber) {
-      ctx.save();
-      ctx.beginPath();
-      const sb = PART_MAP.leftShorts.bounds;
-      ctx.rect(sb.x, sb.y, sb.width, sb.height);
-      ctx.clip();
-
-      ctx.translate(markings.shortsNumberX, markings.shortsNumberY);
-      ctx.rotate(Math.PI / 2);
-      ctx.font = `bold ${markings.shortsNumberSize}px ${markings.fontFamily}`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-
-      if (markings.numberStrokeWidth > 0) {
-        ctx.strokeStyle = markings.numberStrokeColor;
-        ctx.lineWidth = markings.numberStrokeWidth * 0.7;
-        ctx.strokeText(markings.shortsNumber, 0, 0);
-      }
-
-      ctx.fillStyle = markings.numberColor;
-      ctx.fillText(markings.shortsNumber, 0, 0);
-      ctx.restore();
-    }
-
+    if (scaleRatio !== 1) ctx.scale(scaleRatio, scaleRatio);
+    drawPlayerMarkings(ctx, markings);
     ctx.restore();
   }
 
@@ -331,7 +266,7 @@ export function renderKitCanvas(
 export function generateKitTexture(
   partsConfig: Record<KitPartId, KitPartConfig>,
   graphicItems: KitGraphicItem[],
-  markings?: PlayerMarkingsConfig,
+  markings?: MarkingsView,
   includeMarkings = true,
   resolution = 1024,
   fabricConfig?: FabricConfig,
@@ -368,7 +303,7 @@ function loadDataUrl(src: string): Promise<HTMLImageElement> {
 export async function generateShowcaseCard(
   partsConfig: Record<KitPartId, KitPartConfig>,
   graphicItems: KitGraphicItem[],
-  markings: PlayerMarkingsConfig | undefined,
+  markings: MarkingsView | undefined,
   fabricConfig: FabricConfig | undefined,
   title: string,
   baseTexture?: BaseTexture | null,

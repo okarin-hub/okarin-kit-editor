@@ -1,12 +1,12 @@
 'use client';
 
+import type { MarkingsView } from '@/utils/markingsLayout';
 import React, { useState, useEffect } from 'react';
 import {
   KitPartId,
   KitPartConfig,
   CanvasViewState,
   KitGraphicItem,
-  PlayerMarkingsConfig,
   BaseTexture,
   PatternBrushState,
   TemplateBundle,
@@ -27,7 +27,7 @@ interface KitCanvasWrapperProps {
   onSelectGraphic: (id: string | null) => void;
   onUpdateGraphic: (item: KitGraphicItem) => void;
   onDeleteGraphic: (id: string) => void;
-  markings: PlayerMarkingsConfig;
+  markings: MarkingsView;
   baseTexture?: BaseTexture | null;
   patternMask?: string | null;
   templateBundle?: TemplateBundle | null;

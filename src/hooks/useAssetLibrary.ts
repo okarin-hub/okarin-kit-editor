@@ -15,6 +15,12 @@ export interface LibraryFont extends LibraryEntry {
   family: string;
 }
 
+/** A PES fontset the generator saved in library/fonts/font_pes: PNG sheet URL by kind (back, chest, leg, name, name_ex). */
+export interface LibraryFontset {
+  name: string;
+  files: Record<string, string>;
+}
+
 export type SystemFontStatus = 'idle' | 'loading' | 'ready' | 'unsupported' | 'denied';
 
 export interface AssetLibrary {
@@ -22,6 +28,7 @@ export interface AssetLibrary {
   patterns: LibraryEntry[];
   textures: LibraryEntry[];
   fonts: LibraryFont[];
+  fontsets: LibraryFontset[];
   templates: KitTemplate[];
   templateErrors: { file: string; error: string }[];
   root: string;
@@ -65,6 +72,7 @@ export function useAssetLibrary(): AssetLibrary {
   const [patterns, setPatterns] = useState<LibraryEntry[]>([]);
   const [textures, setTextures] = useState<LibraryEntry[]>([]);
   const [fonts, setFonts] = useState<LibraryFont[]>([]);
+  const [fontsets, setFontsets] = useState<LibraryFontset[]>([]);
   const [templates, setTemplates] = useState<KitTemplate[]>([]);
   const [templateErrors, setTemplateErrors] = useState<{ file: string; error: string }[]>([]);
   const [root, setRoot] = useState('');
@@ -92,6 +100,7 @@ export function useAssetLibrary(): AssetLibrary {
       setLogos(data.logos ?? []);
       setPatterns(data.patterns ?? []);
       setTextures(data.textures ?? []);
+      setFontsets(data.fontsets ?? []);
       setTemplates(data.templates ?? []);
       setTemplateErrors(data.templateErrors ?? []);
       const fresh = ((data.psd ?? []) as (PsdItem & { ready: boolean })[]).filter(
@@ -184,6 +193,7 @@ export function useAssetLibrary(): AssetLibrary {
     patterns,
     textures,
     fonts,
+    fontsets,
     templates,
     templateErrors,
     root,

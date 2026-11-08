@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { X, Type, FolderDown, ImageDown, AlertCircle, ImagePlus, Trash2 } from 'lucide-react';
+import { X, Type, FolderDown, ImageDown, AlertCircle, ImagePlus, Trash2, Library } from 'lucide-react';
 import { FontPicker } from '@/components/ui/FontPicker';
 import { useI18n } from '@/i18n/I18nProvider';
 import { AssetLibrary } from '@/hooks/useAssetLibrary';
@@ -522,6 +522,29 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
     }
   };
 
+  // all five sheets as PNG into library/fonts/font_pes/<name>: the Name tab previews the kit with them
+  const saveToLibrary = async () => {
+    setBusy(true);
+    setStatus('Menyimpan font ke library…');
+    try {
+      const files: Record<string, string> = {};
+      for (const f of FILES) files[f.kind] = render(f.kind).toDataURL('image/png').split(',')[1];
+      const res = await fetch('/api/library/fontset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: filePrefix, files }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || `Server menjawab ${res.status}`);
+      await library.reload();
+      setStatus(t(`Tersimpan di library/fonts/font_pes/${data.name}. Pilih di tab Nama untuk melihatnya di kit.`));
+    } catch (err) {
+      setStatus(`Gagal menyimpan: ${(err as Error)?.message || err}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const savePng = () => render(view).toBlob((b) => b && downloadFile(b, `${fileName(view)}.png`), 'image/png');
 
   const input = 'bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-200 outline-none focus:border-sky-500';
@@ -964,6 +987,15 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
             <div className="ml-auto flex gap-2">
               <button type="button" onClick={savePng} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-300 border border-slate-700 hover:bg-slate-800">
                 <ImageDown className="w-3.5 h-3.5" /> PNG pratinjau
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={saveToLibrary}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-300 border border-slate-700 hover:bg-slate-800 disabled:opacity-50"
+                title={`Kelima tekstur font disimpan sebagai PNG di library/fonts/font_pes/${filePrefix}, untuk preview di tab Nama`}
+              >
+                <Library className="w-3.5 h-3.5" /> Simpan ke library
               </button>
               <button
                 type="button"
