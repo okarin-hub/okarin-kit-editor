@@ -2,6 +2,15 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## 0.6.6 — Stable patch: pattern library search and list, align buttons, follow the shoulder
+
+- **Pattern library search and list view.** Search by name or folder, and switch between the grid and a list with the
+  picture and the file name. Pictures load as you scroll, so big libraries stay quick.
+- **Align left / centre / right** for objects and patterns in the Layer tab: one click puts the layer against the left
+  or right edge of its part, or in its middle.
+- **Follow the shoulder.** Layers on a sleeve have a *Follow the shoulder* box: the layer bends with the sleeve and
+  shoulder piece, so a straight stripe curves and narrows toward the neck instead of running flat across the texture.
+
 ## 0.6.5 — Stable patch: Delete key in the Layer tab, New kit starts clean
 
 - **Delete key in the Layer tab.** Press *Delete* to remove the selected layer, every picked layer (Ctrl / Shift +

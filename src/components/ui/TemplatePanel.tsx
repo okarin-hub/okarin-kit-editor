@@ -51,7 +51,8 @@ import {
   ZoneEdge,
 } from '@/types/kit';
 import { AssetLibrary } from '@/hooks/useAssetLibrary';
-import { PatternLayerEditor, groupPartIds, newPatternLayer } from '@/components/ui/PatternLayersPanel';
+import { AlignRow, PatternLayerEditor, groupPartIds, newPatternLayer } from '@/components/ui/PatternLayersPanel';
+import { partPolygons, polygonsBox } from '@/utils/partShape';
 import { PanelSection } from '@/components/ui/PanelSection';
 import { useI18n } from '@/i18n/I18nProvider';
 import { InfoTip } from '@/components/ui/InfoTip';
@@ -60,8 +61,8 @@ import { useLayerEditorMode } from '@/hooks/useLayerEditorMode';
 import { AccentRow } from '@/components/ui/AccentLayersPanel';
 import { BUILTIN_TEMPLATES } from '@/constants/templates';
 import { COLOR_PALETTES } from '@/constants/presets';
-import { PES_2021_PARTS, DEFAULT_BACKGROUND_COLOR } from '@/constants/pes2021Parts';
-import { zoneBox, zoneParts } from '@/utils/zoneGeometry';
+import { PES_2021_PARTS, PART_MAP, DEFAULT_BACKGROUND_COLOR } from '@/constants/pes2021Parts';
+import { bakeZone, zoneBox, zoneParts } from '@/utils/zoneGeometry';
 import { helperName } from '@/utils/psdImport';
 
 export type NewZoneKind = 'strip' | 'panel' | 'ellipse' | 'triangle';
@@ -1239,6 +1240,18 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
 
         <div className="space-y-2 pt-2 border-t border-slate-800">
           <div className="text-[11px] font-semibold text-slate-300">Posisi</div>
+          <AlignRow
+            onAlign={(where) => {
+              const drawn = bakeZone(z, zs, true).polygons;
+              const part = PART_MAP[z.part];
+              if (!drawn?.length || !part) return;
+              const o = polygonsBox(drawn);
+              const p = polygonsBox(partPolygons(part));
+              const shift =
+                where === 'left' ? p.x - o.x : where === 'right' ? p.x + p.width - (o.x + o.width) : p.x + p.width / 2 - (o.x + o.width / 2);
+              onUpdateZone(z.id, { dx: Math.round((zs.dx ?? 0) + shift) });
+            }}
+          />
           <Slider label="Geser kiri / kanan (X)" value={zs.dx ?? 0} min={-400} max={400} unit="px" onChange={(v) => onUpdateZone(z.id, { dx: v })} />
           <Slider label="Geser atas / bawah (Y)" value={zs.dy ?? 0} min={-400} max={400} unit="px" onChange={(v) => onUpdateZone(z.id, { dy: v })} />
           <Slider label="Putar" value={zs.rot ?? 0} min={-180} max={180} unit="°" onChange={(v) => onUpdateZone(z.id, { rot: v })} />
@@ -1396,6 +1409,17 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           />
           Garis jahitan di sisi layer ini
         </label>
+        {zoneParts(z).some((p) => p === 'leftSleeve' || p === 'rightSleeve') && (
+          <label className="flex items-center gap-2 text-[11px] text-slate-300 cursor-pointer" title="Di lengan: layer ditekuk mengikuti potongan lengan dan bahu, jadi garis lurus ikut melengkung dan menyempit ke leher">
+            <input
+              type="checkbox"
+              checked={zs.followShoulder === true}
+              onChange={(e) => onUpdateZone(z.id, { followShoulder: e.target.checked })}
+              className="accent-sky-500"
+            />
+            Ikuti bentuk bahu
+          </label>
+        )}
 
       </div>
     );

@@ -5,6 +5,84 @@ const hasShape = (z: KitZoneDef) => !!(z.rects?.length || z.polygons?.length || 
 import { getCachedImage, preloadImage } from '@/utils/imageCache';
 import { drawPatternLayersForPart, patternLayersForPart, tintedTile } from '@/utils/patternRenderer';
 import { zonePath, drawMaskTransformed, zoneParts, zoneMatrix } from '@/utils/zoneGeometry';
+import { PES_2021_PARTS } from '@/constants/pes2021Parts';
+
+/**
+ * "Follow the shoulder": the short sleeve piece with its shoulder yoke (player's right sleeve, texture left) runs from
+ * the cuff (x 239) to the neck (x 512) and narrows from 270 px across at the arm to 26 px at the neck. A layer is
+ * drawn as if that piece were a straight band (y 341..611); each texture column is then stretched between the piece's
+ * top and bottom edge there, so a straight stripe follows the shoulder. The left sleeve is its mirror.
+ */
+const SHOULDER_X0 = 239;
+const SHOULDER_X1 = 512;
+const SHOULDER_Y0 = 341;
+const SHOULDER_Y1 = 611;
+let shoulderEdges: { top: Float32Array; bot: Float32Array } | null = null;
+function shoulderEdgesAt(): { top: Float32Array; bot: Float32Array } {
+  if (shoulderEdges) return shoulderEdges;
+  const poly = PES_2021_PARTS.find((p) => p.id === 'leftSleeve')!.outline![0];
+  const n = SHOULDER_X1 - SHOULDER_X0;
+  const top = new Float32Array(n);
+  const bot = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = SHOULDER_X0 + i + 0.5;
+    let lo = Infinity;
+    let hi = -Infinity;
+    poly.forEach(([ax, ay], k) => {
+      const [bx, by] = poly[(k + 1) % poly.length];
+      if ((ax <= x && x < bx) || (bx <= x && x < ax)) {
+        const y = ay + ((x - ax) / (bx - ax)) * (by - ay);
+        lo = Math.min(lo, y);
+        hi = Math.max(hi, y);
+      }
+    });
+    top[i] = Number.isFinite(lo) ? lo : SHOULDER_Y0;
+    bot[i] = Number.isFinite(hi) ? hi : SHOULDER_Y1;
+  }
+  // the armhole notch turns sharply: smoothed, a stripe bends in one curve instead of a kink
+  const smooth = (v: Float32Array) => v.map((_, i) => {
+    let sum = 0;
+    let k = 0;
+    for (let j = Math.max(0, i - 10); j <= Math.min(n - 1, i + 10); j++, k++) sum += v[j];
+    return sum / k;
+  });
+  return (shoulderEdges = { top: smooth(top), bot: smooth(bot) });
+}
+
+/** Draws src (a layer alone, device pixels of dst) onto dst bent with the shoulder; false when dst is rotated. */
+function drawFollowingShoulder(dst: CanvasRenderingContext2D, src: HTMLCanvasElement, mirror: boolean, op?: GlobalCompositeOperation): boolean {
+  const m = dst.getTransform();
+  if (m.b !== 0 || m.c !== 0) return false;
+  const { top, bot } = shoulderEdgesAt();
+  const toDevX = (x: number) => x * m.a + m.e;
+  const toDevY = (y: number) => y * m.d + m.f;
+  const a = toDevX(mirror ? 1024 - SHOULDER_X1 : SHOULDER_X0);
+  const b = toDevX(mirror ? 1024 - SHOULDER_X0 : SHOULDER_X1);
+  const left = Math.max(0, Math.floor(Math.min(a, b)));
+  const right = Math.min(src.width, Math.ceil(Math.max(a, b)));
+  const sy0 = toDevY(SHOULDER_Y0);
+  const sh = toDevY(SHOULDER_Y1) - sy0;
+  dst.save();
+  dst.setTransform(1, 0, 0, 1, 0, 0);
+  if (op) dst.globalCompositeOperation = op;
+  // outside the bent band (long sleeve area) the layer stays as drawn
+  dst.save();
+  dst.beginPath();
+  dst.rect(0, 0, src.width, src.height);
+  dst.rect(left, sy0, right - left, sh);
+  dst.clip('evenodd');
+  dst.drawImage(src, 0, 0);
+  dst.restore();
+  for (let dx = left; dx < right; dx++) {
+    const tx = (dx + 0.5 - m.e) / m.a;
+    const i = Math.floor((mirror ? 1024 - tx : tx) - SHOULDER_X0);
+    if (i < 0 || i >= top.length) continue;
+    const y0 = toDevY(top[i]);
+    dst.drawImage(src, dx, sy0, 1, sh, dx, y0, 1, toDevY(bot[i]) - y0);
+  }
+  dst.restore();
+  return true;
+}
 
 /**
  * Draws template zones (colourable panels) and seam / stitch lines for one part.
@@ -370,7 +448,8 @@ export function drawTemplateForPart(
   const drawZone = (zone: KitTemplate['zones'][number]) => {
     const zs = state.zones[zone.id];
     const clips = clipped.get(zone.id) ?? [];
-    if (!clips.length && !eraseMaskOf(zone.id, zs.erase)) {
+    const bend = !!zs.followShoulder && (part.id === 'leftSleeve' || part.id === 'rightSleeve');
+    if (!bend && !clips.length && !eraseMaskOf(zone.id, zs.erase)) {
       // plain layer: straight onto the texture (with its blend mode)
       ctx.save();
       if (zone.blend) ctx.globalCompositeOperation = zone.blend;
@@ -389,6 +468,7 @@ export function drawTemplateForPart(
       blit(bg, layer, c.blend);
     });
     // the part clip of ctx still applies (it is kept in device space)
+    if (bend && drawFollowingShoulder(ctx, base, part.id === 'rightSleeve', zone.blend)) return;
     blit(ctx, base, zone.blend);
   };
   // in layer order; a pattern placed above a layer comes right after it (even where that layer is not on this part)

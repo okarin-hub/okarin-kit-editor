@@ -522,3 +522,46 @@ export function migrateLegacyPatterns(
   groups.forEach((g) => g.parts.forEach((id) => (next[id] = { ...next[id], pattern: 'none' })));
   return { partsConfig: next, patterns };
 }
+
+export type AlignX = 'left' | 'center' | 'right';
+
+let measureCanvas: HTMLCanvasElement | null = null;
+/** Left and right edge of what the layer paints on this part (texture px), or null when it paints nothing. */
+function paintedSpanX(part: KitPartDefinition, layer: PatternLayer): [number, number] | null {
+  if (!measureCanvas) {
+    measureCanvas = document.createElement('canvas');
+    measureCanvas.width = 1024;
+    measureCanvas.height = 1024;
+  }
+  const g = measureCanvas.getContext('2d', { willReadFrequently: true })!;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, 1024, 1024);
+  drawPatternLayersForPart(g, part, [{ ...layer, visible: true, patternOpacity: 1 }]);
+  const px = g.getImageData(0, 0, 1024, 1024).data;
+  let x0 = 1024;
+  let x1 = -1;
+  for (let y = 0; y < 1024; y++)
+    for (let x = 0; x < 1024; x++)
+      if (px[(y * 1024 + x) * 4 + 3] > 8) {
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+      }
+  return x1 < 0 ? null : [x0, x1 + 1];
+}
+
+/**
+ * The X offset that puts the pattern against the left / right edge of the part or in its middle (a single motif
+ * moves as a whole; a repeating one shifts so a stripe starts at that edge). null when it cannot tell.
+ */
+export function alignedPatternOffsetX(part: KitPartDefinition, layer: PatternLayer, where: AlignX): number | null {
+  const cur = layer.patternOffsetX ?? 0;
+  const a = paintedSpanX(part, layer);
+  const b = paintedSpanX(part, { ...layer, patternOffsetX: cur + 16 });
+  if (!a || !b) return null;
+  // mirroring, rotation or the back flip can turn the offset around: measure which way it moves the pattern
+  const slope = (b[0] + b[1] - a[0] - a[1]) / 32;
+  if (Math.abs(slope) < 0.25) return null;
+  const { x, width } = part.bounds;
+  const shift = where === 'left' ? x - a[0] : where === 'right' ? x + width - a[1] : x + width / 2 - (a[0] + a[1]) / 2;
+  return Math.round(cur + shift / slope);
+}

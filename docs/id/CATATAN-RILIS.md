@@ -2,6 +2,15 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## 0.6.6 — Patch stabil: cari dan daftar di pustaka pola, tombol rata, ikuti bentuk bahu
+
+- **Cari dan tampilan daftar di pustaka pola.** Cari berdasarkan nama atau folder, dan ganti antara grid dan daftar
+  berisi gambar plus nama file. Gambar dimuat sambil di-scroll, jadi pustaka besar tetap ringan.
+- **Rata kiri / tengah / kanan** untuk objek dan pola di tab Layer: sekali klik, layer menempel di tepi kiri atau kanan
+  bagiannya, atau tepat di tengah.
+- **Ikuti bentuk bahu.** Layer di lengan punya kotak *Ikuti bentuk bahu*: layer ditekuk mengikuti potongan lengan dan
+  bahu, jadi garis lurus ikut melengkung dan menyempit ke arah leher, tidak lagi lurus datar di tekstur.
+
 ## 0.6.5 — Patch stabil: tombol Delete di tab Layer, Kit baru mulai dari awal
 
 - **Tombol Delete di tab Layer.** Tekan *Delete* untuk menghapus layer terpilih, semua layer yang dipilih

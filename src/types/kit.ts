@@ -306,6 +306,8 @@ export interface TemplateZoneState {
   edgeAmount?: number;
   /** Stitch line along the outline of this zone (default on). */
   seam?: boolean;
+  /** On a sleeve: bend the layer with the sleeve piece, so it narrows and curves over the shoulder yoke to the neck. */
+  followShoulder?: boolean;
   /** 0..1 fill opacity (default 1). */
   opacity?: number;
   /** 0..1 smoothing of polygon outlines (drawn shapes become curves). */

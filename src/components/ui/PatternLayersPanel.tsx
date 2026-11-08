@@ -1,13 +1,37 @@
 'use client';
 
 import React, { useState } from 'react';
-import { FlipHorizontal2, FlipVertical2, FolderOpen, RefreshCw } from 'lucide-react';
+import { AlignCenterHorizontal, AlignEndVertical, AlignStartVertical, FlipHorizontal2, FlipVertical2, FolderOpen, LayoutGrid, List, RefreshCw, Search } from 'lucide-react';
 import { KitCategory, KitPartId, PatternLayer } from '@/types/kit';
 import { InfoTip } from '@/components/ui/InfoTip';
 import { PATTERN_LABEL, PATTERN_OPTIONS, REPEATING_PATTERNS, THICKNESS_PATTERNS } from '@/constants/patterns';
 import { AssetLibrary } from '@/hooks/useAssetLibrary';
 import { getCachedImage, preloadImage } from '@/utils/imageCache';
-import { isTintableTile } from '@/utils/patternRenderer';
+import { AlignX, alignedPatternOffsetX, isTintableTile } from '@/utils/patternRenderer';
+import { PART_MAP } from '@/constants/pes2021Parts';
+
+/** Left / centre / right buttons that line a layer up with the part it sits on. */
+export const AlignRow: React.FC<{ onAlign: (where: AlignX) => void }> = ({ onAlign }) => (
+  <div className="flex items-center gap-1 text-[11px] text-slate-400">
+    <span className="flex-1">Ratakan di bagian</span>
+    {([
+      ['left', AlignStartVertical, 'Rata kiri (mentok kiri)'],
+      ['center', AlignCenterHorizontal, 'Tepat di tengah'],
+      ['right', AlignEndVertical, 'Rata kanan (mentok kanan)'],
+    ] as const).map(([where, Icon, label]) => (
+      <button
+        key={where}
+        type="button"
+        onClick={() => onAlign(where)}
+        title={label}
+        aria-label={label}
+        className="p-1.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
+      >
+        <Icon className="w-3.5 h-3.5" />
+      </button>
+    ))}
+  </div>
+);
 
 /** The parts a pattern can sit on, per layer group (the groups of the Layer list). */
 export const PATTERN_GROUP_PARTS: Record<KitCategory, { id: KitPartId; label: string }[]> = {
@@ -23,6 +47,16 @@ export const PATTERN_GROUP_PARTS: Record<KitCategory, { id: KitPartId; label: st
 };
 
 export const groupPartIds = (g: KitCategory): KitPartId[] => PATTERN_GROUP_PARTS[g].map((p) => p.id);
+
+// grid or list view of the library patterns, remembered for this browser
+const PATTERN_VIEW_KEY = 'pes_kit_pattern_lib_view';
+const readPatternView = (): 'grid' | 'list' => {
+  try {
+    return localStorage.getItem(PATTERN_VIEW_KEY) === 'list' ? 'list' : 'grid';
+  } catch {
+    return 'grid';
+  }
+};
 
 /** A new pattern layer (vertical stripes) on the given parts. */
 export const newPatternLayer = (parts: KitPartId[]): PatternLayer => ({
@@ -89,6 +123,19 @@ export const PatternLayerEditor: React.FC<PatternLayerEditorProps> = ({ layer: l
   const tintAuto = img && l.patternImage ? isTintableTile(l.patternImage, img) : true;
   const groupParts = PATTERN_GROUP_PARTS[group];
   const onHere = groupParts.filter((p) => l.parts.includes(p.id));
+  const [libSearch, setLibSearch] = useState('');
+  const [libView, setLibView] = useState<'grid' | 'list'>(readPatternView);
+  const changeLibView = (v: 'grid' | 'list') => {
+    setLibView(v);
+    try {
+      localStorage.setItem(PATTERN_VIEW_KEY, v);
+    } catch {}
+  };
+  // every typed word must be in the name or the folder path
+  const searchWords = libSearch.toLowerCase().split(/\s+/).filter(Boolean);
+  const libPatterns = searchWords.length
+    ? library.patterns.filter((p) => searchWords.every((w) => `${p.name} ${p.path}`.toLowerCase().includes(w)))
+    : library.patterns;
   const togglePart = (part: KitPartId) =>
     onUpdate({ parts: l.parts.includes(part) ? l.parts.filter((p) => p !== part) : [...l.parts, part] });
 
@@ -121,6 +168,21 @@ export const PatternLayerEditor: React.FC<PatternLayerEditorProps> = ({ layer: l
                       <FolderOpen className="w-3.5 h-3.5 text-slate-400" />
                       Pola dari Pustaka ({library.patterns.length})
                     </span>
+                    <span className="ml-auto mr-1 flex rounded border border-slate-700 overflow-hidden">
+                      {(['grid', 'list'] as const).map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => changeLibView(v)}
+                          aria-pressed={libView === v}
+                          title={v === 'grid' ? 'Tampilan grid' : 'Tampilan daftar (gambar dan nama file)'}
+                          aria-label={v === 'grid' ? 'Tampilan grid' : 'Tampilan daftar'}
+                          className={`p-1 ${libView === v ? 'bg-sky-500/20 text-sky-300' : 'text-slate-400 hover:bg-slate-800'}`}
+                        >
+                          {v === 'grid' ? <LayoutGrid className="w-3 h-3" /> : <List className="w-3 h-3" />}
+                        </button>
+                      ))}
+                    </span>
                     <button
                       type="button"
                       onClick={() => library.reload()}
@@ -136,8 +198,24 @@ export const PatternLayerEditor: React.FC<PatternLayerEditorProps> = ({ layer: l
                       Belum ada pola. Taruh gambar (PNG, JPG, SVG, WebP) di folder <code>library/patterns</code> lalu klik Muat ulang.
                     </p>
                   ) : (
-                    <div className="grid grid-cols-5 gap-1.5 max-h-32 overflow-y-auto pr-0.5">
-                      {library.patterns.map((p) => {
+                    <>
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="search"
+                        value={libSearch}
+                        onChange={(e) => setLibSearch(e.target.value)}
+                        placeholder="Cari pola…"
+                        aria-label="Cari pola di pustaka"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-2 py-1.5 text-xs text-slate-200 outline-none focus:border-sky-500"
+                      />
+                    </div>
+                    {searchWords.length > 0 && (
+                      <p className="text-[10px] text-slate-500">{libPatterns.length} / {library.patterns.length}</p>
+                    )}
+                    {libPatterns.length === 0 && <p className="text-[10px] text-slate-500">Tidak ada pola yang cocok.</p>}
+                    <div className={libView === 'grid' ? 'grid grid-cols-5 gap-1.5 max-h-48 overflow-y-auto pr-0.5' : 'flex flex-col gap-1 max-h-60 overflow-y-auto pr-0.5'}>
+                      {libPatterns.map((p) => {
                         const active = isLib && l.patternImage === p.url;
                         return (
                           <button
@@ -154,16 +232,30 @@ export const PatternLayerEditor: React.FC<PatternLayerEditorProps> = ({ layer: l
                                 patternOpacity: Math.max(l.patternOpacity, 0.5),
                               });
                             }}
-                            className={`aspect-square rounded-md border p-1 flex items-center justify-center overflow-hidden transition-all ${
-                              active ? 'border-sky-400 bg-sky-500/10' : 'border-slate-700 bg-slate-800 hover:border-slate-500'
-                            }`}
+                            className={`rounded-md border overflow-hidden transition-all ${
+                              libView === 'grid' ? 'aspect-square p-1 flex items-center justify-center' : 'flex items-center gap-2 p-1 text-left'
+                            } ${active ? 'border-sky-400 bg-sky-500/10' : 'border-slate-700 bg-slate-800 hover:border-slate-500'}`}
                           >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={p.url} alt={p.name} className="max-w-full max-h-full object-contain" />
+                            {libView === 'grid' ? (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img src={p.url} alt={p.name} loading="lazy" decoding="async" className="max-w-full max-h-full object-contain" />
+                            ) : (
+                              <>
+                                <span className="w-10 h-10 shrink-0 rounded bg-slate-900 flex items-center justify-center overflow-hidden">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={p.url} alt="" loading="lazy" decoding="async" className="max-w-full max-h-full object-contain" />
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                  <span className="block text-[11px] text-slate-200 truncate">{p.name}</span>
+                                  {p.category && <span className="block text-[10px] text-slate-500 truncate">{p.category}</span>}
+                                </span>
+                              </>
+                            )}
                           </button>
                         );
                       })}
                     </div>
+                    </>
                   )}
                 </div>
 
@@ -245,6 +337,14 @@ export const PatternLayerEditor: React.FC<PatternLayerEditorProps> = ({ layer: l
                       Reset
                     </button>
                   </div>
+                  <AlignRow
+                    onAlign={(where) => {
+                      // the first part it is on in this group (patterns share one offset across their parts)
+                      const part = PART_MAP[onHere[0]?.id ?? l.parts[0]];
+                      const ox = part ? alignedPatternOffsetX(part, l, where) : null;
+                      if (ox !== null) update(l.id, { patternOffsetX: ox });
+                    }}
+                  />
                   <Slider label="Geser Kiri / Kanan (X)" value={l.patternOffsetX ?? 0} min={-300} max={300} step={1} unit="px" onChange={(v) => update(l.id, { patternOffsetX: v })} />
                   <Slider label="Geser Atas / Bawah (Y)" value={l.patternOffsetY ?? 0} min={-300} max={300} step={1} unit="px" onChange={(v) => update(l.id, { patternOffsetY: v })} />
                   <Slider label="Rotasi" value={l.patternRotation ?? 0} min={-180} max={180} step={1} unit="°" onChange={(v) => update(l.id, { patternRotation: v })} />

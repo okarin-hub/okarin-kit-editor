@@ -47,6 +47,7 @@ export function mergeZones(
       !st(z).erase && st(z).visible &&
       st(z).color.toLowerCase() === topState.color.toLowerCase() &&
       (st(z).opacity ?? 1) === (topState.opacity ?? 1) &&
+      !!st(z).followShoulder === !!topState.followShoulder &&
       partsKey(z) === partsKey(top)
   );
   if (asShape) {
@@ -55,7 +56,7 @@ export function mergeZones(
     const polygons = members.flatMap((z) => bakeZone(z, st(z), true).polygons ?? []).map((p) => (area(p) < 0 ? [...p].reverse() : p));
     return {
       zone: { ...shared, id: newId, ...(top.parts ? { parts: top.parts } : {}), polygons, fill: 'nonzero', defaultColor: topState.color },
-      zs: { color: topState.color, visible: true, ...(topState.opacity !== undefined ? { opacity: topState.opacity } : {}), ...(topState.seam === false ? { seam: false } : {}) },
+      zs: { color: topState.color, visible: true, ...(topState.opacity !== undefined ? { opacity: topState.opacity } : {}), ...(topState.seam === false ? { seam: false } : {}), ...(topState.followShoulder ? { followShoulder: true } : {}) },
     };
   }
 
