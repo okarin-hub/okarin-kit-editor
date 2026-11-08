@@ -33,7 +33,7 @@ export const MARKINGS_CAL = {
   numberTopAtY18: 78,
   numberStepY: 5.3, // higher BackNumberY = up
   numberHeightAtSize24: 132, // x1.04 per step, grows downward from its top
-  numberSpacingStep: 1.9, // gap between digits per BackNumberSpacing step; the first digit stays
+  numberSpacingStep: 1.9, // gap between digits per BackNumberSpacing step; the number stays centred
   // gaps between characters cut from a PES font sheet, as a share of their height (back number at spacing 8)
   numberGap: 0.155,
   nameGap: 0.08,
@@ -43,10 +43,15 @@ export const MARKINGS_CAL = {
   chestStepY: 7.2, // higher = up
   chestHeightAtSize17: 46, // x1.03 per step, grows around its centre
   // shorts: the right leg's piece (texture left), stored sideways with the hem at x 0
-  shortsAtX16Y4: [75, 875],
-  shortsStepX: 2.6, // along the leg's width
-  shortsStepY: 3.9, // higher = up, toward the waist
-  shortsHeightAtSize16: 30, // x1.04 per step
+  // (front views of FC Imabari, shorts model 1; the leg's front half runs from the side seam at y 773 to the inner
+  // thigh at y 976, and only x 0..148 shows below the shirt hem)
+  shortsAtY8: 102, // centre's distance from the hem
+  shortsStepY: 7.3, // higher = up, toward the waist
+  // X6 = the front of the leg (y 875, half way between the seams), X16 = 45° toward the outer seam (user, in game);
+  // a quarter turn is 102 px, so about 5.1 px per step, and X 30 / 31 land past the outer seam (invisible in game)
+  shortsAtX16: 824,
+  shortsStepX: 5.1, // higher = toward the outer side seam, lower = toward the inner thigh
+  shortsHeightAtSize16: 59, // x1.04 per step: about 40% of the leg's front width, as in the game
 };
 
 const num = (cfg: Record<string, string> | undefined, key: string, def: number) => {
@@ -218,10 +223,8 @@ export function drawPlayerMarkings(ctx: CanvasRenderingContext2D, m: MarkingsVie
   if (m.playerNumber && m.showBackNumber !== false) {
     const top = C.numberTopAtY18 + (18 - num(cfg, 'BackNumberY', 18)) * C.numberStepY;
     const h = C.numberHeightAtSize24 * Math.pow(1.04, num(cfg, 'BackNumberSize', 24) - 24);
-    // spacing 8 is the font's own spacing; other values move the later digits only, the first one stays
-    const w = numberWriter('back', h, (num(cfg, 'BackNumberSpacing', 8) - 8) * C.numberSpacingStep);
-    const left = -numberWriter('back', h).width(m.playerNumber) / 2;
-    w.draw(m.playerNumber, left, top + h / 2);
+    // spacing 8 is the font's own spacing; the number widens / narrows around its centre
+    centred(numberWriter('back', h, (num(cfg, 'BackNumberSpacing', 8) - 8) * C.numberSpacingStep), m.playerNumber, 0, top + h / 2);
   }
   ctx.restore();
 
@@ -241,8 +244,8 @@ export function drawPlayerMarkings(ctx: CanvasRenderingContext2D, m: MarkingsVie
   if (shorts && m.showShortsNumber !== false) {
     const right = num(cfg, 'ShortsNumberSide', 1) === 1;
     const piece = right ? PART_MAP.leftShorts : PART_MAP.rightShorts;
-    const x = C.shortsAtX16Y4[0] + (num(cfg, 'ShortsNumberY', 4) - 4) * C.shortsStepY;
-    const y = C.shortsAtX16Y4[1] + (num(cfg, 'ShortsNumberX', 16) - 16) * C.shortsStepX;
+    const x = C.shortsAtY8 + (num(cfg, 'ShortsNumberY', 8) - 8) * C.shortsStepY;
+    const y = C.shortsAtX16 - (num(cfg, 'ShortsNumberX', 16) - 16) * C.shortsStepX;
     const h = C.shortsHeightAtSize16 * Math.pow(1.04, num(cfg, 'ShortsNumberSize', 16) - 16);
     ctx.save();
     clipRect(ctx, piece.bounds);

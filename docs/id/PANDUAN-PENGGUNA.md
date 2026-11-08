@@ -184,6 +184,10 @@ transparan), atau *Gradasi*; *List / Outline* menambah outline di dalam, tengah,
 (warna dan tebal), dan bayangan. Pilih teksnya nanti untuk mengubah semuanya; menarik sudut kotak teks mengubah
 ukuran hurufnya.
 
+Pengaturan logo yang dipilih terbuka di bawah barisnya di daftar, atau di panel samping (setelan editor layer di
+Pengaturan). *Ganti logo* menukar gambarnya tanpa memindahkan logo: *Dari file…*, atau *Dari Logo Saya* lalu klik
+logo barunya.
+
 **Nama** – nama dan nomor pemain di punggung, nomor dada, dan nomor celana: font, warna, outline, dan di bagian
 *Ukuran & Posisi* nilai config kitserver (*Nama Y*, *Ukuran nomor punggung*, *Nomor dada X* ...). Nilainya sama dengan
 di Kit Config dan masuk ke config.txt; preview menaruh nama dan nomor di posisi game, berupa perkiraan dari ukuran

@@ -2,6 +2,22 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## 0.6.3 — Patch stabil: pengaturan logo seperti layer, ganti logo, cari logo, posisi nomor celana
+
+- **Pengaturan logo terbuka seperti layer.** Pengaturan logo sekarang terbuka di bawah barisnya di daftar, atau di
+  panel samping, mengikuti setelan editor layer yang sama dengan tab Layer.
+- **Ganti logo.** Tukar gambar logo tanpa memindahkannya: *Ganti logo → Dari file…* atau *Dari Logo Saya* (lalu klik
+  logo barunya). Posisi, rotasi, opasitas, dan gayanya tetap; gambar baru dimuat di kotak yang lama, di tengahnya.
+- **Ukuran logo dengan rasio terkunci.** Mengetik lebar (atau tinggi) bisa membuat sisi satunya salah: tiap ketikan
+  langsung diterapkan, jadi mengetik 150 melewati 15, sisi lain terpotong ke 10 px dan rasionya hilang. Sekarang rasio
+  dicatat saat kolom mulai diedit.
+- **Posisi nomor celana seperti di game.** Dibandingkan ulang dengan tampak depan di game: *Nomor celana X* yang lebih
+  kecil menggeser nomor ke arah dalam paha (preview dulu terbalik): X 6 tepat di depan kaki, X 16 serong 45° ke sisi
+  luar. Ukuran dan tingginya di kaki sekarang sesuai screenshot game.
+- **Jarak angka punggung melebar dari tengah.** *Jarak angka punggung* yang dilebarkan atau dirapatkan sekarang
+  menjaga nomor tetap di tengah, seperti di game; preview dulu menahan digit pertama di tempatnya.
+- **Pencarian di Logo Saya.** Kolom cari di atas kategori menemukan logo dari nama file atau foldernya.
+
 ## 0.6.2 — Patch stabil: tab Nama memakai config kitserver, font PES di preview, savean project tetap ada
 
 - **Tab Nama mengikuti config kitserver.** Posisi dan ukuran sekarang memakai nilai config.txt (*Bentuk nama*, *Nama Y*, *Ukuran nama*,

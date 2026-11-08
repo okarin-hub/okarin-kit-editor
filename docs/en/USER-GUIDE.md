@@ -179,6 +179,9 @@ colours, patterns and zones, and also over an imported design.
 (chest, sleeve, shorts, back). Logo colour: *Original*, *Colour* (replaces the logo colour; transparent areas stay
 transparent) or *Gradient*; *Trim / Outline* adds an inside, centre or outside outline, with **round** or **sharp**
 corners (sharp follows the logo's corners).
+The settings of the selected logo open under its row in the list, or in a side panel (the layer editor setting in
+Settings). *Replace logo* swaps the picture and keeps the place: *From file…*, or *From My Logos* and then a click on
+the new logo.
 
 *Add Text* shows a live preview before the text is added: the words, font, letter size, colour, outline (colour
 and width) and shadow. Select a text later to change any of them; dragging a corner of the text box scales the

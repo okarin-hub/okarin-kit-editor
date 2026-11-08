@@ -2,6 +2,22 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## 0.6.3 — Stable patch: logo settings like layers, replace logo, logo search, shorts number placement
+
+- **Logo settings open like layers.** A logo's settings now open under its row in the list, or in the side panel,
+  following the same layer editor setting as the Layer tab.
+- **Replace logo.** Swap a logo's picture and keep its place: *Replace logo → From file…* or *From My Logos* (then
+  click the new logo). Position, rotation, opacity and style stay; the new picture fits the old box, centred.
+- **Logo size with the ratio locked.** Typing a width (or height) could leave the other side wrong: every keystroke
+  applied, so typing 150 went through 15, the other side was clamped to 10 px and the ratio was lost. The ratio is now
+  taken when the field gets focus.
+- **Shorts number placed like the game.** Compared again with front views from the game: a lower *Shorts number X*
+  moves the number toward the inner thigh (the preview had it backwards): X 6 sits on the front of the leg, X 16 at 45°
+  toward the outer side. Its size and height on the leg now match the in-game shots.
+- **Back number spacing widens from the middle.** A wider or narrower *Back number spacing* now keeps the number
+  centred, as in the game; the preview used to keep the first digit in place.
+- **Search in My Logos.** A search field above the categories finds logos by file or folder name.
+
 ## 0.6.2 — Stable patch: Name tab on the kitserver config, PES fonts in the preview, saved projects kept
 
 - **Name tab follows the kitserver config.** Position and size are now the config.txt values (*Name shape*, *Name Y*, *Name size*,
