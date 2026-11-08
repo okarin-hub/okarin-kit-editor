@@ -201,6 +201,8 @@ export interface PlayerMarkingsConfig {
   showBackNumber?: boolean;
   showChestNumber?: boolean;
   showShortsNumber?: boolean;
+  /** sleeve badge markers in the preview (placement aid for the badge values; never exported) */
+  showBadges?: boolean;
 }
 
 /** A point in 1024x1024 texture space. */

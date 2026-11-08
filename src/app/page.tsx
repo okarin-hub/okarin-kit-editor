@@ -179,6 +179,8 @@ export default function Home() {
     }),
     [markings, kitConfigText, library.fontsets]
   );
+  // the editor's own views also show the sleeve badge markers; exports use markingsView
+  const markingsPreview = useMemo(() => ({ ...markingsView, preview: true }), [markingsView]);
 
   const [isExportingClean, setIsExportingClean] = useState<boolean>(false);
 
@@ -1109,7 +1111,7 @@ export default function Home() {
       const texture = renderKitCanvas(
         partsConfig,
         graphicItems,
-        markingsView,
+        markingsPreview,
         true, // Include markings for 3D viewer
         1024,
         fabricConfig,
@@ -1134,7 +1136,7 @@ export default function Home() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [partsConfig, graphicItems, markingsView, fabricConfig, baseTexture, patternMask, tplBundle, assetTick, viewMode]);
+  }, [partsConfig, graphicItems, markingsPreview, fabricConfig, baseTexture, patternMask, tplBundle, assetTick, viewMode]);
 
   // Resize listener to fit canvas neatly
   useEffect(() => {
@@ -1645,7 +1647,7 @@ export default function Home() {
                   onSelectGraphic={handleSelectGraphic}
                   onUpdateGraphic={handleUpdateGraphic}
                   onDeleteGraphic={handleDeleteGraphic}
-                  markings={markingsView}
+                  markings={markingsPreview}
                   baseTexture={activeBase}
                   patternMask={patternMask}
                   templateBundle={tplBundle}

@@ -29,7 +29,7 @@ export const PlayerMarkingsLayer: React.FC<PlayerMarkingsLayerProps> = ({
   return (
     <Group id="player-markings-layer">
       {/* drawn by the same code as the export and the 3D texture, placed from the config values */}
-      <Shape listening={false} sceneFunc={(ctx) => drawPlayerMarkings(ctx._context, markings)} />
+      <Shape listening={false} sceneFunc={(ctx) => drawPlayerMarkings(ctx._context, isExportingClean ? { ...markings, preview: false } : markings)} />
 
       {/* 4. Non-intrusive preview tag shown only in editor */}
       {!isExportingClean && (

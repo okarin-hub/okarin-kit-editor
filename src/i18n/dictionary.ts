@@ -1325,7 +1325,6 @@ export const DICTIONARY: [string, string, string, string][] = [
   ["Template saya (library/templates)", "My templates (library/templates)", "Meus templates (library/templates)", "Mis plantillas (library/templates)"],
   [", teks berisi {1}", ", text contains {1}", ", o texto contém {1}", ", el texto contiene {1}"],
   ["Punggung", "Back", "Costas", "Espalda"],
-  ["Besar lengkungan di preview masih perkiraan.", "How much the name curves in the preview is an estimate.", "A curvatura do nome na prévia é aproximada.", "La curvatura del nombre en la vista previa es aproximada."],
   ["Belum dipratinjau.", "Not previewed yet.", "Ainda sem prévia.", "Aún sin vista previa."],
   ["Nilai config kitserver (config.txt), sama dengan di menu Kit Config. Preview memakai ukuran yang diukur di game, jadi posisinya perkiraan.", "Kitserver config values (config.txt), the same ones as in Kit Config. The preview uses sizes measured in game, so its placement is an estimate.", "Valores do config do kitserver (config.txt), os mesmos do Kit Config. A prévia usa medidas feitas no jogo, então a posição é aproximada.", "Valores del config de kitserver (config.txt), los mismos que en Kit Config. La vista previa usa medidas tomadas en el juego, así que la posición es aproximada."],
   ["Font PES", "PES font", "Fonte PES", "Fuente PES"],
@@ -1347,4 +1346,6 @@ export const DICTIONARY: [string, string, string, string][] = [
   ["Lalu klik logo di Logo Saya untuk menggantinya", "Then click a logo in My Logos to swap it in", "Depois clique num logo em Meus logos para trocá-lo", "Luego haz clic en un logo de Mis logos para cambiarlo"],
   ["Klik logo untuk mengganti: {1}", "Click a logo to replace: {1}", "Clique num logo para substituir: {1}", "Haz clic en un logo para reemplazar: {1}"],
   ["Pilih logo di daftar atau di canvas untuk menggeser, memutar, mengganti, atau mengubah ukurannya.", "Pick a logo in the list or on the canvas to move, rotate, replace or resize it.", "Escolha um logo na lista ou no canvas para mover, girar, substituir ou redimensionar.", "Elige un logo en la lista o en el lienzo para moverlo, girarlo, reemplazarlo o cambiar su tamaño."],
+  ["Badge lengan", "Sleeve badges", "Emblemas da manga", "Insignias de la manga"],
+  ["Penanda badge hanya untuk mengukur posisi (centang Badge lengan di Tampilkan); tidak ikut export.", "The badge markers only help place the badges (tick Sleeve badges under Show); they are never exported.", "Os marcadores só ajudam a posicionar os emblemas (marque Emblemas da manga em Mostrar); nunca são exportados.", "Los marcadores solo ayudan a colocar las insignias (marca Insignias de la manga en Mostrar); nunca se exportan."],
 ];

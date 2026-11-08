@@ -2,6 +2,17 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## 0.6.4 — Patch stabil: posisi nama dan nomor diukur di game, penanda badge lengan
+
+- **Preset logo lengan di posisi badge.** *Lengan Kanan / Kiri* di tab Logo (dan logo baru di lengan) kini berada di
+  posisi badge kompetisi dari game, diukur dengan tekstur grid.
+- **Posisi nama dan nomor diukur di game.** Tekstur grid di game memberi posisi tekstur untuk nama dan nomor punggung,
+  nomor dada, lengkungan nama, jarak angka nomor punggung, nomor celana (model 0 dan 1), dan badge lengan (pendek dan
+  panjang); preview kini memakainya.
+- **Penanda badge lengan.** Tab Nama punya delapan nilai badge lengan (kanan / kiri, pendek / panjang, X / Y) dan
+  kotak *Badge lengan* di *Tampilkan*: tanda perisai menunjukkan posisi badge kompetisi dari game, jadi nilainya bisa
+  diatur sebelum dites di game. Hanya tampil di canvas 2D dan preview 3D, tidak pernah ikut export.
+
 ## 0.6.3 — Patch stabil: pengaturan logo seperti layer, ganti logo, cari logo, posisi nomor celana
 
 - **Pengaturan logo terbuka seperti layer.** Pengaturan logo sekarang terbuka di bawah barisnya di daftar, atau di

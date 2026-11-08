@@ -79,14 +79,15 @@ const NumberField: React.FC<{ value: number; min?: number; onCommit: (v: number)
  * Where a new logo is centred on parts that are rotated or partly hidden in the texture, and the rotation
  * that makes it read upright on the 3D model. Measured on the model's UV (pes_kit.glb):
  *  - Shorts: the leg length runs along the texture x axis (hem at the outer edge, x 0 / 1024). The shirt hem
- *    covers everything but x 0..148 (right island: 876..1024); the leg faces the front at y ~ 875.
+ *    covers everything but x 0..148 (right island: 876..1024); the leg faces the front at y ~ 875 (grid texture in
+ *    game: ~880).
  *  - Socks: upright in the texture; the sock faces the front at (130, 441), right sock (894, 444).
- *  - Sleeves: the arm runs along the texture x axis. About 30% from the sleeve end, half way between the
- *    top of the arm (y 482) and its front (y 524), is what you see from the front: (280, 503) / (744, 503).
+ *  - Sleeves: the arm runs along the texture x axis. The spot where the game puts the competition badge (grid
+ *    texture in game, badge X14 Y11, MARKINGS_CAL.badgeShort): (314, 513) / (710, 513).
  */
 const PART_ANCHORS: Partial<Record<KitPartId, { x: number; y: number; rotation: number }>> = {
-  leftSleeve: { x: 280, y: 503, rotation: 90 },
-  rightSleeve: { x: 744, y: 503, rotation: -90 },
+  leftSleeve: { x: 314, y: 513, rotation: 90 },
+  rightSleeve: { x: 710, y: 513, rotation: -90 },
   leftShorts: { x: 75, y: 875, rotation: 90 },
   rightShorts: { x: 949, y: 877, rotation: -90 },
   leftSock: { x: 130, y: 441, rotation: 0 },

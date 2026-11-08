@@ -14,12 +14,13 @@ const CONFIG_SECTIONS: [string, string[]][] = [
   ['Punggung', ['NameShape', 'NameY', 'NameSize', 'NameStretch', 'BackNumberY', 'BackNumberSize', 'BackNumberSpacing', 'BackNumberType']],
   ['Nomor dada', ['ChestNumberX', 'ChestNumberY', 'ChestNumberSize']],
   ['Celana', ['ShortsNumberSide', 'ShortsNumberX', 'ShortsNumberY', 'ShortsNumberSize']],
+  ['Badge lengan', ['RightShortX', 'RightShortY', 'LeftShortX', 'LeftShortY', 'RightLongX', 'RightLongY', 'LeftLongX', 'LeftLongY']],
 ];
 
 // values the preview does not show yet
 const NOTES: Record<string, string> = {
-  NameShape: 'Besar lengkungan di preview masih perkiraan.',
   BackNumberType: 'Belum dipratinjau.',
+  RightShortX: 'Penanda badge hanya untuk mengukur posisi (centang Badge lengan di Tampilkan); tidak ikut export.',
 };
 
 interface MarkingsPanelProps {
@@ -167,6 +168,8 @@ export const MarkingsPanel: React.FC<MarkingsPanelProps> = ({
                   ['Nomor punggung', markings.showBackNumber !== false, (on: boolean) => onUpdateMarkings({ showBackNumber: on })],
                   ['Nomor dada', markings.showChestNumber !== false, (on: boolean) => onUpdateMarkings({ showChestNumber: on })],
                   ['Nomor celana', markings.showShortsNumber !== false, (on: boolean) => onUpdateMarkings({ showShortsNumber: on })],
+                  // a placement aid only: the game draws the competition badge, the kit texture has none
+                  ['Badge lengan', markings.showBadges === true, (on: boolean) => onUpdateMarkings({ showBadges: on })],
                 ] as [string, boolean, (on: boolean) => void][]
               ).map(([label, on, set]) => (
                 <label key={label} className="flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer">

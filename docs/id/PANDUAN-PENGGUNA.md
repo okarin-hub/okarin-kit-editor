@@ -191,7 +191,8 @@ logo barunya.
 **Nama** – nama dan nomor pemain di punggung, nomor dada, dan nomor celana: font, warna, outline, dan di bagian
 *Ukuran & Posisi* nilai config kitserver (*Nama Y*, *Ukuran nomor punggung*, *Nomor dada X* ...). Nilainya sama dengan
 di Kit Config dan masuk ke config.txt; preview menaruh nama dan nomor di posisi game, berupa perkiraan dari ukuran
-screenshot di game. *Tampilkan* menyalakan atau mematikan nama dan tiap nomor. *Font PES* berisi font
+screenshot di game. *Tampilkan* menyalakan atau mematikan nama dan tiap nomor. *Badge lengan* menampilkan penanda posisi badge kompetisi dari game (diatur dengan
+nilai badge; hanya preview, tidak ikut export). *Font PES* berisi font
 yang disimpan dengan *Simpan ke library* di Fontset Generator (`library/fonts/font_pes`); bila dipilih, preview memotong
 huruf dari font itu sehingga warna dan efeknya terlihat (kolom warna dan outline hanya berlaku untuk karakter yang tidak
 ada di font itu). Semuanya hanya digambar di tekstur bila opsinya dicentang; game biasanya memakai font bawaannya sendiri.

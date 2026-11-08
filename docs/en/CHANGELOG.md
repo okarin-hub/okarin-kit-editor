@@ -2,6 +2,17 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## 0.6.4 — Stable patch: name and number placement measured in game, sleeve badge markers
+
+- **Sleeve logo preset at the badge spot.** *Right / Left sleeve* in the Logo tab (and a new logo on a sleeve) now
+  centres on the spot where the game puts the competition badge, measured on the grid texture.
+- **Name and number placement measured in game.** A grid texture in game gave texture positions for the back name
+  and number, the chest number, name curves, back number spacing, the shorts number (models 0 and 1) and the sleeve badges
+  (short and long sleeves); the preview now uses them.
+- **Sleeve badge markers.** The Name tab has the eight sleeve badge values (right / left, short / long, X / Y) and a
+  *Sleeve badges* box under *Show*: shields mark where the game puts the competition badges, so the values can be set
+  before testing in game. They show in the 2D canvas and the 3D preview only, never in an export.
+
 ## 0.6.3 — Stable patch: logo settings like layers, replace logo, logo search, shorts number placement
 
 - **Logo settings open like layers.** A logo's settings now open under its row in the list, or in the side panel,
