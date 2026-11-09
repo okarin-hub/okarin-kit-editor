@@ -90,29 +90,31 @@ function corners(loop: P[], reach: number): number[] {
     }
     return loop[k];
   };
+  /** signed turn at each point (+ one way, − the other) */
   const turnAt = (r: number) => {
     const keep = reach;
     reach = r;
     const t = loop.map((p, i) => {
       const a = pointAt(i, -1), b = pointAt(i, 1);
       const a1 = Math.atan2(p.y - a.y, p.x - a.x), a2 = Math.atan2(b.y - p.y, b.x - p.x);
-      let v = Math.abs(a2 - a1);
-      if (v > Math.PI) v = 2 * Math.PI - v;
-      return v;
+      return Math.atan2(Math.sin(a2 - a1), Math.cos(a2 - a1));
     });
     reach = keep;
     return t;
   };
-  const turn = turnAt(reach);
+  const signed = turnAt(reach);
+  const turn = signed.map(Math.abs);
   // a corner turns as much seen from twice as far; a tight curve (the arch of an A) turns about twice as much
-  const turnFar = turnAt(reach * 2);
+  const turnFar = turnAt(reach * 2).map(Math.abs);
   const out: number[] = [];
   const win = Math.max(1, Math.round(reach));
   for (let i = 0; i < n; i++) {
-    if (turn[i] < (38 * Math.PI) / 180 || turnFar[i] > turn[i] * 1.5) continue;
+    // 30°: a 45° corner of a slightly blurred picture (a chamfer, the flag of a 1) reads only 32–35°
+    if (turn[i] < (30 * Math.PI) / 180 || turnFar[i] > turn[i] * 1.5) continue;
     let max = true;
     for (let d = -win; d <= win && max; d++) {
-      if (!d) continue;
+      // only against turns the same way: a concave corner next to a convex one (a 1's flag at its stem) is its own
+      if (!d || signed[(i + d + n) % n] * signed[i] < 0) continue;
       const tj = turn[(i + d + n) % n];
       if (tj > turn[i] || (tj === turn[i] && d < 0)) max = false;
     }
@@ -298,11 +300,17 @@ export function traceCoverage(alpha: Float32Array, w: number, h: number, reach =
       const fits = trim(runs[k], reach).every((p) => Math.abs((p.x - l.c.x) * dir.y - (p.y - l.c.y) * dir.x) <= 0.5);
       if (fits) l.dir = dir;
     });
-    // a rounder corner can be read as two corners with a short line between: that line goes, the corners merge
+    // a rounder corner can be read as two corners with a short line between: that line goes, the corners merge.
+    // Only when both corners turn the same way: a convex and a concave one close together are a step (a 1's flag
+    // meeting its stem), not a rounded corner
+    const chord = (run: P[]) => ({ x: run[run.length - 1].x - run[0].x, y: run[run.length - 1].y - run[0].y });
+    const cross = (a: P, b: P) => a.x * b.y - a.y * b.x;
     for (let k = 0; runs.length > 3 && k < runs.length; ) {
       const n = runs.length;
       const prev = lines[(k - 1 + n) % n], next = lines[(k + 1) % n];
-      if (lines[k] && prev && next && dist(corner[k], corner[(k + 1) % n]) < reach * 2.5 && intersect(prev, next)) {
+      const v0 = chord(runs[(k - 1 + n) % n]), v1 = chord(runs[k]), v2 = chord(runs[(k + 1) % n]);
+      const sameWay = cross(v0, v1) * cross(v1, v2) > 0;
+      if (lines[k] && prev && next && sameWay && dist(corner[k], corner[(k + 1) % n]) < reach * 2.5 && intersect(prev, next)) {
         runs[(k + 1) % n] = [...runs[k], ...runs[(k + 1) % n]];
         runs.splice(k, 1);
         lines.splice(k, 1);

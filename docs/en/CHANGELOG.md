@@ -2,6 +2,17 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## Unreleased
+
+- **Fix: wide letters and digits looked squeezed in the font generator.** Every character box is now as wide as A
+  (92 px) for letters and as 4 (134 px) for digits, around the same centre, so the 1 or I of a blocky font keeps its
+  shape (the game showed a wider I whole). The glyphs keep their own size; only M, W, Æ and ß, already wider, and the
+  marks stay as they were. The letter spacing of the kit preview does not change.
+- **Fix: angular letters from a picture came out rounded.** Short 45° cuts (the chamfered corners of a block 0, the
+  flag of a 1 where it meets the stem) were read as round corners when the picture is a little blurred, such as a
+  screenshot or a JPG. They now stay sharp. The same tracer draws logos and photo patterns, so their sharp details
+  are kept better too.
+
 ## 0.6.8 — Patterns up to the shoulder, version in the status bar, extended 2D canvas, tidier tabs
 
 - **Reload says when it is done.** *Reload* in the pattern library and in My Logos shows for a moment how many there

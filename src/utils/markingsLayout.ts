@@ -154,7 +154,7 @@ function sheetWriter(sheets: Sheet[], ctx: CanvasRenderingContext2D, h: number, 
   const step = gap * h + extra;
   const advance = (ch: string) => {
     const g = find(ch);
-    return g ? ((g.slot.x1 - g.slot.x0) * h) / (g.layout.baseline - g.layout.top) : 0.35 * h;
+    return g ? (g.slot.adv * h) / (g.layout.baseline - g.layout.top) : 0.35 * h;
   };
   return {
     width: (text) => {
@@ -169,7 +169,9 @@ function sheetWriter(sheets: Sheet[], ctx: CanvasRenderingContext2D, h: number, 
           const k = h / (g.layout.baseline - g.layout.top);
           const sy = g.row * g.layout.rowHeight;
           const w = g.slot.x1 - g.slot.x0;
-          ctx.drawImage(g.img, g.slot.x0, sy, w, g.layout.rowHeight, at, cy - h / 2 - g.layout.top * k, w * k, g.layout.rowHeight * k);
+          // the box is wider than the advance, both centred on the glyph: start half the difference earlier
+          const bx = at - ((w - g.slot.adv) / 2) * k;
+          ctx.drawImage(g.img, g.slot.x0, sy, w, g.layout.rowHeight, bx, cy - h / 2 - g.layout.top * k, w * k, g.layout.rowHeight * k);
         }
         at += advance(ch) + step;
       }

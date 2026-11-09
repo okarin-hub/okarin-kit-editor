@@ -2,6 +2,18 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## Belum dirilis
+
+- **Perbaikan: huruf dan angka yang lebar tampak gepeng di font generator.** Semua kotak karakter sekarang selebar A
+  (92 px) untuk huruf dan selebar 4 (134 px) untuk angka, dengan titik tengah yang sama, jadi angka 1 atau huruf I dari
+  font bergaya blok tetap utuh bentuknya (di game, I yang lebih lebar tampil utuh). Ukuran hurufnya sendiri tidak
+  berubah; hanya M, W, Æ, dan ß yang memang lebih lebar, serta tanda baca, yang tetap seperti semula. Jarak huruf di
+  pratinjau kit tidak berubah.
+- **Perbaikan: huruf bersudut dari gambar jadi membulat.** Potongan sudut 45° yang pendek (sudut terpotong angka 0
+  bergaya blok, bendera angka 1 di sambungan batangnya) terbaca sebagai sudut bulat kalau gambarnya sedikit buram,
+  misalnya screenshot atau JPG. Sekarang tetap tajam. Pelacak yang sama dipakai untuk logo dan pola foto, jadi detail
+  tajamnya juga lebih terjaga.
+
 ## 0.6.8 — Pola sampai pundak, versi di bar status, kanvas 2D diperluas, tab lebih rapi
 
 - **Muat ulang memberi tanda selesai.** *Muat ulang* di pustaka pola dan Logo Saya sebentar menampilkan jumlahnya dan
