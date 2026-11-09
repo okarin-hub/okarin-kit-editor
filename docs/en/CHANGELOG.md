@@ -2,7 +2,7 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
-## Unreleased
+## 0.6.7 — Tidier menus, Import PNG rework, gradient tool, activity log
 
 - **Activity log.** The app writes what you do (buttons, menus, tabs, settings, shortcuts, messages and errors) to
   `library/logs/aktivitas-YYYY-MM-DD.log`, so a problem can be traced back step by step. Labels and setting values
@@ -25,12 +25,12 @@
   - **A colour slot per part:** a colour now gets its own slot on the shirt, shorts, socks and details
     (*Colour 2 – Shirt*, *Colour 2 – Shorts*), so a shirt motif and a shorts panel that share a colour can be changed
     apart.
-- **Fix: Reload in the Template tab** now also takes a template that was read again with different layers or colour
-  slots, not only one whose file changed.
-- The app's local server refuses requests from other websites open in the same browser.
   - **Fix: an unticked colour came back.** With *Keep fabric detail* on, a colour you unticked (a white logo, a
     watermark) was left out of the colour layers but returned as a white or black shadow in the fabric detail
     layer. Unticked colours, with their soft edge, are now left out of the detail and motif layers too.
+- **Fix: Reload in the Template tab** now also takes a template that was read again with different layers or colour
+  slots, not only one whose file changed.
+- The app's local server refuses requests from other websites open in the same browser.
 
 - **Tidier menus.** Things that belong together now live together:
   - **Kit model** is one toolbar button that opens a thin row under the toolbar (sleeve shape, collar, sleeve model,

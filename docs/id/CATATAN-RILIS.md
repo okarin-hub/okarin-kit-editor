@@ -2,7 +2,7 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
-## Belum dirilis
+## 0.6.7 — Menu lebih rapi, Import PNG dirombak, alat gradasi, log aktivitas
 
 - **Log aktivitas.** Aplikasi mencatat langkah yang kamu lakukan (tombol, menu, tab, pengaturan, shortcut, pesan, dan
   error) ke `library/logs/aktivitas-YYYY-MM-DD.log`, jadi masalah bisa dilacak langkah demi langkah. Hanya label dan
@@ -25,13 +25,13 @@
   - **Slot warna per bagian:** satu warna sekarang punya slot sendiri di baju, celana, kaus kaki, dan detail
     (*Warna 2 – Baju*, *Warna 2 – Celana*), jadi motif baju dan panel celana yang kebetulan sewarna bisa diganti
     terpisah.
-- **Perbaikan: Muat ulang di tab Template** sekarang juga mengambil template yang dibaca ulang dengan layer atau slot
-  warna berbeda, bukan hanya yang filenya berubah.
-- Server lokal aplikasi menolak request dari situs lain yang terbuka di browser yang sama.
   - **Perbaikan: warna yang tidak dicentang masih terbawa.** Dengan *Simpan detail kain* aktif, warna yang tidak
     dicentang (logo putih, watermark) memang tidak jadi layer warna, tapi muncul lagi sebagai bayangan putih atau
     hitam di layer detail kain. Sekarang warna yang tidak dicentang, termasuk tepi halusnya, juga dilewati di layer
     detail dan motif.
+- **Perbaikan: Muat ulang di tab Template** sekarang juga mengambil template yang dibaca ulang dengan layer atau slot
+  warna berbeda, bukan hanya yang filenya berubah.
+- Server lokal aplikasi menolak request dari situs lain yang terbuka di browser yang sama.
 
 - **Menu lebih rapi.** Yang fungsinya sama sekarang jadi satu:
   - **Model kit** jadi satu tombol di toolbar yang membuka baris tipis di bawahnya (bentuk lengan, kerah, model
