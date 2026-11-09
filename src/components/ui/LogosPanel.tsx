@@ -22,6 +22,8 @@ import {
   Link2,
   Link2Off,
   Replace,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { KitGraphicItem, KitPartId } from '@/types/kit';
 import { LogoStylePanel } from '@/components/ui/LogoStylePanel';
@@ -107,6 +109,24 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [showTextModal, setShowTextModal] = useState(false);
+  // the My Logos library can be folded (remembered for this browser)
+  const [libOpen, setLibOpen] = useState(true);
+  useEffect(() => {
+    try {
+      setLibOpen(localStorage.getItem('kit-mylogos-open') !== '0');
+    } catch {
+      /* storage can be blocked */
+    }
+  }, []);
+  const toggleLib = () =>
+    setLibOpen((v) => {
+      try {
+        localStorage.setItem('kit-mylogos-open', v ? '0' : '1');
+      } catch {
+        /* ignore */
+      }
+      return !v;
+    });
   // the text being written in the "Teks Baru" form (seen in its preview before it is added)
   const [draft, setDraft] = useState<TextStyleFields>({
     text: 'CUSTOM TEXT',
@@ -645,7 +665,7 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
   return (
     <div className="flex flex-col h-full select-none overflow-y-auto text-slate-300 p-4 space-y-5">
       {/* 1. Action Header: Upload & Add Text */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 gap-1.5">
         <input
           ref={fileInputRef}
           type="file"
@@ -662,23 +682,31 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
         />
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition-colors"
+          className="flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg whitespace-nowrap bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition-colors"
           title="Upload logo dari komputermu"
         >
           <Upload className="w-3.5 h-3.5" />
-          <span>Upload Logo</span>
+          <span>Upload</span>
         </button>
 
         <button
           onClick={() => setShowTextModal(!showTextModal)}
-          className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-98 text-white font-semibold text-xs border border-slate-700 transition-all"
+          className="flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg whitespace-nowrap bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs border border-slate-700 transition-all"
           title="Tambah teks kustom atau slogan"
         >
           <Type className="w-3.5 h-3.5 text-sky-400" />
-          <span>Tambah Teks</span>
+          <span>Teks</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowFootballLogos(true)}
+          className="flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg whitespace-nowrap bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs border border-slate-700 transition-all"
+          title="Cari logo klub, liga, atau turnamen dari football-logos.cc"
+        >
+          <Search className="w-3.5 h-3.5 text-sky-400" />
+          <span>Logo klub</span>
         </button>
       </div>
-
       {/* Add Custom Text Collapsible Form */}
       {showTextModal && (
         <div className="p-3 bg-slate-900/90 rounded-xl border border-slate-700/80 space-y-2.5 text-xs">
@@ -706,133 +734,19 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
         </div>
       )}
 
-      {/* Logos from the library/logos folder */}
-      <div className="space-y-2.5 pt-2 border-t border-slate-800">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-200">
-            <FolderOpen className="w-3.5 h-3.5 text-sky-400" />
-            <span>Logo Saya</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-slate-500 font-mono">{library.logos.length} file</span>
-            <button
-              type="button"
-              onClick={() => library.reload()}
-              className="text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800 flex items-center gap-1"
-              title="Baca ulang folder library/logos"
-            >
-              <RefreshCw className={`w-3 h-3 ${library.loading ? 'animate-spin' : ''}`} />
-              Muat ulang
-            </button>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setShowFootballLogos(true)}
-          className="w-full flex items-center justify-center gap-2 text-xs font-semibold rounded-lg py-2 transition-colors border border-slate-700 bg-slate-800/70 text-slate-100 hover:bg-slate-700"
-          title="Cari logo klub, liga, atau turnamen dari football-logos.cc"
-        >
-          <Search className="w-3.5 h-3.5" />
-          Cari Logo Klub (football-logos.cc)
-        </button>
-
-        {library.error && (
-          <p className="text-[10px] text-rose-300 bg-rose-950/40 border border-rose-900/60 rounded p-2">
-            {library.error}
-          </p>
-        )}
-
-        {library.logos.length === 0 ? (
-          <p className="text-[11px] text-slate-500 leading-snug bg-slate-900/40 rounded-lg p-3">
-            Belum ada logo. Taruh file logo (PNG, JPG, SVG, WebP) di folder <code>library/logos</code>. Sub-folder
-            jadi kategori, misalnya <code>brand</code> untuk apparel, <code>sponsor</code>, <code>klub</code>. Lalu klik Muat
-            ulang. Logo muncul di sini dengan nama filenya.
-          </p>
-        ) : (
-          <>
-            {replaceTarget && (
-              <div className="flex items-center justify-between gap-2 text-[11px] px-2 py-1.5 rounded-lg border border-sky-500/60 bg-sky-600/15 text-sky-100">
-                <span className="min-w-0 truncate">
-                  Klik logo untuk mengganti: {graphicItems.find((g) => g.id === replaceTarget)?.name}
-                </span>
-                <button type="button" onClick={() => setReplaceTarget(null)} className="shrink-0 underline hover:text-white">
-                  Batal
-                </button>
-              </div>
-            )}
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="search"
-                value={librarySearch}
-                onChange={(e) => setLibrarySearch(e.target.value)}
-                placeholder="Cari logo…"
-                aria-label="Cari logo di Logo Saya"
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-2 py-1.5 text-xs text-slate-200 outline-none focus:border-sky-500"
-              />
-            </div>
-
-            {libraryCategories.length > 0 && (
-              <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px]">
-                {['all', ...libraryCategories].map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setLibraryCategory(cat)}
-                    className={`px-2.5 py-1 rounded-md whitespace-nowrap transition-all ${
-                      libraryCategory === cat
-                        ? 'bg-sky-500/25 text-sky-100 font-semibold'
-                        : 'bg-slate-900/60 text-slate-400 hover:text-white hover:bg-slate-800'
-                    }`}
-                  >
-                    {cat === 'all' ? 'Semua' : cat}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-1.5 max-h-56 overflow-y-auto pr-1">
-              {visibleLibraryLogos.map((logo) => (
-                <button
-                  key={logo.id}
-                  onClick={() => addLibraryLogo(logo)}
-                  className="flex items-center gap-2 p-2 rounded-lg bg-slate-900/70 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-left transition-all group"
-                  title={logo.path}
-                >
-                  <div className="w-8 h-8 rounded bg-black/50 flex items-center justify-center p-1 shrink-0 border border-slate-700/50">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={logo.url} alt={logo.name} className="max-w-full max-h-full object-contain" />
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-[11px] font-medium text-slate-300 group-hover:text-white truncate">
-                      {logo.name}
-                    </span>
-                    {logo.category && (
-                      <span className="text-[10px] text-slate-500 capitalize truncate">{logo.category}</span>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-            {visibleLibraryLogos.length === 0 && (
-              <p className="text-[11px] text-slate-500 text-center py-2">Tidak ada logo yang cocok.</p>
-            )}
-          </>
-        )}
-      </div>
-
       {/* 3. Added Graphics Layer Management */}
-      <div className="space-y-2 pt-2 border-t border-slate-800">
+      <div className="space-y-2">
         <div className="flex items-center justify-between text-xs font-semibold text-slate-200">
           <div className="flex items-center gap-1.5">
             <Layers className="w-3.5 h-3.5 text-sky-400" />
-            <span>Manajemen Layer ({graphicItems.length})</span>
+            <span>Di kit</span>
+            <span className="font-normal text-slate-400">{graphicItems.length}</span>
           </div>
         </div>
 
         {graphicItems.length === 0 ? (
           <p className="text-xs text-slate-500 italic p-3 bg-slate-900/40 rounded-lg text-center">
-            Belum ada logo atau teks. Upload logo, atau pilih dari Logo Saya di atas.
+            Belum ada logo atau teks. Upload logo, atau pilih dari Logo Saya di bawah.
           </p>
         ) : (
           <div className="space-y-1">
@@ -942,6 +856,116 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
           Pilih logo di daftar atau di canvas untuk menggeser, memutar, mengganti, atau mengubah ukurannya.
         </p>
       )}
+      {/* Logos from the library/logos folder */}
+      <div className="space-y-2.5 pt-2 border-t border-slate-800">
+        <div className="flex items-center justify-between">
+          <button type="button" onClick={toggleLib} aria-expanded={libOpen} className="flex items-center gap-1.5 text-xs font-semibold text-slate-200 hover:text-white">
+            {libOpen ? <ChevronDown className="w-3.5 h-3.5 text-slate-500" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-500" />}
+            <FolderOpen className="w-3.5 h-3.5 text-sky-400" />
+            <span>Logo Saya</span>
+          </button>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-slate-500 font-mono">{library.logos.length} file</span>
+            <button
+              type="button"
+              onClick={() => library.reload()}
+              className="text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800 flex items-center gap-1"
+              title="Baca ulang folder library/logos"
+            >
+              <RefreshCw className={`w-3 h-3 ${library.loading ? 'animate-spin' : ''}`} />
+              Muat ulang
+            </button>
+          </div>
+        </div>
+
+        {libOpen && (
+          <>
+        {library.error && (
+          <p className="text-[10px] text-rose-300 bg-rose-950/40 border border-rose-900/60 rounded p-2">
+            {library.error}
+          </p>
+        )}
+
+        {library.logos.length === 0 ? (
+          <p className="text-[11px] text-slate-500 leading-snug bg-slate-900/40 rounded-lg p-3">
+            Belum ada logo. Taruh file logo (PNG, JPG, SVG, WebP) di folder <code>library/logos</code>. Sub-folder
+            jadi kategori, misalnya <code>brand</code> untuk apparel, <code>sponsor</code>, <code>klub</code>. Lalu klik Muat
+            ulang. Logo muncul di sini dengan nama filenya.
+          </p>
+        ) : (
+          <>
+            {replaceTarget && (
+              <div className="flex items-center justify-between gap-2 text-[11px] px-2 py-1.5 rounded-lg border border-sky-500/60 bg-sky-600/15 text-sky-100">
+                <span className="min-w-0 truncate">
+                  Klik logo untuk mengganti: {graphicItems.find((g) => g.id === replaceTarget)?.name}
+                </span>
+                <button type="button" onClick={() => setReplaceTarget(null)} className="shrink-0 underline hover:text-white">
+                  Batal
+                </button>
+              </div>
+            )}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="search"
+                value={librarySearch}
+                onChange={(e) => setLibrarySearch(e.target.value)}
+                placeholder="Cari logo…"
+                aria-label="Cari logo di Logo Saya"
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-2 py-1.5 text-xs text-slate-200 outline-none focus:border-sky-500"
+              />
+            </div>
+
+            {libraryCategories.length > 0 && (
+              <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px]">
+                {['all', ...libraryCategories].map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setLibraryCategory(cat)}
+                    className={`px-2.5 py-1 rounded-md whitespace-nowrap transition-all ${
+                      libraryCategory === cat
+                        ? 'bg-sky-500/25 text-sky-100 font-semibold'
+                        : 'bg-slate-900/60 text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    {cat === 'all' ? 'Semua' : cat}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-1.5 max-h-56 overflow-y-auto pr-1">
+              {visibleLibraryLogos.map((logo) => (
+                <button
+                  key={logo.id}
+                  onClick={() => addLibraryLogo(logo)}
+                  className="flex items-center gap-2 p-2 rounded-lg bg-slate-900/70 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-left transition-all group"
+                  title={logo.path}
+                >
+                  <div className="w-8 h-8 rounded bg-black/50 flex items-center justify-center p-1 shrink-0 border border-slate-700/50">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={logo.url} alt={logo.name} className="max-w-full max-h-full object-contain" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[11px] font-medium text-slate-300 group-hover:text-white truncate">
+                      {logo.name}
+                    </span>
+                    {logo.category && (
+                      <span className="text-[10px] text-slate-500 capitalize truncate">{logo.category}</span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+            {visibleLibraryLogos.length === 0 && (
+              <p className="text-[11px] text-slate-500 text-center py-2">Tidak ada logo yang cocok.</p>
+            )}
+          </>
+        )}
+                </>
+        )}
+      </div>
+
       <FootballLogosModal
         isOpen={showFootballLogos}
         onClose={() => setShowFootballLogos(false)}

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useMemo } from 'react';
-import { Type, Eye, EyeOff } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Type, Eye, EyeOff, ChevronDown, ChevronRight } from 'lucide-react';
 import { PlayerMarkingsConfig } from '@/types/kit';
 import { AssetLibrary } from '@/hooks/useAssetLibrary';
 import FontPicker from '@/components/ui/FontPicker';
@@ -23,6 +23,36 @@ const NOTES: Record<string, string> = {
   RightShortX: 'Penanda badge hanya untuk mengukur posisi (centang Badge lengan di Tampilkan); tidak ikut export.',
 };
 
+// which sections are open, remembered for this browser (only the player data at first)
+const FOLD_KEY = 'kit-name-folds';
+const FOLD_DEFAULT: Record<string, boolean> = { data: true };
+
+/** A section with a title that folds it. */
+const Fold: React.FC<{ title: string; open: boolean; onToggle: () => void; info?: string; sub?: boolean; children: React.ReactNode }> = ({
+  title,
+  open,
+  onToggle,
+  info,
+  sub,
+  children,
+}) => (
+  <div className={sub ? 'rounded-lg border border-slate-800 bg-slate-900/60 px-2.5 py-1.5' : 'pt-2 border-t border-slate-800'}>
+    <div className="flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className={`flex items-center gap-1 font-semibold hover:text-white ${sub ? 'text-[11px] text-slate-300' : 'text-xs text-slate-200'}`}
+      >
+        {open ? <ChevronDown className="w-3.5 h-3.5 text-slate-500" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-500" />}
+        {title}
+      </button>
+      {info && <InfoTip text={info} />}
+    </div>
+    {open && <div className={sub ? 'space-y-2 pt-2' : 'space-y-3 pt-3'}>{children}</div>}
+  </div>
+);
+
 interface MarkingsPanelProps {
   markings: PlayerMarkingsConfig;
   onUpdateMarkings: (update: Partial<PlayerMarkingsConfig>) => void;
@@ -41,48 +71,51 @@ export const MarkingsPanel: React.FC<MarkingsPanelProps> = ({
 }) => {
   const cfg = useMemo(() => parseKitConfig(kitConfig), [kitConfig]);
   const setValue = (key: string, value: string) => onKitConfigChange(setKitConfigValue(kitConfig, key, value));
+  const [folds, setFolds] = useState<Record<string, boolean>>(FOLD_DEFAULT);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(FOLD_KEY) ?? 'null');
+      if (saved && typeof saved === 'object') setFolds(saved);
+    } catch {
+      /* storage blocked or bad value: keep the default */
+    }
+  }, []);
+  const fold = (id: string) => ({
+    open: !!folds[id],
+    onToggle: () =>
+      setFolds((prev) => {
+        const next = { ...prev, [id]: !prev[id] };
+        try {
+          localStorage.setItem(FOLD_KEY, JSON.stringify(next));
+        } catch {
+          /* ignore */
+        }
+        return next;
+      }),
+  });
   return (
-    <div className="flex flex-col h-full select-none overflow-y-auto text-slate-300 p-4 space-y-5">
-      {/* 1. Master Toggle & Info Card */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900/90 border border-slate-800">
-          <div className="flex items-center gap-2">
-            <Type className="w-4 h-4 text-sky-400" />
-            <span className="text-xs font-bold text-white">
-              Preview Nama & Nomor
-            </span>
-          </div>
-
-          <button
-            onClick={() =>
-              onUpdateMarkings({ showPreview: !markings.showPreview })
-            }
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-              markings.showPreview
-                ? 'bg-sky-600 text-white shadow-sm'
-                : 'bg-slate-800 text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            {markings.showPreview ? (
-              <>
-                <Eye className="w-3.5 h-3.5" />
-                <span>Aktif</span>
-              </>
-            ) : (
-              <>
-                <EyeOff className="w-3.5 h-3.5" />
-                <span>Mati</span>
-              </>
-            )}
-          </button>
-        </div>
+    <div className="flex flex-col h-full select-none overflow-y-auto text-slate-300 p-4 space-y-3">
+      {/* Title row with the preview switch */}
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-2 text-xs font-bold text-white">
+          <Type className="w-4 h-4 text-sky-400" />
+          Preview Nama & Nomor
+        </span>
+        <button
+          type="button"
+          onClick={() => onUpdateMarkings({ showPreview: !markings.showPreview })}
+          aria-pressed={markings.showPreview}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+            markings.showPreview ? 'bg-sky-600 text-white shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          {markings.showPreview ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+          <span>{markings.showPreview ? 'Aktif' : 'Mati'}</span>
+        </button>
       </div>
 
       {/* 2. Text Inputs */}
-      <div className="space-y-3 pt-2 border-t border-slate-800">
-        <span className="text-xs font-semibold text-slate-200">
-          Data Pemain
-        </span>
+      <Fold title="Data Pemain" {...fold('data')}>
 
         <div className="space-y-2">
           {/* Player Name */}
@@ -160,13 +193,10 @@ export const MarkingsPanel: React.FC<MarkingsPanelProps> = ({
             </div>
           </div>
         </div>
-      </div>
+      </Fold>
 
       {/* 3. Font & Colors */}
-      <div className="space-y-3 pt-2 border-t border-slate-800">
-        <span className="text-xs font-semibold text-slate-200">
-          Tipografi & Warna
-        </span>
+      <Fold title="Tipografi & Warna" {...fold('type')}>
 
         <div>
           <div className="flex items-center gap-1.5">
@@ -269,17 +299,16 @@ export const MarkingsPanel: React.FC<MarkingsPanelProps> = ({
             />
           </div>
         </div>
-      </div>
+      </Fold>
 
       {/* 4. Position & size: the kitserver config values (the same ones Kit Config writes to config.txt) */}
-      <div className="space-y-3 pt-2 border-t border-slate-800">
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-semibold text-slate-200">Ukuran & Posisi</span>
-          <InfoTip text="Nilai config kitserver (config.txt), sama dengan di menu Kit Config. Preview memakai ukuran yang diukur di game, jadi posisinya perkiraan." />
-        </div>
+      <Fold
+        title="Ukuran & Posisi"
+        info="Nilai config kitserver (config.txt), sama dengan di menu Kit Config. Preview memakai ukuran yang diukur di game, jadi posisinya perkiraan."
+        {...fold('pos')}
+      >
         {CONFIG_SECTIONS.map(([title, keys]) => (
-          <div key={title} className="space-y-2 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-            <span className="text-[11px] font-semibold text-slate-300">{title}</span>
+          <Fold key={title} title={title} sub {...fold(`pos-${title}`)}>
             {keys.map((key) => {
               const f = FIELD[key];
               const raw = cfg[key];
@@ -319,9 +348,9 @@ export const MarkingsPanel: React.FC<MarkingsPanelProps> = ({
                 </div>
               );
             })}
-          </div>
+          </Fold>
         ))}
-      </div>
+      </Fold>
     </div>
   );
 };

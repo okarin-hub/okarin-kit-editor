@@ -285,6 +285,24 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
   onFocusPart,
   onSyncRelatedParts,
 }) => {
+  // colour slots: folded or not, remembered for this browser
+  const [slotsOpen, setSlotsOpen] = useState(true);
+  useEffect(() => {
+    try {
+      setSlotsOpen(localStorage.getItem('kit-slots-open') !== '0');
+    } catch {
+      /* storage can be blocked */
+    }
+  }, []);
+  const toggleSlots = () =>
+    setSlotsOpen((v) => {
+      try {
+        localStorage.setItem('kit-slots-open', v ? '0' : '1');
+      } catch {
+        /* ignore */
+      }
+      return !v;
+    });
   const [saveName, setSaveName] = useState('');
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [lockRatio, setLockRatio] = useState(false);
@@ -1874,33 +1892,58 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           const zoneState = (z: KitZoneDef) => state.zones[z.id] ?? { color: z.defaultColor, visible: z.defaultVisible };
           return (
             <div className="space-y-1.5 pb-2 mb-1 border-b border-slate-800/70">
-              {slots.size > 0 && (
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-300">
-                    Slot warna
-                    <InfoTip text="Layer dengan abu-abu yang sama di file aslinya memakai satu warna. Ubah di sini atau di salah satu layernya, semua ikut berubah." />
+              {slots.size > 0 && (() => {
+                // per part group (Baju, Celana...), each slot a small chip; "Warna 2 – Baju" shows as "Warna 2" in the Baju row
+                const byGroup = new Map<KitCategory, [string, KitZoneDef[]][]>();
+                [...slots]
+                  .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+                  .forEach((e) => byGroup.set(e[1][0].group, [...(byGroup.get(e[1][0].group) ?? []), e]));
+                const order = (Object.keys(GROUP_LABEL) as KitCategory[]).filter((g) => byGroup.has(g));
+                return (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-300">
+                      <button type="button" onClick={toggleSlots} aria-expanded={slotsOpen} className="flex items-center gap-1 hover:text-white">
+                        {slotsOpen ? <ChevronDown className="w-3.5 h-3.5 text-slate-500" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-500" />}
+                        Slot warna
+                        <span className="font-normal text-slate-400">{slots.size}</span>
+                      </button>
+                      <InfoTip text="Layer dengan abu-abu yang sama di file aslinya memakai satu warna. Ubah di sini atau di salah satu layernya, semua ikut berubah." />
+                      {!slotsOpen && (
+                        // folded: the colours stay visible as a strip of dots
+                        <span className="flex-1 min-w-0 flex flex-wrap gap-0.5 justify-end">
+                          {[...slots.values()].map((zs) => (
+                            <span key={zs[0].id} className="w-2.5 h-2.5 rounded-full border border-slate-700" style={{ background: zoneState(zs[0]).color }} />
+                          ))}
+                        </span>
+                      )}
+                    </div>
+                    {slotsOpen &&
+                      order.map((g) => (
+                        <div key={g} className="flex items-start gap-1.5">
+                          {order.length > 1 && <span className="w-14 shrink-0 pt-1 text-[10px] text-slate-500">{GROUP_LABEL[g]}</span>}
+                          <div className="flex-1 min-w-0 flex flex-wrap gap-1">
+                            {byGroup.get(g)!.map(([name, zs]) => (
+                              <label
+                                key={name}
+                                className="flex items-center gap-1 pl-0.5 pr-1.5 py-0.5 rounded-md border border-slate-700/70 bg-slate-900/60 text-[11px] text-slate-200 cursor-pointer hover:border-slate-500"
+                                // one layer name per line: translated one by one (the page translator sees the whole title)
+                                title={[name, ...zs.map((z) => t(z.name))].join('\n')}
+                              >
+                                <input
+                                  type="color"
+                                  value={zoneState(zs[0]).color}
+                                  onChange={(e) => onUpdateZone(zs[0].id, { color: e.target.value })}
+                                  className="w-4 h-4 rounded border border-slate-700 bg-transparent cursor-pointer p-0 shrink-0"
+                                />
+                                <span className="max-w-[7rem] truncate">{order.length > 1 ? name.replace(/\s+–\s+[^–]+$/, '') : name}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
                   </div>
-                  <div className="grid grid-cols-2 gap-1">
-                    {[...slots].sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).map(([name, zs]) => (
-                      <label
-                        key={name}
-                        className="flex items-center gap-1.5 px-1.5 py-1 rounded-md border border-slate-700/70 bg-slate-900/60 text-[11px] text-slate-200 cursor-pointer"
-                        // one layer name per line: translated one by one (the page translator sees the whole title)
-                        title={zs.map((z) => t(z.name)).join('\n')}
-                      >
-                        <input
-                          type="color"
-                          value={zoneState(zs[0]).color}
-                          onChange={(e) => onUpdateZone(zs[0].id, { color: e.target.value })}
-                          className="w-5 h-5 rounded border border-slate-700 bg-transparent cursor-pointer p-0 shrink-0"
-                        />
-                        <span className="flex-1 min-w-0 truncate">{name}</span>
-                        <span className="text-[10px] text-slate-500">{zs.length}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
+                );
+              })()}
               {[...sets].map(([set, opts]) => {
                 const current = [...opts].find(([, zs]) => zs.some((z) => zoneState(z).visible))?.[0] ?? '';
                 return (

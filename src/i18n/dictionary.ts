@@ -1451,4 +1451,8 @@ export const DICTIONARY: [string, string, string, string][] = [
   ["Diperluas", "Extended", "Ampliada", "Ampliado"],
   ["Kanvas mengisi seluruh panel. Area di luar kit tampil redup, jadi objek yang keluar tepi tetap terlihat.", "The canvas fills the whole panel. The area outside the kit is dimmed, so objects past the edge stay visible.", "A tela ocupa todo o painel. A área fora do kit fica escurecida, então objetos além da borda continuam visíveis.", "El lienzo ocupa todo el panel. El área fuera del kit se atenúa, así que los objetos que salen del borde siguen visibles."],
   ["Tampilkan penggaris (px tekstur)", "Show rulers (texture px)", "Mostrar réguas (px da textura)", "Mostrar reglas (px de textura)"],
+  ["Upload", "Upload", "Enviar", "Subir"],
+  ["Di kit", "On the kit", "No kit", "En el kit"],
+  ["Logo klub", "Club logos", "Logos de clubes", "Logos de clubes"],
+  ["Belum ada logo atau teks. Upload logo, atau pilih dari Logo Saya di bawah.", "No logos or text yet. Upload a logo, or pick one from My Logos below.", "Ainda não há logos ou textos. Envie um logo ou escolha um em Meus Logos abaixo.", "Aún no hay logos ni texto. Sube un logo o elige uno de Mis Logos abajo."],
 ];

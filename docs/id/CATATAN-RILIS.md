@@ -4,6 +4,18 @@
 
 ## Belum dirilis
 
+- **Log aktivitas:** perubahan warna sekarang tercatat (pemilih warna aplikasi tidak memberi tahu log), dan tombol atau
+  slider tanpa label diberi nama dari teks di sebelahnya atau dari ikonnya.
+- **Perbaikan: huruf I yang lebar tampak gepeng di font nama.** Kotak huruf I hanya 29 px (I di fontset contoh berupa
+  batang tipis), jadi I dari font dengan I yang lebih lebar dipepetkan. Kotak I, Ì, Í, dan İ sekarang 51 px, dengan
+  titik tengah yang sama.
+- **Tab Layer, Logo, dan Nama lebih rapi.**
+  - Layer: slot warna dikelompokkan per bagian (Baju, Celana, Kaus Kaki, Aksesoris) sebagai chip kecil, dan bisa
+    dilipat (lalu hanya warnanya yang tampil, sebagai titik).
+  - Logo: *Upload*, *Teks*, dan *Logo klub* dalam satu baris; yang ada *Di kit* tampil paling atas, *Logo Saya* di
+    bawahnya dan bisa dilipat.
+  - Nama: saklar pratinjau ada di baris judul; *Data Pemain*, *Tipografi & Warna*, dan *Ukuran & Posisi* (juga tiap
+    kelompok posisinya) bisa dilipat, di awal hanya Data Pemain yang terbuka. Yang terbuka diingat.
 - **Perbaikan: pola berhenti di pundak.** Dengan *Sampai pundak*, potongan lengan memanjang sampai leher, tapi polanya
   hanya mengisi kotak lengan pendek, jadi bagian pundak tampil polos dengan warna lengan dan menutupi pola baju.
   Sekarang pola mengisi seluruh potongan (pundak, area lengan panjang, dan beberapa px celana, kaus kaki, dan kerah yang

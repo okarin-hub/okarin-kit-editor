@@ -71,6 +71,7 @@ export const ColorPopover: React.FC = () => {
 
   useEffect(() => {
     if (!target) return;
+    const start = target.value;
     inputRef.current?.focus();
     inputRef.current?.select();
     const onDown = (e: PointerEvent) => {
@@ -93,6 +94,18 @@ export const ColorPopover: React.FC = () => {
       document.removeEventListener('pointerdown', onDown, true);
       window.removeEventListener('keydown', onKey, true);
       window.removeEventListener('resize', close);
+      // closing ends the edit like the browser's own picker: a 'change' event (React already saw the colour; the
+      // activity log listens for it). A colour still waiting for the next frame is written first.
+      if (frame.current) {
+        cancelAnimationFrame(frame.current);
+        frame.current = 0;
+        const value = pendingHex.current;
+        if (target.isConnected && value && target.value !== value) {
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(target, value);
+          target.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }
+      if (target.isConnected && target.value !== start) target.dispatchEvent(new Event('change', { bubbles: true }));
     };
   }, [target]);
 

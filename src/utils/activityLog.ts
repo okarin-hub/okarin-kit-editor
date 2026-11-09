@@ -31,15 +31,28 @@ export function logActivity(kind: string, text: string) {
 
 const clean = (s: string | null | undefined, max = 70) => (s ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 
-/** The readable name of a control: its aria-label, its text, its title, or the text of its label. */
+/** A control's icon as a name ("ikon x"), or a picture's alt text, for buttons with neither text nor label. */
+function iconOf(el: Element): string {
+  const svg = el.querySelector('svg[class*="lucide-"]');
+  const m = svg && /lucide-([a-z0-9-]+)/.exec(svg.getAttribute('class') ?? '');
+  return m ? `ikon ${m[1]}` : clean(el.querySelector('img')?.getAttribute('alt'));
+}
+
+/** The readable name of a control: its aria-label, its text, its title, the text of its label or next to it. */
 function nameOf(el: Element): string {
   const label = el.closest('label');
+  // a field's own text is its value or (a select) all its options: never its name
+  const field = el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA';
+  const own = field ? '' : clean((el as HTMLElement).innerText);
+  const labelText = label ? clean(field ? label.innerText.replace((el as HTMLElement).innerText ?? '', '') : label.innerText) : '';
   return (
     clean(el.getAttribute('aria-label')) ||
-    clean((el as HTMLElement).innerText) ||
+    own ||
     clean(el.getAttribute('title')) ||
-    clean(label?.innerText) ||
+    labelText ||
     clean(el.getAttribute('placeholder')) ||
+    (field ? clean((el.previousElementSibling as HTMLElement | null)?.innerText) || clean((el.parentElement?.previousElementSibling as HTMLElement | null)?.innerText) : '') ||
+    iconOf(el) ||
     el.tagName.toLowerCase()
   );
 }

@@ -4,6 +4,18 @@
 
 ## Unreleased
 
+- **Activity log:** colour changes are written now (the app's colour picker did not tell the log), and buttons or
+  sliders without a label get a name from the text next to them or their icon.
+- **Fix: a wide I looked squeezed in the name font.** The I slot was 29 px wide (the I of the sample fontsets is a thin
+  bar), so the I of a font with a wider I was pressed together. The I, Ì, Í and İ slots are now 51 px wide, around the
+  same centre.
+- **Tidier Layer, Logo and Name tabs.**
+  - Layer: the colour slots are grouped per part (Shirt, Shorts, Socks, Accessories) as small chips, and can be folded
+    (then only their colours show, as dots).
+  - Logo: *Upload*, *Text* and *Club logos* in one row; what is *On the kit* comes first, *My Logos* below it and can
+    be folded.
+  - Name: the preview switch sits in the title row; *Player data*, *Typography & colour* and *Size & position* (and
+    each placement group in it) fold, only the player data is open at first. What is open is remembered.
 - **Fix: a pattern stopped at the shoulder.** With *To the shoulder*, the sleeve piece runs up to the neck, but its
   pattern only filled the short sleeve box, so the shoulder part showed the plain sleeve colour over the shirt's
   pattern. Patterns now fill the whole piece (the shoulder, the long sleeve area, and the few px of the shorts, socks

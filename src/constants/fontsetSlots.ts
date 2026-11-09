@@ -2,6 +2,8 @@
  * Character slots of the PES 2021 number / name font textures, measured from modder templates
  * (three different fontsets put every character in the same place, ±5 px).
  * x0..x1 = union of the glyph extents seen in the samples; the game cuts the characters from these places.
+ * The I slots (I, Ì, Í, İ) are widened to 51 px around the same centre: the samples' I was a thin bar, a wider
+ * I from another fontset was squeezed into 29 px. There is free space on both sides of them.
  */
 
 export interface FontSlot {
@@ -57,7 +59,7 @@ export const NAME_LAYOUT: FontsetLayout = {
   rows: [
     slots('ABCDEFGHIJKLMN'.split(''), [
       [44, 136], [206, 292], [359, 440], [517, 601], [672, 742], [801, 871], [935, 1017],
-      [1088, 1173], [1225, 1254], [1306, 1386], [1442, 1529], [1589, 1660], [1719, 1849], [1909, 1994],
+      [1088, 1173], [1214, 1265], [1306, 1386], [1442, 1529], [1589, 1660], [1719, 1849], [1909, 1994],
     ]),
     slots('OPQRSTUVWXYZ.'.split(''), [
       [48, 130], [208, 290], [363, 453], [535, 619], [689, 767], [838, 921], [989, 1073],
@@ -81,7 +83,7 @@ export const NAME_EX_LAYOUT: FontsetLayout = {
     // one slot between Ę and Ğ is empty in every sample, so it is left out
     slots(['Ð', 'Đ', 'È', 'É', 'Ê', 'Ë', 'Ę', 'Ğ', 'Ì', 'Í', 'Î', 'Ï', 'İ', 'Ł'], [
       [35, 131], [193, 289], [365, 433], [510, 578], [654, 722], [798, 866], [942, 1010],
-      [1223, 1304], [1369, 1406], [1491, 1528], [1590, 1641], [1700, 1755], [1819, 1846], [1908, 1987],
+      [1223, 1304], [1362, 1413], [1484, 1535], [1590, 1641], [1700, 1755], [1807, 1858], [1908, 1987],
     ]),
     slots(['Ñ', 'Ò', 'Ó', 'Ô', 'Õ', 'Ö', 'Ø', 'Ř', 'Ş', 'Š', 'ß', 'Ţ', 'Þ'], [
       [44, 130], [206, 289], [365, 449], [526, 610], [686, 770], [846, 930], [1015, 1099],
