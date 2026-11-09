@@ -146,12 +146,16 @@ async function slotRows(url: string | undefined, layout: FontsetLayout): Promise
   });
 }
 
-const thumbOf = (c: HTMLCanvasElement) => {
-  const h = 36;
+/** Preview of a sheet glyph at its row's scale (capitals 28 of 40 px, on a shared baseline): a dash stays a small dash. */
+const thumbOf = (g: SheetGlyph) => {
+  const c = g.canvas;
+  const H = 40, BASE = 34;
+  const s = Math.min(28 / g.capH, H / c.height); // a glyph taller than the row (an accent) is shrunk to fit
   const t = document.createElement('canvas');
-  t.height = h;
-  t.width = Math.max(4, Math.round((c.width / c.height) * h));
-  t.getContext('2d')!.drawImage(c, 0, 0, t.width, t.height);
+  t.height = H;
+  t.width = Math.max(4, Math.round(c.width * s));
+  const y = Math.max(0, Math.min(BASE - g.base * s, H - c.height * s));
+  t.getContext('2d')!.drawImage(c, 0, y, c.width * s, c.height * s);
   return t.toDataURL();
 };
 
@@ -223,6 +227,7 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
   const [guides, setGuides] = useState(true);
   const [missing, setMissing] = useState<Record<Group, string[]>>({ number: [], name: [] });
   const [status, setStatus] = useState<string | null>(null);
+  const [fitting, setFitting] = useState<Group | null>(null);
   const [busy, setBusy] = useState(false);
   // characters of the shown texture that cross their slot box
   const [overflow, setOverflow] = useState<string[]>([]);
@@ -386,9 +391,9 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
     };
   };
 
-  const render = (kind: FileKind, overflow?: Set<string>) => {
+  const render = (kind: FileKind, overflow?: Set<string>, styleOverride?: FontsetStyle) => {
     const f = fileOf(kind);
-    const style = styles[f.group];
+    const style = styleOverride ?? styles[f.group];
     const sources: GlyphSource[] = [];
     // the letters only depend on the style: kept between redraws, so moving the logo or a pattern is quick
     const styleKey = `${f.group}|${JSON.stringify(style)}|${recolor[f.group]}`;
@@ -493,6 +498,45 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
   const setStyle = (group: Group, patch: Partial<FontsetStyle>) =>
     setStyles((prev) => ({ ...prev, [group]: { ...prev[group], ...patch } }));
 
+  // "Pas otomatis": the largest letter size up to 100 % at which no number, or no A–Z of the name font, touches its
+  // slot box. The _ex letters are left out of the search: a rare Ø or the cedilla of Ţ (often from the fallback font)
+  // would shrink every name letter; the ones still touching are named in the status line instead.
+  const autoFit = async (group: Group) => {
+    setFitting(group);
+    const style = styles[group];
+    await document.fonts.load(`${style.fontWeight} 40px ${style.fontFamily}`).catch(() => undefined);
+    await new Promise((r) => setTimeout(r, 0)); // let the busy button show first
+    const overAt = (size: number, kind: FileKind) => {
+      const over = new Set<string>();
+      render(kind, over, { ...style, size });
+      over.delete('´'); // the lone accent has a 33 px box: a slightly squeezed ´ is not worth reporting
+      return [...over];
+    };
+    const fits = (size: number, kinds: FileKind[]) => kinds.every((k) => overAt(size, k).length === 0);
+    const all: FileKind[] = group === 'number' ? ['back', 'chest', 'leg'] : ['name'];
+    // the back numbers are the chest layout at twice the size: search on the smaller one, check all at the end
+    const quick: FileKind[] = group === 'number' ? ['chest'] : all;
+    let lo = 50, hi = 100;
+    if (fits(hi, quick)) lo = hi;
+    else
+      while (hi - lo > 1) {
+        const mid = Math.floor((lo + hi) / 2);
+        if (fits(mid, quick)) lo = mid;
+        else hi = mid;
+      }
+    while (lo > 50 && !fits(lo, all)) lo--;
+    setStyle(group, { size: lo });
+    const ex = group === 'name' ? overAt(lo, 'name_ex') : [];
+    setStatus(
+      !fits(lo, all)
+        ? 'Di 50 % masih ada huruf yang menyentuh slot.'
+        : ex.length
+          ? `Ukuran huruf ${lo} %: terbesar yang muat di slot. Di _ex masih menyentuh slot: ${ex.join(' ')}`
+          : `Ukuran huruf ${lo} %: terbesar yang muat di slot.`
+    );
+    setFitting(null);
+  };
+
   const loadImage = async (url: string) => {
     const im = new Image();
     im.src = url;
@@ -519,7 +563,7 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
         name,
         rows,
         chars: readings.map((r) => r.text),
-        thumbs: rows.map((r) => r.glyphs.map((g) => thumbOf(g.canvas))),
+        thumbs: rows.map((r) => r.glyphs.map(thumbOf)),
         confidence: readings.map((r) => r.confidence),
         missing: readings.map((r) => r.missing),
       });
@@ -561,7 +605,7 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
       name: `${name} (library)`,
       rows,
       chars: parts.map((p) => p.chars),
-      thumbs: rows.map((r) => r.glyphs.map((g) => thumbOf(g.canvas))),
+      thumbs: rows.map((r) => r.glyphs.map(thumbOf)),
       confidence: parts.map((p) => Array.from(p.chars).map(() => 1)),
       missing: parts.map(() => []),
     });
@@ -750,6 +794,15 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
           </label>
           {slider('Tebal outline', st.outlineWidth, 0, 20, 1, (v) => setStyle(group, { outlineWidth: v }))}
           {slider('Ukuran huruf %', st.size ?? 100, 50, 150, 1, (v) => setStyle(group, { size: v }))}
+          <button
+            type="button"
+            onClick={() => autoFit(group)}
+            disabled={fitting !== null}
+            className="col-span-2 justify-self-end -mt-1 px-2 py-0.5 rounded border border-slate-700 text-[10px] text-slate-300 hover:bg-slate-800 disabled:opacity-60"
+            title="Ukuran huruf terbesar (paling besar 100 %) yang semua hurufnya muat di slot tanpa dipadatkan"
+          >
+            {fitting === group ? 'Menghitung…' : 'Pas otomatis'}
+          </button>
         </div>
         {patternBlock(group)}
         {missing[group].length > 0 && (
@@ -971,9 +1024,12 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
                 );
               })}
             </div>
-            {sheet.missing[i].length > 0 && (
-              <div className="text-[10px] text-slate-500">{`Tidak ada di gambar: ${sheet.missing[i].join(' ')}`}</div>
-            )}
+            {(() => {
+              // from the rows as they read now: a letter typed in by hand is no longer missing
+              const present = new Set(sheet.chars.flatMap((c) => Array.from(c)));
+              const gone = sheet.missing[i].filter((ch) => !present.has(ch));
+              return gone.length > 0 && <div className="text-[10px] text-slate-500">{`Tidak ada di gambar: ${gone.join(' ')}`}</div>;
+            })()}
             <input
               value={sheet.chars[i] ?? ''}
               onChange={(e) => setSheet((s) => s && { ...s, chars: s.chars.map((c, k) => (k === i ? e.target.value : c)) })}
@@ -1052,7 +1108,7 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
             {overflow.length > 0 && (
               <p className="flex items-start gap-1.5 text-[11px] text-amber-300 leading-snug">
                 <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                <span>{`Huruf terlalu besar, menyentuh garis slot (kotak kuning): ${overflow.join(' ')}. Kecilkan Ukuran huruf % agar tidak dipadatkan atau terpotong.`}</span>
+                <span>{`Huruf terlalu besar, menyentuh garis slot (kotak kuning): ${overflow.join(' ')}. Kecilkan Ukuran huruf % (atau Pas otomatis) agar tidak dipadatkan atau terpotong.`}</span>
               </p>
             )}
           </div>

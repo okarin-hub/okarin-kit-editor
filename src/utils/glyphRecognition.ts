@@ -158,6 +158,41 @@ function align(sim: number[][], expected: string, freeStart = false) {
   return { chars: out, conf, score: dp[n][m] };
 }
 
+/**
+ * A lone skipped piece whose neighbours are one apart in the expected order is the character between them (a style
+ * far from the reference shapes, such as a flat-topped A at the start of "ABCD"). Filled in place; its confidence
+ * stays 0, so it is still marked unsure. At a row edge only a letter or digit is filled, never a mark.
+ */
+function fillGaps(chars: string[], expected: string) {
+  const exp = Array.from(expected);
+  const used = new Set(chars);
+  chars.forEach((c, i) => {
+    if (c !== '_') return;
+    const prev = i > 0 ? exp.indexOf(chars[i - 1]) : -2;
+    const next = i < chars.length - 1 ? exp.indexOf(chars[i + 1]) : -2;
+    let k = -1;
+    if (prev >= 0 && next >= 0) k = next === prev + 2 ? prev + 1 : -1;
+    else if (prev === -2 && next >= 1) k = next - 1;
+    else if (next === -2 && prev >= 0) k = prev + 1;
+    if (k >= 0 && k < exp.length && /[A-Z0-9]/.test(exp[k]) && !used.has(exp[k])) {
+      chars[i] = exp[k];
+      used.add(exp[k]);
+    }
+  });
+}
+
+// self-check (cheap, runs once at import)
+{
+  const t = (s: string, e: string) => {
+    const a = Array.from(s);
+    fillGaps(a, e);
+    return a.join('');
+  };
+  if (t('_BCD', 'ABCDE') !== 'ABCD' || t('AB_D', 'ABCDE') !== 'ABCD' || t('XYZ_', 'XYZ.-') !== 'XYZ_' || t('A_C_', 'ABC') !== 'ABC_') {
+    console.error('glyphRecognition fillGaps self-check failed');
+  }
+}
+
 export interface RowReading {
   /** one character per glyph, '_' = not used */
   text: string;
@@ -198,6 +233,7 @@ export function readSheetRows(rows: SheetRow[]): RowReading[] {
       }
       const res = best!;
       const expected = res.expected;
+      fillGaps(res.chars, expected);
       const used = new Set(res.chars);
       let k = 0;
       group.forEach((r, g) => {
@@ -238,6 +274,7 @@ export function readSheetRow(row: SheetRow): RowReading {
     if (freeStart && !(/[A-Z]/.test(read) && /[0-9]/.test(read))) continue;
     if (!best || res.score > best.score) best = { ...res, expected };
   }
+  fillGaps(best!.chars, best!.expected);
   const used = new Set(best!.chars);
   return {
     text: best!.chars.join(''),

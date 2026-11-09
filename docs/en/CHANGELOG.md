@@ -4,6 +4,14 @@
 
 ## Unreleased
 
+- **Auto fit for the letter size.** Next to *Letter size %* in the font generator, *Auto fit* finds the largest size
+  (at most 100 %) at which every number, or every A–Z of the name font, fits its slot without being squeezed. Accented
+  _ex letters that still touch their slot are named in the status line (they often come from the fallback font).
+- **Fix: a letter of the font sheet could be skipped.** A shape far from the usual ones (a flat-topped A) was left out
+  and then reported as *Not in the picture*. A lone skipped piece between two letters in order now gets the letter
+  between them, marked unsure (yellow). *Not in the picture* also follows the row text when you correct it.
+- **Font sheet previews keep their size.** The small previews under each row are drawn at the row's scale, so a dash
+  shows as a small dash, not a dark block.
 - **Fix: wide letters and digits looked squeezed in the font generator.** Every character box is now as wide as A
   (92 px) for letters and as 4 (134 px) for digits, around the same centre, so the 1 or I of a blocky font keeps its
   shape (the game showed a wider I whole). The glyphs keep their own size; only M, W, Æ and ß, already wider, and the

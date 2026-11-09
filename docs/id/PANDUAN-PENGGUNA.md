@@ -242,7 +242,8 @@ garis dasar (merah); zoom pratinjau dengan −, +, *Pas*, atau scroll mouse. *Si
 *Ukuran huruf %* membesarkan atau mengecilkan huruf (tetap di garis dasar), dan *Posisi outline* menaruh outline di luar
 tepi huruf, di tengah tepinya, atau di dalamnya (inline). Huruf yang melewati kotak slotnya diberi kotak kuning dan
 peringatan di bawah pratinjau: di game huruf itu akan dipadatkan atau terpotong. Menyimpan akan bertanya dulu selama
-masih ada huruf seperti itu.
+masih ada huruf seperti itu. *Pas otomatis* memasang ukuran huruf terbesar (paling besar 100 %) yang membuat semua
+angka, atau semua A–Z font nama, muat; huruf beraksen _ex yang masih menyentuh slot disebutkan di baris status.
 
 *Import gambar font…* memakai gambar huruf dan/atau angka sebagai pengganti font (PNG, JPG…). Jendela import
 menampilkan gambarnya dulu: tarik kotak di bagian yang dipakai, centang *Lihat hasil pemisahan* untuk mengecek

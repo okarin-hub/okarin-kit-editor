@@ -243,7 +243,8 @@ KitFile name.
 *Letter size %* makes the letters bigger or smaller (they stay on the baseline), and *Outline position* puts the outline
 outside the letter edge, across it (centre) or inside it (inline). A letter that crosses its slot box gets a yellow
 box and a warning under the preview: in the game it would be squeezed or cut off. Saving asks first while any letter
-does.
+does. *Auto fit* sets the largest letter size (at most 100 %) at which every number, or every A–Z of the name font,
+fits; accented _ex letters that still touch their slot are listed in the status line.
 
 *Import font sheet…* takes a picture of the letters and/or digits instead of a font (PNG, JPG…). A dialog first
 shows the picture: drag a box around the part to use, tick *See the separation* to check the cut-out, and on a busy

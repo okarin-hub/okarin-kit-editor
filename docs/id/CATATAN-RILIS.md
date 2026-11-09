@@ -4,6 +4,14 @@
 
 ## Belum dirilis
 
+- **Pas otomatis untuk ukuran huruf.** Di samping *Ukuran huruf %* di font generator, *Pas otomatis* mencari ukuran
+  terbesar (paling besar 100 %) yang membuat semua angka, atau semua A–Z font nama, muat di slotnya tanpa dipadatkan.
+  Huruf beraksen _ex yang masih menyentuh slot disebutkan di baris status (sering berasal dari font cadangan).
+- **Perbaikan: huruf di gambar font bisa terlewat.** Bentuk yang jauh dari bentuk umum (A beratap rata) dilewati lalu
+  dilaporkan *Tidak ada di gambar*. Sekarang satu potongan yang terlewat di antara dua huruf berurutan diisi dengan huruf
+  di antaranya, dan ditandai kurang yakin (kuning). *Tidak ada di gambar* juga mengikuti teks baris saat kamu koreksi.
+- **Pratinjau huruf gambar font tetap proporsional.** Gambar kecil di bawah tiap baris digambar dengan skala barisnya,
+  jadi tanda strip tampil sebagai strip kecil, bukan balok gelap.
 - **Perbaikan: huruf dan angka yang lebar tampak gepeng di font generator.** Semua kotak karakter sekarang selebar A
   (92 px) untuk huruf dan selebar 4 (134 px) untuk angka, dengan titik tengah yang sama, jadi angka 1 atau huruf I dari
   font bergaya blok tetap utuh bentuknya (di game, I yang lebih lebar tampil utuh). Ukuran hurufnya sendiri tidak
