@@ -22,6 +22,12 @@
     dari warna dasar (loreng, pola timbul) jadi layer *Motif gelap* / *Motif terang* per bagian, masing-masing dengan
     slot warna sendiri, bukan lagi detail hitam/putih yang tetap.
   - Membuka Import PNG lagi setelah impor langsung mulai impor baru, tidak menampilkan laporan lama.
+  - **Slot warna per bagian:** satu warna sekarang punya slot sendiri di baju, celana, kaus kaki, dan detail
+    (*Warna 2 – Baju*, *Warna 2 – Celana*), jadi motif baju dan panel celana yang kebetulan sewarna bisa diganti
+    terpisah.
+- **Perbaikan: Muat ulang di tab Template** sekarang juga mengambil template yang dibaca ulang dengan layer atau slot
+  warna berbeda, bukan hanya yang filenya berubah.
+- Server lokal aplikasi menolak request dari situs lain yang terbuka di browser yang sama.
   - **Perbaikan: warna yang tidak dicentang masih terbawa.** Dengan *Simpan detail kain* aktif, warna yang tidak
     dicentang (logo putih, watermark) memang tidak jadi layer warna, tapi muncul lagi sebagai bayangan putih atau
     hitam di layer detail kain. Sekarang warna yang tidak dicentang, termasuk tepi halusnya, juga dilewati di layer

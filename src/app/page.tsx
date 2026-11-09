@@ -1104,7 +1104,10 @@ export default function Home() {
     setTplBundle((prev) => {
       if (prev.def.source !== 'psd' || prev.def.modified) return prev;
       const fresh = library.templates.find((t) => t.id === prev.def.id);
-      if (!fresh || fresh.rev === prev.def.rev) return prev;
+      // a PSD read again with the same revision can still come back different (the reader changed, e.g. new
+      // colour slot names), so the layers are compared too
+      const sig = (t: KitTemplate) => t.zones.map((z) => `${z.id}|${z.name}|${z.slot ?? ''}|${z.mask ?? ''}`).join(';');
+      if (!fresh || (fresh.rev === prev.def.rev && sig(fresh) === sig(prev.def))) return prev;
       preloadTemplateMasks(fresh);
       const zones: TemplateBundle['state']['zones'] = {};
       fresh.zones.forEach((z) => {

@@ -123,6 +123,7 @@ export function startActivityLog() {
   window.addEventListener('pagehide', () => {
     logActivity('tutup', 'halaman ditutup / dimuat ulang');
     if (timer) clearTimeout(timer);
-    if (queue.length) navigator.sendBeacon('/api/log', new Blob([JSON.stringify({ lines: queue.splice(0) })], { type: 'application/json' }));
+    // fetch with keepalive outlives the page (a JSON sendBeacon is refused by Chrome)
+    flush();
   });
 }

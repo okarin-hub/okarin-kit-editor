@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
 import { LIBRARY_ROOT } from '@/lib/templateLoader';
+import { isAppRequest } from '@/lib/sameOrigin';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -14,6 +15,7 @@ const MAX_LINE = 600;
 
 /** POST { lines: string[] } appends the lines (each already time-stamped by the app) to today's file. */
 export async function POST(req: NextRequest) {
+  if (!isAppRequest(req)) return NextResponse.json({ error: 'Ditolak.' }, { status: 403 });
   try {
     const body = await req.json().catch(() => null);
     const lines: unknown = body?.lines;

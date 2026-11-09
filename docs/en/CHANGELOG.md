@@ -22,6 +22,12 @@
     pattern) becomes *Dark motif* / *Light motif* layers per part, each with its own colour slot, instead of the
     fixed black / white detail.
   - Opening Import PNG again after an import starts a new one instead of showing the old report.
+  - **A colour slot per part:** a colour now gets its own slot on the shirt, shorts, socks and details
+    (*Colour 2 – Shirt*, *Colour 2 – Shorts*), so a shirt motif and a shorts panel that share a colour can be changed
+    apart.
+- **Fix: Reload in the Template tab** now also takes a template that was read again with different layers or colour
+  slots, not only one whose file changed.
+- The app's local server refuses requests from other websites open in the same browser.
   - **Fix: an unticked colour came back.** With *Keep fabric detail* on, a colour you unticked (a white logo, a
     watermark) was left out of the colour layers but returned as a white or black shadow in the fabric detail
     layer. Unticked colours, with their soft edge, are now left out of the detail and motif layers too.

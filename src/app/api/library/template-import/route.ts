@@ -2,6 +2,10 @@ import fs from 'fs';
 import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
 import { TEMPLATE_DIR, PSD_CACHE_DIR, parseTemplate, psdFolder } from '@/lib/templateLoader';
+import { isAppRequest } from '@/lib/sameOrigin';
+
+/** Marks a folder made by 'init' until 'finish': only such a folder may be removed by 'abort'. */
+const IMPORTING = '.importing';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -34,6 +38,7 @@ function folderPath(folder: unknown): string | null {
  *  - { action: 'abort', folder }               -> removes an unfinished folder (no template.json yet)
  */
 export async function POST(req: NextRequest) {
+  if (!isAppRequest(req)) return NextResponse.json({ error: 'Ditolak.' }, { status: 403 });
   try {
     const text = await req.text();
     if (text.length > MAX_MASK_BYTES * 1.4) {
@@ -64,6 +69,7 @@ export async function POST(req: NextRequest) {
         folder = `${base}-${n++}`;
       }
       fs.mkdirSync(path.join(TEMPLATE_DIR, folder, 'masks'), { recursive: true });
+      fs.writeFileSync(path.join(TEMPLATE_DIR, folder, IMPORTING), '');
       return NextResponse.json({ folder });
     }
 
@@ -73,8 +79,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (body.action === 'abort') {
-      // an import that failed halfway: remove its folder, never one that already holds a finished template
-      if (!fs.existsSync(path.join(dir, 'template.json'))) fs.rmSync(dir, { recursive: true, force: true });
+      // an import that failed halfway: remove only a folder this route made and has not finished (marker present)
+      if (fs.existsSync(path.join(dir, IMPORTING)) && !fs.existsSync(path.join(dir, 'template.json'))) fs.rmSync(dir, { recursive: true, force: true });
       return NextResponse.json({ ok: true });
     }
 
@@ -101,6 +107,7 @@ export async function POST(req: NextRequest) {
       // validate exactly like the library reader does before anything is written
       const parsed = parseTemplate(body.template, String(body.folder).split('/'), `${folder}.json`);
       fs.writeFileSync(path.join(dir, 'template.json'), JSON.stringify(body.template, null, 2), 'utf8');
+      fs.rmSync(path.join(dir, IMPORTING), { force: true });
       if (folder !== body.folder && typeof body.rev === 'string') {
         // PSD conversion: remember which revision of the PSD this is (see listPsd)
         fs.writeFileSync(path.join(dir, 'source.json'), JSON.stringify({ file: body.psd, rev: body.rev.slice(0, 40) }), 'utf8');
