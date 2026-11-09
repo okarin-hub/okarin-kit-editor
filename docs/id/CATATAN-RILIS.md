@@ -2,7 +2,7 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
-## Belum dirilis
+## 0.6.8 — Pola sampai pundak, versi di bar status, kanvas 2D diperluas, tab lebih rapi
 
 - **Muat ulang memberi tanda selesai.** *Muat ulang* di pustaka pola dan Logo Saya sebentar menampilkan jumlahnya dan
   berapa yang baru (*Dimuat: 24 pola (1 baru)*).

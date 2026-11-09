@@ -2,7 +2,7 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
-## Unreleased
+## 0.6.8 — Patterns up to the shoulder, version in the status bar, extended 2D canvas, tidier tabs
 
 - **Reload says when it is done.** *Reload* in the pattern library and in My Logos shows for a moment how many there
   are and how many are new (*Loaded: 24 patterns (1 new)*).
