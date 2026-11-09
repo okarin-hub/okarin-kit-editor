@@ -4,6 +4,13 @@
 
 ## Unreleased
 
+- **Reload says when it is done.** *Reload* in the pattern library and in My Logos shows for a moment how many there
+  are and how many are new (*Loaded: 24 patterns (1 new)*).
+- **Font sheets are read better** (Generate Font, *Import font sheet*):
+  - digits written 1234567890 (0 at the end) are recognised, not only 0123456789;
+  - the dash after Z (*… X Y Z -*) is recognised and goes to the name_ex font;
+  - a row that goes on from the letters into the digits (*X Y Z - 1 2 3 …*) is read as such;
+  - *Not in the picture* looks at the whole sheet, so a letter on another row is no longer listed.
 - **Activity log:** colour changes are written now (the app's colour picker did not tell the log), and buttons or
   sliders without a label get a name from the text next to them or their icon.
 - **Fix: a wide I looked squeezed in the name font.** The I slot was 29 px wide (the I of the sample fontsets is a thin

@@ -31,6 +31,7 @@ import { LayerSidePanel } from '@/components/ui/LayerSidePanel';
 import { useLayerEditorMode } from '@/hooks/useLayerEditorMode';
 import { PES_2021_PARTS } from '@/constants/pes2021Parts';
 import { AssetLibrary, LibraryEntry } from '@/hooks/useAssetLibrary';
+import { ReloadButton } from '@/components/ui/ReloadButton';
 import { TextStyleEditor, TextStyleFields } from '@/components/ui/TextStyleEditor';
 import { DEFAULT_TEXT_FONT, fitTextBox } from '@/utils/textItem';
 import FootballLogosModal from '@/components/ui/FootballLogosModal';
@@ -866,15 +867,7 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
           </button>
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] text-slate-500 font-mono">{library.logos.length} file</span>
-            <button
-              type="button"
-              onClick={() => library.reload()}
-              className="text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800 flex items-center gap-1"
-              title="Baca ulang folder library/logos"
-            >
-              <RefreshCw className={`w-3 h-3 ${library.loading ? 'animate-spin' : ''}`} />
-              Muat ulang
-            </button>
+            <ReloadButton library={library} kind="logos" title="Baca ulang folder library/logos" />
           </div>
         </div>
 

@@ -4,6 +4,13 @@
 
 ## Belum dirilis
 
+- **Muat ulang memberi tanda selesai.** *Muat ulang* di pustaka pola dan Logo Saya sebentar menampilkan jumlahnya dan
+  berapa yang baru (*Dimuat: 24 pola (1 baru)*).
+- **Lembar font terbaca lebih baik** (Generate Font, *Import lembar font*):
+  - angka yang ditulis 1234567890 (0 di akhir) dikenali, bukan hanya 0123456789;
+  - tanda strip setelah Z (*… X Y Z -*) dikenali dan masuk ke font name_ex;
+  - baris yang menyambung dari huruf ke angka (*X Y Z - 1 2 3 …*) dibaca dengan benar;
+  - *Tidak ada di gambar* melihat seluruh lembar, jadi huruf yang ada di baris lain tidak ikut tercantum.
 - **Log aktivitas:** perubahan warna sekarang tercatat (pemilih warna aplikasi tidak memberi tahu log), dan tombol atau
   slider tanpa label diberi nama dari teks di sebelahnya atau dari ikonnya.
 - **Perbaikan: huruf I yang lebar tampak gepeng di font nama.** Kotak huruf I hanya 29 px (I di fontset contoh berupa

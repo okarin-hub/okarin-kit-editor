@@ -1455,4 +1455,7 @@ export const DICTIONARY: [string, string, string, string][] = [
   ["Di kit", "On the kit", "No kit", "En el kit"],
   ["Logo klub", "Club logos", "Logos de clubes", "Logos de clubes"],
   ["Belum ada logo atau teks. Upload logo, atau pilih dari Logo Saya di bawah.", "No logos or text yet. Upload a logo, or pick one from My Logos below.", "Ainda não há logos ou textos. Envie um logo ou escolha um em Meus Logos abaixo.", "Aún no hay logos ni texto. Sube un logo o elige uno de Mis Logos abajo."],
+  ["Dimuat: {1} pola", "Loaded: {1} patterns", "Carregados: {1} padrões", "Cargados: {1} patrones"],
+  ["Dimuat: {1} logo", "Loaded: {1} logos", "Carregados: {1} logos", "Cargados: {1} logos"],
+  ["({1} baru)", "({1} new)", "({1} novos)", "({1} nuevos)"],
 ];

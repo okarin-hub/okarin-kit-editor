@@ -6,6 +6,7 @@ import { KitCategory, KitPartId, PatternLayer } from '@/types/kit';
 import { InfoTip } from '@/components/ui/InfoTip';
 import { PATTERN_LABEL, PATTERN_OPTIONS, REPEATING_PATTERNS, THICKNESS_PATTERNS } from '@/constants/patterns';
 import { AssetLibrary } from '@/hooks/useAssetLibrary';
+import { ReloadButton } from '@/components/ui/ReloadButton';
 import { getCachedImage, preloadImage } from '@/utils/imageCache';
 import { AlignX, alignedPatternOffsetX, isTintableTile } from '@/utils/patternRenderer';
 import { PART_MAP } from '@/constants/pes2021Parts';
@@ -183,15 +184,7 @@ export const PatternLayerEditor: React.FC<PatternLayerEditorProps> = ({ layer: l
                         </button>
                       ))}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => library.reload()}
-                      className="text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800 flex items-center gap-1"
-                      title="Baca ulang folder library/patterns"
-                    >
-                      <RefreshCw className={`w-3 h-3 ${library.loading ? 'animate-spin' : ''}`} />
-                      Muat ulang
-                    </button>
+                    <ReloadButton library={library} kind="patterns" title="Baca ulang folder library/patterns" />
                   </div>
                   {library.patterns.length === 0 ? (
                     <p className="text-[10px] text-slate-500 leading-snug">

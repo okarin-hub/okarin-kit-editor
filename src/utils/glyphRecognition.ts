@@ -10,6 +10,12 @@ const GH = 28;
 const REF_FONTS = ["'Arial'", "'Arial Black'", "'Impact'", "'Verdana'", "'Georgia'", "'Trebuchet MS'", "'Tahoma'", "'Bahnschrift'"];
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const DIGITS = '0123456789';
+/** many font sheets end the digits with 0 */
+const DIGITS_1 = '1234567890';
+/** after the letters: the full stop and the dash (the dash goes to the name_ex font) */
+const AFTER = '.-';
+/** characters told apart by size, not shape, and never reported missing */
+const MARKS = new Set(Array.from(AFTER));
 
 /** shape stretched to a small grid (ink 0..1) and its width/height */
 interface Shape {
@@ -85,7 +91,8 @@ function similarities(row: SheetRow, chars: string): number[][] {
   const refMedian = median(Array.from(LETTERS + DIGITS).map(refAspect));
   return shapes.map((s) =>
     Array.from(chars).map((ch) => {
-      if (ch === '.' || s.small) return ch === '.' && s.small ? 1 : 0;
+      // a low piece: a full stop (about square) or a dash (wide)
+      if (MARKS.has(ch) || s.small) return s.small && ch === (s.aspect >= 1.6 ? '-' : '.') ? 1 : 0;
       let best = 0;
       for (const r of refs.get(ch)!) {
         let diff = 0;
@@ -99,22 +106,24 @@ function similarities(row: SheetRow, chars: string): number[][] {
 }
 
 /** Aligns the glyphs with `expected` in order; returns the character per glyph ('_' = skipped) and the score. */
-function align(sim: number[][], expected: string) {
+function align(sim: number[][], expected: string, freeStart = false) {
   const exp = Array.from(expected);
   const n = sim.length, m = exp.length;
   const BASE = 0.72; // a match scores (similarity - BASE)
   // exactly one piece per expected character (A–Z, 0–9): every piece gets one, even an unusual shape
-  const exact = n === exp.filter((ch) => ch !== '.').length || n === m;
+  const exact = n === exp.filter((ch) => !MARKS.has(ch)).length || n === m;
   const SKIP_GLYPH = exact ? 0.3 : 0.08;
-  const skipExpected = (ch: string) => (ch === '.' ? 0.01 : exact ? 0.3 : 0.08);
+  const skipExpected = (ch: string) => (MARKS.has(ch) ? 0.01 : exact ? 0.3 : 0.08);
   const dp = Array.from({ length: n + 1 }, () => new Float64Array(m + 1));
   const from = Array.from({ length: n + 1 }, () => new Uint8Array(m + 1)); // 1 match, 2 skip glyph, 3 skip expected
   for (let i = 1; i <= n; i++) {
     dp[i][0] = dp[i - 1][0] - SKIP_GLYPH;
     from[i][0] = 2;
   }
+  // freeStart: the characters before the row's first piece cost nothing, for a row that goes on from the one above
+  // and then starts the digits ("XYZ-1234567890")
   for (let j = 1; j <= m; j++) {
-    dp[0][j] = dp[0][j - 1] - skipExpected(exp[j - 1]);
+    dp[0][j] = freeStart ? 0 : dp[0][j - 1] - skipExpected(exp[j - 1]);
     from[0][j] = 3;
   }
   for (let i = 1; i <= n; i++) {
@@ -165,21 +174,30 @@ export interface RowReading {
  */
 export function readSheetRows(rows: SheetRow[]): RowReading[] {
   const out = rows.map(readSheetRow);
-  const kindOf = (r: RowReading) => {
+  const kindOf = (r: RowReading, i: number) => {
     const t = r.text.replace(/_/g, '');
-    return (t.match(/[0-9]/g) ?? []).length > t.length / 2 ? 'digits' : 'letters';
+    const d = (t.match(/[0-9]/g) ?? []).length;
+    const l = (t.match(/[A-Z]/g) ?? []).length;
+    // letters and digits on one row ("XYZ-1234567890"): read on its own, never with the rows around it
+    if (d >= 2 && l >= 2) return `mixed${i}`;
+    return d > t.length / 2 ? 'digits' : 'letters';
   };
   const kinds = out.map(kindOf);
   for (let i = 0; i < rows.length; ) {
     let j = i;
     while (j + 1 < rows.length && kinds[j + 1] === kinds[i]) j++;
-    const expected = kinds[i] === 'digits' ? DIGITS : LETTERS + '.';
     const group = rows.slice(i, j + 1);
     const count = group.reduce((n, r) => n + r.glyphs.length, 0);
+    const options = kinds[i] === 'digits' ? [DIGITS, DIGITS_1] : [LETTERS + AFTER];
     // two full alphabets (two styles on one sheet) are left as separate rows
-    if (j > i && count <= expected.length + 3) {
-      const sims = group.flatMap((r) => similarities(r, expected));
-      const res = align(sims, expected);
+    if (j > i && !kinds[i].startsWith('mixed') && count <= options[0].length + 3) {
+      let best: (ReturnType<typeof align> & { expected: string }) | null = null;
+      for (const exp of options) {
+        const r = align(group.flatMap((g) => similarities(g, exp)), exp);
+        if (!best || r.score > best.score) best = { ...r, expected: exp };
+      }
+      const res = best!;
+      const expected = res.expected;
       const used = new Set(res.chars);
       let k = 0;
       group.forEach((r, g) => {
@@ -187,33 +205,43 @@ export function readSheetRows(rows: SheetRow[]): RowReading[] {
         out[i + g] = {
           text: res.chars.slice(k, k + n).join(''),
           confidence: res.conf.slice(k, k + n),
-          missing: g === group.length - 1 ? Array.from(expected).filter((ch) => !used.has(ch) && ch !== '.') : [],
+          missing: g === group.length - 1 ? Array.from(expected).filter((ch) => !used.has(ch) && !MARKS.has(ch)) : [],
         };
         k += n;
       });
     }
     i = j + 1;
   }
-  return out;
+  // "not in the picture" is about the whole sheet: a letter read on another row is not missing
+  const found = new Set(out.flatMap((r) => Array.from(r.text)));
+  return out.map((r) => ({ ...r, missing: r.missing.filter((ch) => !found.has(ch)) }));
 }
 
 /** Reads one sheet row as letters, digits or both (whichever fits best). */
 export function readSheetRow(row: SheetRow): RowReading {
   if (!row.glyphs.length) return { text: '', confidence: [], missing: [] };
-  const candidates = [LETTERS + '.', DIGITS, LETTERS + '.' + DIGITS, DIGITS + LETTERS + '.'];
-  const all = LETTERS + '.' + DIGITS;
+  const L = LETTERS + AFTER;
+  const candidates: [string, boolean][] = [
+    [L, false], [DIGITS, false], [DIGITS_1, false],
+    [L + DIGITS, true], [L + DIGITS_1, true], [DIGITS + L, false], [DIGITS_1 + L, false],
+  ];
+  const all = L + DIGITS;
   const simAll = similarities(row, all);
   let best: (ReturnType<typeof align> & { expected: string }) | null = null;
-  for (const expected of candidates) {
+  for (const [expected, freeStart] of candidates) {
     const idx = Array.from(expected).map((ch) => all.indexOf(ch));
     const sim = simAll.map((r) => idx.map((k) => r[k]));
-    const res = align(sim, expected);
+    const res = align(sim, expected, freeStart);
+    // the free start is only for a row that really has letters and then digits; else it would fit any short row
+    // to the end of the sequence
+    const read = res.chars.join('');
+    if (freeStart && !(/[A-Z]/.test(read) && /[0-9]/.test(read))) continue;
     if (!best || res.score > best.score) best = { ...res, expected };
   }
   const used = new Set(best!.chars);
   return {
     text: best!.chars.join(''),
     confidence: best!.conf,
-    missing: Array.from(best!.expected).filter((ch) => !used.has(ch) && ch !== '.'),
+    missing: Array.from(best!.expected).filter((ch) => !used.has(ch) && !MARKS.has(ch)),
   };
 }
