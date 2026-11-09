@@ -2,7 +2,7 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
-## Belum dirilis
+## 0.6.9 — Pas otomatis untuk huruf font, kotak karakter seragam, gambar font lebih tajam
 
 - **Pas otomatis untuk ukuran huruf.** Di samping *Ukuran huruf %* di font generator, *Pas otomatis* mencari ukuran
   terbesar (paling besar 100 %) yang membuat semua angka, atau semua A–Z font nama, muat di slotnya tanpa dipadatkan.

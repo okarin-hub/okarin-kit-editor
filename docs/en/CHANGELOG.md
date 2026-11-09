@@ -2,7 +2,7 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
-## Unreleased
+## 0.6.9 — Auto fit for font letters, same-width character boxes, sharper font sheets
 
 - **Auto fit for the letter size.** Next to *Letter size %* in the font generator, *Auto fit* finds the largest size
   (at most 100 %) at which every number, or every A–Z of the name font, fits its slot without being squeezed. Accented
