@@ -260,6 +260,9 @@ vektor yang tajam: seluruh bentuknya (*siluet*) atau hanya bagian gelapnya (*det
 - *Edit → Pengaturan…* (`Ctrl+,`): bahasa (English, Bahasa Indonesia, Português, Español) dan tempat pengaturan layer
   terbuka: *di bawah baris* dalam daftar, atau di *panel samping* di kiri daftar layer (ditutup dengan ✕ atau `Esc`). Seret tepi kiri, tepi bawah, atau sudut
   kiri-bawah panel samping untuk mengubah ukurannya; ukurannya diingat, klik dua kali di tepinya untuk ukuran awal.
+  *Area kanvas 2D*: *Kotak kit*, atau *Diperluas* (kanvas mengisi panel; area di luar kit redup). *Tampilkan penggaris*
+  menambah penggaris dalam px tekstur.
+- Bar di bawah menampilkan versi aplikasi, dan *Versi baru tersedia* kalau pengecekan saat dibuka menemukan rilis baru.
 - *Edit → Undo / Redo* (`Ctrl+Z`, `Ctrl+Y`).
 - *Bantuan → Cek pembaruan* membandingkan versimu dengan rilis di GitHub. Di aplikasi Windows, *Unduh dan pasang*
   mengambil versi baru, menutup aplikasi, memasang file baru (folder `library` milikmu tidak disentuh), lalu

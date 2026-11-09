@@ -2,6 +2,19 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## Unreleased
+
+- **Fix: a pattern stopped at the shoulder.** With *To the shoulder*, the sleeve piece runs up to the neck, but its
+  pattern only filled the short sleeve box, so the shoulder part showed the plain sleeve colour over the shirt's
+  pattern. Patterns now fill the whole piece (the shoulder, the long sleeve area, and the few px of the shorts, socks
+  and collar that were left out), in the same place as before.
+- **Version in the status bar.** A thin bar at the bottom shows the app version. At start the app checks once for a
+  newer release (on the channel chosen in *Check for updates*); when there is one, *New version available* shows next
+  to the version and opens the update dialog.
+- **2D canvas area** (*Edit → Settings*): *Kit square* as before, or *Extended*: the canvas fills the whole panel with
+  the kit in the middle, and what lies outside the kit is dimmed but still visible. *Show rulers* adds rulers in texture
+  px along the top and left (0 and 1024, the kit's edges, in red).
+
 ## 0.6.7 — Tidier menus, Import PNG rework, gradient tool, activity log
 
 - **Activity log.** The app writes what you do (buttons, menus, tabs, settings, shortcuts, messages and errors) to

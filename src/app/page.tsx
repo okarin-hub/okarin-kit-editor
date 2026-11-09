@@ -7,6 +7,7 @@ import Navbar from '@/components/ui/Navbar';
 import { ToolRail, ToolId } from '@/components/ui/ToolRail';
 import { useI18n } from '@/i18n/I18nProvider';
 import { HelpDialog, HelpKind } from '@/components/ui/HelpDialogs';
+import { StatusBar } from '@/components/ui/StatusBar';
 import Toolbar, { WorkspaceViewMode } from '@/components/ui/Toolbar';
 import PropertiesPanel from '@/components/ui/PropertiesPanel';
 import LogosPanel from '@/components/ui/LogosPanel';
@@ -1938,6 +1939,8 @@ export default function Home() {
           </div>
         </aside>
       </div>
+
+      <StatusBar onOpenUpdate={() => setHelpKind('update')} />
 
       {/* Export Modal */}
       <ExportModal

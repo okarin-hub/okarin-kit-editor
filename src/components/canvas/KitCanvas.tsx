@@ -20,7 +20,8 @@ import { drawPatternLayersForPart, patternLayersForPart, patternsUnderLayers } f
 import { preloadImage, subscribeAssets } from '@/utils/imageCache';
 import { renderKitCanvas } from '@/utils/textureGenerator';
 import { drawTemplateForPart, setLiveErase, SEAM_CURVE_TENSION } from '@/utils/templateRenderer';
-import { zoomFactor } from '@/utils/uiPrefs';
+import { getCanvasArea, getCanvasRulers, onPrefsChange, zoomFactor } from '@/utils/uiPrefs';
+import { CanvasRulers } from '@/components/canvas/CanvasRulers';
 import { bakeZone, repeatLayout, zoneBox, zoneMatrix } from '@/utils/zoneGeometry';
 import { drawCreditText } from '@/utils/creditRenderer';
 import { drawFabricForPart } from '@/utils/fabricRenderer';
@@ -566,8 +567,34 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
     trRef.current.getLayer()?.batchDraw();
   }, [selectedGraphicId, isExportingClean, graphicItems]);
 
-  // Compute view transform (zoom & center)
-  const scale = canvasDisplaySize / CANVAS_TEXTURE_SIZE;
+  // Canvas area (Settings): the kit's square, or the whole panel with the kit centred and the space around it dimmed
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [prefs, setPrefs] = useState({ wide: false, rulers: false });
+  useEffect(() => {
+    const read = () => setPrefs({ wide: getCanvasArea() === 'wide', rulers: getCanvasRulers() });
+    read();
+    return onPrefsChange(read);
+  }, []);
+  const [area, setArea] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setArea({ w: el.clientWidth, h: el.clientHeight }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [prefs.wide]);
+  // the kit keeps its size (canvasDisplaySize, smaller only when the panel is); the stage grows around it, in texture px
+  // with rulers the kit sits in the space right of / below them (18 CSS px), with a small margin all round
+  const rul = prefs.rulers ? 18 : 0;
+  const wide = prefs.wide && !!area;
+  const boxW = wide ? area!.w : canvasDisplaySize;
+  const boxH = wide ? area!.h : canvasDisplaySize;
+  const kitSize = wide ? Math.max(100, Math.min(canvasDisplaySize, boxW - rul - 24, boxH - rul - 24)) : canvasDisplaySize - rul;
+  const scale = kitSize / CANVAS_TEXTURE_SIZE;
+  const stageW = boxW / scale;
+  const stageH = boxH / scale;
+  const offX = (stageW - CANVAS_TEXTURE_SIZE) / 2 + rul / 2 / scale;
+  const offY = (stageH - CANVAS_TEXTURE_SIZE) / 2 + rul / 2 / scale;
 
   // Solo focus transform when activePartId is not 'all'
   const targetTransform = useMemo(() => {
@@ -594,9 +621,10 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
   }, [viewState.focusPartId]);
 
   // Free navigation: wheel = zoom towards the cursor, drag on empty space / a part (or middle button) = pan
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const viewRef = useRef({ vs: viewState, tt: targetTransform });
-  viewRef.current = { vs: viewState, tt: targetTransform };
+  const viewRef = useRef({ vs: viewState, tt: targetTransform, offX, offY });
+  viewRef.current = { vs: viewState, tt: targetTransform, offX, offY };
+  const stageSizeRef = useRef({ w: stageW, h: stageH });
+  stageSizeRef.current = { w: stageW, h: stageH };
   const panRef = useRef<{ sx: number; sy: number; px: number; py: number; moved: boolean } | null>(null);
   const justPanned = useRef(false);
 
@@ -605,10 +633,12 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
     if (!el || !onViewChange) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const { vs, tt } = viewRef.current;
+      const { vs, tt, offX: ox, offY: oy } = viewRef.current;
       const rect = el.getBoundingClientRect();
-      const px = ((e.clientX - rect.left) / rect.width) * CANVAS_TEXTURE_SIZE;
-      const py = ((e.clientY - rect.top) / rect.height) * CANVAS_TEXTURE_SIZE;
+      // the pointer in stage px, measured from where the kit's square starts
+      const { w: sw, h: sh } = stageSizeRef.current;
+      const px = ((e.clientX - rect.left) / rect.width) * sw - ox;
+      const py = ((e.clientY - rect.top) / rect.height) * sh - oy;
       const zoom = Math.min(8, Math.max(0.4, vs.zoom * Math.exp(-e.deltaY * 0.0015 * zoomFactor())));
       const s1 = tt.zoom * vs.zoom;
       const s2 = tt.zoom * zoom;
@@ -720,19 +750,34 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
   return (
     <div
       ref={containerRef}
-      className="relative flex items-center justify-center w-full h-full overflow-hidden select-none canvas-checkerboard rounded-xl shadow-2xl border border-slate-800"
-      style={{
-        width: canvasDisplaySize,
-        height: canvasDisplaySize,
-        maxHeight: 'calc(100vh - 120px)',
-        maxWidth: 'calc(100vh - 120px)',
-        aspectRatio: '1/1',
-      }}
+      className={`relative flex items-center justify-center overflow-hidden select-none rounded-xl shadow-2xl border border-slate-800 ${
+        prefs.wide ? 'w-full flex-1 min-h-0 bg-[#0b0e14]' : 'w-full h-full canvas-checkerboard'
+      }`}
+      style={
+        prefs.wide
+          ? undefined
+          : {
+              width: canvasDisplaySize,
+              height: canvasDisplaySize,
+              maxHeight: 'calc(100vh - 120px)',
+              maxWidth: 'calc(100vh - 120px)',
+              aspectRatio: '1/1',
+            }
+      }
     >
+      {prefs.rulers && (
+        <CanvasRulers
+          w={stageW * scale}
+          h={stageH * scale}
+          originX={(offX + targetTransform.x + viewState.panX) * scale}
+          originY={(offY + targetTransform.y + viewState.panY) * scale}
+          pxPerUnit={scale * targetTransform.zoom * viewState.zoom}
+        />
+      )}
       <Stage
         ref={stageRef}
-        width={CANVAS_TEXTURE_SIZE}
-        height={CANVAS_TEXTURE_SIZE}
+        width={stageW}
+        height={stageH}
         style={{
           width: '100%',
           height: '100%',
@@ -741,8 +786,8 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
         }}
         scaleX={targetTransform.zoom * viewState.zoom}
         scaleY={targetTransform.zoom * viewState.zoom}
-        x={targetTransform.x + viewState.panX}
-        y={targetTransform.y + viewState.panY}
+        x={offX + targetTransform.x + viewState.panX}
+        y={offY + targetTransform.y + viewState.panY}
         onMouseDown={(e) => {
           // while drawing / erasing only the left button paints; middle or right button pans the view
           if ((drawActive || brushActive) && e.evt.button !== 0) {
@@ -1490,6 +1535,24 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
             />
           </Group>
         )}
+          </Layer>
+        )}
+        {prefs.wide && (
+          // outside the kit's square: dimmed (it is not in the texture), with a thin line along the kit's edge
+          <Layer listening={false}>
+            <Shape
+              sceneFunc={(ctx, shape) => {
+                const S = CANVAS_TEXTURE_SIZE;
+                ctx.beginPath();
+                ctx.rect(-20000, -20000, 40000 + S, 40000 + S);
+                ctx.rect(0, 0, S, S);
+                ctx.fillStyle = 'rgba(11,14,20,0.72)';
+                ctx.fill('evenodd');
+                ctx.strokeStyle = 'rgba(148,163,184,0.5)';
+                ctx.lineWidth = 1 / (shape.getStage()?.scaleX() || 1);
+                ctx.strokeRect(0, 0, S, S);
+              }}
+            />
           </Layer>
         )}
       </Stage>

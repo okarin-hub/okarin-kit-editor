@@ -261,6 +261,9 @@ vector shape: the whole shape (*silhouette*) or only its dark parts (*detail*, w
 - *Edit → Settings…* (`Ctrl+,`): the language (English, Bahasa Indonesia, Português, Español) and where a layer's settings
   open: *under the row* in the list, or in a *side panel* left of the layer list (closed with ✕ or `Esc`). Drag the side panel's left edge, bottom edge or
   bottom-left corner to resize it; the size is remembered, a double click on the edge brings back the default size.
+  *2D canvas area*: *Kit square*, or *Extended* (the canvas fills the panel; outside the kit is dimmed). *Show rulers*
+  adds rulers in texture px.
+- The bar at the bottom shows the app version, and *New version available* when the start-up check finds one.
 - *Edit → Undo / Redo* (`Ctrl+Z`, `Ctrl+Y`).
 - *Help → Check for updates* compares your version with the releases on GitHub. In the Windows app, *Download and
   install* fetches the new version, closes the app, puts the new files in place (your `library` folder is left

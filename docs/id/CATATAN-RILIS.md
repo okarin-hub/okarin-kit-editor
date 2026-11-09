@@ -2,6 +2,19 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## Belum dirilis
+
+- **Perbaikan: pola berhenti di pundak.** Dengan *Sampai pundak*, potongan lengan memanjang sampai leher, tapi polanya
+  hanya mengisi kotak lengan pendek, jadi bagian pundak tampil polos dengan warna lengan dan menutupi pola baju.
+  Sekarang pola mengisi seluruh potongan (pundak, area lengan panjang, dan beberapa px celana, kaus kaki, dan kerah yang
+  tadinya terlewat), di posisi yang sama seperti sebelumnya.
+- **Versi di bar status.** Bar tipis di bawah menampilkan versi aplikasi. Saat dibuka, aplikasi mengecek sekali apakah
+  ada rilis baru (sesuai jalur yang dipilih di *Cek pembaruan*); kalau ada, *Versi baru tersedia* muncul di samping
+  versi dan membuka dialog pembaruan.
+- **Area kanvas 2D** (*Edit → Pengaturan*): *Kotak kit* seperti biasa, atau *Diperluas*: kanvas mengisi seluruh panel
+  dengan kit di tengah, dan area di luar kit tampil redup tapi tetap terlihat. *Tampilkan penggaris* menambah penggaris
+  dalam px tekstur di atas dan kiri (0 dan 1024, tepi kit, berwarna merah).
+
 ## 0.6.7 — Menu lebih rapi, Import PNG dirombak, alat gradasi, log aktivitas
 
 - **Log aktivitas.** Aplikasi mencatat langkah yang kamu lakukan (tombol, menu, tab, pengaturan, shortcut, pesan, dan

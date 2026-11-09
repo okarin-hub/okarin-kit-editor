@@ -6,7 +6,7 @@ import { APP_VERSION, PROJECT_URL, UpdateResult, checkForUpdate } from '@/lib/up
 import { LANGUAGES, Lang } from '@/i18n/engine';
 import { useI18n } from '@/i18n/I18nProvider';
 import { InfoTip } from '@/components/ui/InfoTip';
-import { getUpdateExperimental, setUpdateExperimental } from '@/utils/uiPrefs';
+import { CanvasArea, getCanvasArea, getCanvasRulers, getUpdateExperimental, setCanvasArea, setCanvasRulers, setUpdateExperimental } from '@/utils/uiPrefs';
 import { LayerEditorMode, useLayerEditorMode } from '@/hooks/useLayerEditorMode';
 
 export type HelpKind = 'docs' | 'shortcuts' | 'update' | 'credits' | 'about' | 'settings';
@@ -150,9 +150,20 @@ const LAYER_EDITOR: { id: LayerEditorMode; label: string; hint: string }[] = [
   { id: 'side', label: 'Panel samping', hint: 'Pengaturan layer muncul di panel di kiri daftar layer, jadi daftarnya tidak memanjang.' },
 ];
 
+const CANVAS_AREA: { id: CanvasArea; label: string; hint: string }[] = [
+  { id: 'kit', label: 'Kotak kit', hint: 'Kanvas 2D sebesar kotak tekstur kit.' },
+  { id: 'wide', label: 'Diperluas', hint: 'Kanvas mengisi seluruh panel. Area di luar kit tampil redup, jadi objek yang keluar tepi tetap terlihat.' },
+];
+
 const SettingsBody: React.FC = () => {
   const { lang, setLang } = useI18n();
   const [mode, setMode] = useLayerEditorMode();
+  const [area, setArea] = useState<CanvasArea>('kit');
+  const [rulers, setRulers] = useState(false);
+  useEffect(() => {
+    setArea(getCanvasArea());
+    setRulers(getCanvasRulers());
+  }, []);
   return (
     <>
       <section className="space-y-1.5">
@@ -175,6 +186,38 @@ const SettingsBody: React.FC = () => {
             </button>
           ))}
         </div>
+      </section>
+      <section className="space-y-1.5 pt-2">
+        <h3 className="font-semibold text-slate-100">Area kanvas 2D</h3>
+        <div className="grid grid-cols-2 gap-1.5">
+          {CANVAS_AREA.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              aria-pressed={area === o.id}
+              onClick={() => {
+                setArea(o.id);
+                setCanvasArea(o.id);
+              }}
+              className={OPTION(area === o.id)}
+            >
+              <span className="block font-semibold">{o.label}</span>
+              <span className="block mt-0.5 text-[11px] leading-snug text-slate-400">{o.hint}</span>
+            </button>
+          ))}
+        </div>
+        <label className="flex items-center gap-2 pt-1 text-slate-300 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={rulers}
+            onChange={(e) => {
+              setRulers(e.target.checked);
+              setCanvasRulers(e.target.checked);
+            }}
+            className="accent-sky-500"
+          />
+          Tampilkan penggaris (px tekstur)
+        </label>
       </section>
     </>
   );

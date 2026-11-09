@@ -112,3 +112,43 @@ export function onPrefsChange(fn: () => void): () => void {
   window.addEventListener(EVENT, fn);
   return () => window.removeEventListener(EVENT, fn);
 }
+
+/** 2D canvas area: the kit's square only, or the whole panel with the space around the kit (dimmed). */
+export type CanvasArea = 'kit' | 'wide';
+const AREA_KEY = 'kit-canvas-area';
+const RULERS_KEY = 'kit-canvas-rulers';
+
+export function getCanvasArea(): CanvasArea {
+  try {
+    return localStorage.getItem(AREA_KEY) === 'wide' ? 'wide' : 'kit';
+  } catch {
+    return 'kit';
+  }
+}
+
+export function setCanvasArea(v: CanvasArea): void {
+  try {
+    localStorage.setItem(AREA_KEY, v);
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(new Event(EVENT));
+}
+
+/** Rulers along the top and left of the 2D canvas, in texture px. */
+export function getCanvasRulers(): boolean {
+  try {
+    return localStorage.getItem(RULERS_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setCanvasRulers(on: boolean): void {
+  try {
+    localStorage.setItem(RULERS_KEY, on ? '1' : '0');
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(new Event(EVENT));
+}

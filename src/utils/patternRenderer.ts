@@ -146,7 +146,8 @@ function startAt(origin: number, offset: number, period: number, min: number): n
 function drawPatternBody(
   ctx: CanvasRenderingContext2D,
   b: KitRect,
-  config: PatternSettings
+  config: PatternSettings,
+  area?: KitRect
 ): void {
   const { pattern, patternColor, patternOpacity, patternScale } = config;
   if (!pattern || pattern === 'none') return;
@@ -158,13 +159,19 @@ function drawPatternBody(
   const right = b.x + b.width;
   const bottom = b.y + b.height;
 
+  // The pattern keeps `b` as its anchor but covers `area` (a piece reaching past its box, like the sleeve's shoulder
+  // yoke), as a rect centred on `b` so mirroring and symmetry around the centre still cover it.
+  const bcx = b.x + b.width / 2;
+  const bcy = b.y + b.height / 2;
+  const hw = area ? Math.max(b.width / 2, bcx - area.x, area.x + area.width - bcx) : b.width / 2;
+  const hh = area ? Math.max(b.height / 2, bcy - area.y, area.y + area.height - bcy) : b.height / 2;
   // A rotated pattern must cover the corners of the part too: draw over the circle around the part
   const rotation = config.patternRotation ?? 0;
-  const half = rotation % 360 === 0 ? 0 : Math.hypot(b.width, b.height) / 2;
-  const ex = half ? b.x + b.width / 2 - half : b.x;
-  const ey = half ? b.y + b.height / 2 - half : b.y;
-  const ew = half ? half * 2 : b.width;
-  const eh = half ? half * 2 : b.height;
+  const half = rotation % 360 === 0 ? 0 : Math.hypot(hw, hh);
+  const ex = bcx - (half || hw);
+  const ey = bcy - (half || hh);
+  const ew = (half || hw) * 2;
+  const eh = (half || hh) * 2;
   const eRight = ex + ew;
   const eBottom = ey + eh;
 
@@ -363,14 +370,15 @@ function drawPatternBody(
 export function drawPartPattern(
   ctx: CanvasRenderingContext2D,
   b: KitRect,
-  config: PatternSettings
+  config: PatternSettings,
+  area?: KitRect
 ): void {
   if (!config.pattern || config.pattern === 'none') return;
 
   const symX = !!config.patternSymmetryX;
   const symY = !!config.patternSymmetryY;
   if (!symX && !symY) {
-    drawPatternBody(ctx, b, config);
+    drawPatternBody(ctx, b, config, area);
     return;
   }
 
@@ -399,7 +407,7 @@ export function drawPartPattern(
       ctx.beginPath();
       ctx.rect(x0, y0, x1 - x0, y1 - y0);
       ctx.clip();
-      drawPatternBody(ctx, b, config);
+      drawPatternBody(ctx, b, config, area);
       ctx.restore();
     }
   }
@@ -444,6 +452,20 @@ export function patternsUnderLayers(layers: PatternLayer[] | undefined, zoneIds:
   return (layers ?? []).filter((l) => !l.above || !ids.has(l.above));
 }
 
+const boxCache = new WeakMap<KitPartDefinition, KitRect>();
+/** The box around the part's whole shape (its outline can reach past `bounds`: the sleeve's yoke, the collar). */
+function outlineBox(part: KitPartDefinition): KitRect | undefined {
+  if (!part.outline) return undefined;
+  let r = boxCache.get(part);
+  if (!r) {
+    const pts = part.outline.flat();
+    const x = Math.min(...pts.map((q) => q[0])), y = Math.min(...pts.map((q) => q[1]));
+    r = { x, y, width: Math.max(...pts.map((q) => q[0])) - x, height: Math.max(...pts.map((q) => q[1])) - y };
+    boxCache.set(part, r);
+  }
+  return r;
+}
+
 /** Draws every visible pattern layer of a part (the caller clips to the part's shape). */
 export function drawPatternLayersForPart(
   ctx: CanvasRenderingContext2D,
@@ -459,7 +481,7 @@ export function drawPatternLayersForPart(
       ctx.rotate(Math.PI);
       ctx.translate(-cx, -cy);
     }
-    drawPartPattern(ctx, part.bounds, layer);
+    drawPartPattern(ctx, part.bounds, layer, outlineBox(part));
     ctx.restore();
   });
 }
