@@ -2,6 +2,59 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## Belum dirilis
+
+- **Log aktivitas.** Aplikasi mencatat langkah yang kamu lakukan (tombol, menu, tab, pengaturan, shortcut, pesan, dan
+  error) ke `library/logs/aktivitas-YYYY-MM-DD.log`, jadi masalah bisa dilacak langkah demi langkah. Hanya label dan
+  nilai pengaturan, tanpa gambar; file yang lebih dari 14 hari dihapus.
+- **Import PNG lebih rapi dan jelas.**
+  - Dialog *pisah per warna* sekarang lebar: pratinjau besar di kiri, pengaturan dan daftar warna di kanan. Nama
+    template ada di samping tombol.
+  - Pengaturan dasar (toleransi, bersihkan noise, detail kain) selalu tampil; *Lanjutan* berisi gradasi halus, pisah
+    bagian, dan versi warna lain, plus jumlah yang aktif.
+  - Tiap warna menampilkan bagian tujuannya (Baju, Celana, Kaos kaki, Detail) dan mana yang jadi Base. Tombol
+    *Bagian* di pratinjau mewarnai gambar per bagian, jadi kelihatan sebelum disimpan ke mana tiap warna masuk.
+  - Tombol *Semua* / *Kosongkan* untuk daftar warna.
+  - Setelah disimpan muncul laporan singkat: layer dan bagiannya, sama seperti *Banyak PNG*.
+  - Analisis warna jalan di belakang, jadi slider toleransi tidak tersendat lagi di gambar besar.
+  - Impor yang gagal di tengah tidak lagi meninggalkan folder kosong di `library/templates`.
+  - **Motif bisa diganti warnanya** (di bawah *Simpan detail kain*): motif samar yang sedikit lebih gelap atau terang
+    dari warna dasar (loreng, pola timbul) jadi layer *Motif gelap* / *Motif terang* per bagian, masing-masing dengan
+    slot warna sendiri, bukan lagi detail hitam/putih yang tetap.
+  - Membuka Import PNG lagi setelah impor langsung mulai impor baru, tidak menampilkan laporan lama.
+  - **Perbaikan: warna yang tidak dicentang masih terbawa.** Dengan *Simpan detail kain* aktif, warna yang tidak
+    dicentang (logo putih, watermark) memang tidak jadi layer warna, tapi muncul lagi sebagai bayangan putih atau
+    hitam di layer detail kain. Sekarang warna yang tidak dicentang, termasuk tepi halusnya, juga dilewati di layer
+    detail dan motif.
+
+- **Menu lebih rapi.** Yang fungsinya sama sekarang jadi satu:
+  - **Model kit** jadi satu tombol di toolbar yang membuka baris tipis di bawahnya (bentuk lengan, kerah, model
+    lengan, baju ketat, celana). Baris ini tidak menutupi 3D dan tetap terbuka saat model diputar. Bentuk lengan pindah ke sini dari tab Template.
+  - **Import** jadi satu daftar (desain kit jadi, template PSD, PNG jadi layer), sama di menu File dan tab Template.
+  - **Kitserver** tidak lagi eksperimental: jadi satu dialog dengan dua tab: config.txt dan font nomor/nama (Alat > Kitserver).
+  - **Nama/nomor di tekstur** sekarang hanya diatur di Export, dan diingat bersama kit.
+  - Slider di tab font jadi selebar kolom, nilainya di kanan.
+- **Font PES dari library di generator font.** *Ambil font PES dari library* memuat lagi font yang pernah kamu simpan
+  sebagai gambar font, jadi bisa diubah lalu disimpan ulang.
+- **Shift ala Photoshop.** Tahan Shift saat menyeret layer, logo, atau titik supaya geraknya lurus di satu sumbu. Saat
+  memutar, putaran mengunci per 15°. Saat mengubah ukuran object, proporsinya tetap. Saat menggambar (titik atau
+  gradasi), garisnya mengunci per 45°. **Ctrl+J** menggandakan layer yang dipilih.
+- **Sudut runcing juga bisa dipilih.** Kotak 4 sudut sekarang juga ada di *Runcing*: sudut yang dimatikan tetap kotak.
+- **Export sekaligus satu folder kit.** Untuk tekstur game, Export bisa sekalian menyimpan `config.txt` dan font
+  nomor/nama (dari Generate Font) ke folder yang sama, dan nama file-nya langsung ditulis ke config.
+- **Nama file selalu sinkron.** Ganti awalan nama file di Generate Font (atau KitFile kalau awalannya kosong), nama
+  font di config kitserver langsung ikut. Font yang di-uncheck dikosongkan di config, jadi game memakai font bawaannya.
+  Nama file di Export juga otomatis diisi dari KitFile.
+
+- **Pilih sudut yang tumpul.** Di *Bentuk sisi* > *Tumpul* sekarang ada kotak 4 sudut: klik sudut mana saja yang
+  dibulatkan, sisanya tetap lancip. Berlaku untuk object kotak dan bentuk gambar sendiri.
+- **Alat gradasi (G).** Pilih di toolbar lalu seret di canvas 2D dari titik warna awal ke arah pudarnya. Hasilnya
+  jadi object yang diatur seperti object lain: tirus ujungnya, ulangi, geser, putar, dan ratakan. Object apa pun juga
+  bisa diberi *Isi gradasi*: warna akhir atau pudar ke transparan, lurus atau melingkar, arah, dan balik arah.
+- **Logo vektor satu warna.** Dengan *Warna* atau *Gradasi* di tab Logo, logo bisa digambar ulang sebagai bentuk
+  vektor yang tajam: siluet, atau detail (hanya bagian gelap atau terangnya, dengan batas terang), seperti opsi logo di
+  generator fontset. Latar polos JPG ikut dibuang.
+
 ## 0.6.6 — Patch stabil: cari dan daftar di pustaka pola, tombol rata, ikuti bentuk bahu
 
 - **Cari dan tampilan daftar di pustaka pola.** Cari berdasarkan nama atau folder, dan ganti antara grid dan daftar

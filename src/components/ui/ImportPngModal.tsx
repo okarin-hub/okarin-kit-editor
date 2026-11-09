@@ -1,35 +1,36 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { X, ImagePlus, Loader2, AlertTriangle, Check, Layers, Palette } from 'lucide-react';
+import { X, ImagePlus, Loader2, AlertTriangle, Check, Layers, Palette, ChevronRight } from 'lucide-react';
 import { InfoTip } from '@/components/ui/InfoTip';
 import { KitTemplate } from '@/types/kit';
 import {
-  analyzeColors,
   clusterPartShares,
   ColorAnalysis,
   clusterHex,
-  median3,
   blendColours,
   groupMainColours,
+  clusterGroups,
+  groupMap,
   PngPsdRequest,
-  analyzeColorways,
   ColourVector,
   convertPngFile,
   imageToData,
   type ImageFit,
 } from '@/utils/pngImport';
-import { ConvertedZone } from '@/utils/psdImport';
+import { ConvertedZone, LAYER_GROUPS } from '@/utils/psdImport';
 import type { PngPsdReply } from '@/workers/pngPsd.worker';
+import type { PngAnalyzeReply, PngAnalyzeRequest } from '@/workers/pngAnalyze.worker';
 import { saveConvertedTemplate } from '@/utils/templateSave';
+import { logActivity } from '@/utils/activityLog';
 import { PES_2021_PARTS } from '@/constants/pes2021Parts';
 
 interface ImportPngModalProps {
   isOpen: boolean;
   onClose: () => void;
   onImported: (template: KitTemplate) => void;
-  /** The colour split is saved as a layered PSD and handed to "Tambah PSD" (read from library/templates). */
-  onAddPsd: (file: File) => Promise<void> | void;
+  /** The colour split is saved as a layered PSD and handed to "Tambah PSD" (read from library/templates); false = failed. */
+  onAddPsd: (file: File) => Promise<boolean>;
   /** a picture to start the colour split with (e.g. the pattern made from a jersey photo) */
   initialFile?: File | null;
 }
@@ -37,8 +38,23 @@ interface ImportPngModalProps {
 type Tab = 'files' | 'colors';
 const MAX_ZONES = 80;
 const SIZE = 1024;
+// part group colours of the "Bagian" preview, in LAYER_GROUPS order (shirt, shorts, socks, details)
+const GROUP_RGB: [number, number, number][] = [
+  [56, 189, 248],
+  [251, 191, 36],
+  [52, 211, 153],
+  [244, 114, 182],
+];
 
 const partName = (id: string) => PES_2021_PARTS.find((p) => p.id === id)?.name ?? id;
+// each item its own text node, so every part name is translated by itself
+const joined = (items: string[], sep: string) =>
+  items.map((x, i) => (
+    <React.Fragment key={x}>
+      {i > 0 && sep}
+      {x}
+    </React.Fragment>
+  ));
 
 interface FileItem {
   key: string;
@@ -58,6 +74,16 @@ interface ClusterItem {
   merge?: number;
 }
 
+const check = 'flex items-start gap-1.5 text-[11px] text-slate-300 cursor-pointer';
+const smallBtn = 'text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800 disabled:opacity-40';
+const fitSelect = (fit: ImageFit, onChange: (f: ImageFit) => void, className: string) => (
+  <select value={fit} onChange={(e) => onChange(e.target.value as ImageFit)} className={className} title="Gambar tidak persegi: cara memasukkannya ke tekstur 1024 × 1024">
+    <option value="stretch">Regangkan</option>
+    <option value="fit">Pas (sisa kosong)</option>
+    <option value="crop">Potong ke persegi</option>
+  </select>
+);
+
 export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose, onImported, onAddPsd, initialFile }) => {
   const [tab, setTab] = useState<Tab>('colors');
   const [templateName, setTemplateName] = useState('');
@@ -65,6 +91,8 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<{ name: string; parts: string[] }[] | null>(null);
+  // the colour split is saved as a PSD that the app reads next; the report says so instead of "selected"
+  const [reportPsd, setReportPsd] = useState(false);
 
   // files tab
   const [files, setFiles] = useState<FileItem[]>([]);
@@ -82,6 +110,7 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
   const [splitPieces, setSplitPieces] = useState(false);
   const [minArea, setMinArea] = useState(300);
   const [analysis, setAnalysis] = useState<(ColorAnalysis & { vectors: ColourVector[] }) | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
   const [clusters, setClusters] = useState<ClusterItem[]>([]);
   const previewRef = useRef<HTMLCanvasElement | null>(null);
   // the same template in other colours (up to 2): areas are told apart by how they change between versions
@@ -93,11 +122,17 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
   const [denoise, setDenoise] = useState(false);
   // the picture's mesh lines and shading as two layers over the colours, so they stay after a colour change
   const [fabricDetail, setFabricDetail] = useState(true);
+  // ...as colour layers (a tonal motif that can be recoloured) instead of fixed black / white shading
+  const [motif, setMotif] = useState(false);
   // the colour picked in the preview (or in the list): shown bright, the rest dimmed
   const [highlight, setHighlight] = useState<number | null>(null);
-  const [bigPreview, setBigPreview] = useState(false);
+  // the preview shows the colours, or which part group each chosen colour lands on
+  const [view, setView] = useState<'colors' | 'parts'>('colors');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const rowRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const worker = useRef<Worker | null>(null);
+  const analyzer = useRef<Worker | null>(null);
+  const analyzeId = useRef(0);
 
   // colour -> the colour it was merged into (one step: a colour that others joined cannot be merged itself)
   const alias = useMemo(() => {
@@ -108,75 +143,105 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
     return a;
   }, [analysis, clusters]);
 
-  useEffect(() => () => worker.current?.terminate(), []);
+  // the part groups each colour is cut into (merged colours count for the colour they joined)
+  const groups = useMemo(
+    () => (analysis && alias.length === analysis.clusters.length ? clusterGroups(analysis.labels, analysis.clusters.length, alias) : []),
+    [analysis, alias]
+  );
+  const chosen = clusters.filter((c) => c.on && c.merge === undefined);
+  // the largest chosen colour becomes the Base of every group (see buildPngPsd)
+  const baseId = useMemo(() => {
+    if (!analysis) return -1;
+    const counts = new Array(analysis.clusters.length).fill(0);
+    analysis.clusters.forEach((c) => (counts[alias[c.id]] += c.count));
+    return chosen.reduce((best, c) => (best < 0 || counts[c.id] > counts[best] ? c.id : best), -1);
+  }, [analysis, alias, chosen]);
+  const allGroups = LAYER_GROUPS.map(([g]) => g);
+  const groupsOf = (id: number) => (gradient || id === baseId ? allGroups : groups[id] ?? []);
 
-  // re-analyse when the tolerance, the cleaning or the set of pictures changes
+  useEffect(
+    () => () => {
+      worker.current?.terminate();
+      analyzer.current?.terminate();
+    },
+    []
+  );
+
+  // re-analyse (in a worker) when the tolerance, the cleaning or the set of pictures changes
   useEffect(() => {
     if (!imageData) return;
     const timer = setTimeout(() => {
-      const clean = (d: ImageData) => (denoise ? median3(d) : d);
-      const main = clean(imageData);
-      const a = extras.length
-        ? analyzeColorways([main, ...extras.map((e) => clean(e.data))], tolerance)
-        : (() => {
-            const one = analyzeColors(main, tolerance);
-            return { ...one, vectors: one.clusters.map((c) => [...c.color]) };
-          })();
-      setHighlight(null);
-      setAnalysis(a);
-      const opaque = a.clusters.reduce((n, c) => n + c.count, 0) || 1;
-      const onParts = clusterPartShares(a.labels, a.clusters.length);
-      // template sites put their watermark / credit boxes in the armband and credit areas
-      const onBadges = clusterPartShares(a.labels, a.clusters.length, ['armband', 'credit']);
-      setClusters(
-        a.clusters.map((c, i) => ({
-          id: c.id,
-          // the default name is shown as a placeholder, so it follows the interface language; name = typed by the user
-          name: '',
-          auto: `Warna ${i + 1}`,
-          // the empty background (almost no pixels on a kit part) and tiny noise colours start off
-          on: onParts[i] >= 0.3 && c.count / opaque >= 0.003 && onBadges[i] < 0.8 * onParts[i],
-        }))
-      );
+      const id = ++analyzeId.current;
+      if (!analyzer.current) analyzer.current = new Worker(new URL('../../workers/pngAnalyze.worker.ts', import.meta.url));
+      const w = analyzer.current;
+      setAnalyzing(true);
+      w.onmessage = (e: MessageEvent<PngAnalyzeReply>) => {
+        const r = e.data;
+        // an older run finishing late is dropped
+        if (r.id !== analyzeId.current) return;
+        setAnalyzing(false);
+        if (r.type === 'error') return setError(r.error);
+        const a = r.analysis;
+        setHighlight(null);
+        setAnalysis(a);
+        const opaque = a.clusters.reduce((n, c) => n + c.count, 0) || 1;
+        const onParts = clusterPartShares(a.labels, a.clusters.length);
+        // template sites put their watermark / credit boxes in the armband and credit areas
+        const onBadges = clusterPartShares(a.labels, a.clusters.length, ['armband', 'credit']);
+        setClusters(
+          a.clusters.map((c, i) => ({
+            id: c.id,
+            // the default name is shown as a placeholder, so it follows the interface language; name = typed by the user
+            name: '',
+            auto: `Warna ${i + 1}`,
+            // the empty background (almost no pixels on a kit part) and tiny noise colours start off
+            on: onParts[i] >= 0.3 && c.count / opaque >= 0.003 && onBadges[i] < 0.8 * onParts[i],
+          }))
+        );
+      };
+      w.onerror = (e) => {
+        setAnalyzing(false);
+        setError(e.message || 'Analisis warna gagal.');
+      };
+      w.postMessage({ id, datas: [imageData, ...extras.map((x) => x.data)], tolerance, denoise } satisfies PngAnalyzeRequest);
     }, 150);
     return () => clearTimeout(timer);
   }, [imageData, tolerance, extras, denoise]);
 
-  // preview of the selected clusters (merged colours drawn as the colour they joined)
+  // preview of the selected clusters (merged colours drawn as the colour they joined), or of their part groups
   useEffect(() => {
     const cv = previewRef.current;
     if (!cv || !analysis) return;
-    const S = 512;
-    cv.width = S;
-    cv.height = S;
+    cv.width = SIZE;
+    cv.height = SIZE;
     const ctx = cv.getContext('2d');
     if (!ctx) return;
-    const out = ctx.createImageData(S, S);
-    const on = new Set(clusters.filter((c) => c.on && c.merge === undefined).map((c) => c.id));
+    const out = ctx.createImageData(SIZE, SIZE);
+    const on = new Set(chosen.map((c) => c.id));
+    const gm = view === 'parts' ? groupMap() : null;
     // a picked colour that was merged shows as the colour it joined
     const hl = highlight === null || highlight >= alias.length ? null : alias[highlight];
-    const step = SIZE / S;
-    for (let y = 0; y < S; y++) {
-      for (let x = 0; x < S; x++) {
-        const raw = analysis.labels[Math.floor(y * step) * SIZE + Math.floor(x * step)];
-        const lab = raw === 65535 ? raw : alias[raw];
-        const o = (y * S + x) * 4;
-        out.data[o + 3] = 255;
-        if (lab === 65535) {
-          out.data[o] = out.data[o + 1] = out.data[o + 2] = 22;
-        } else if (on.has(lab)) {
-          const c = analysis.clusters[lab].color;
-          // with a colour picked, the others are dimmed so its area stands out
-          const k = hl === null || hl === lab ? 1 : 0.25;
-          out.data[o] = c[0] * k; out.data[o + 1] = c[1] * k; out.data[o + 2] = c[2] * k;
-        } else {
-          out.data[o] = out.data[o + 1] = out.data[o + 2] = hl === lab ? 140 : 50;
-        }
+    for (let p = 0; p < SIZE * SIZE; p++) {
+      const raw = analysis.labels[p];
+      const lab = raw === 65535 ? raw : alias[raw];
+      const o = p * 4;
+      out.data[o + 3] = 255;
+      if (lab === 65535) {
+        out.data[o] = out.data[o + 1] = out.data[o + 2] = 22;
+      } else if (on.has(lab)) {
+        const c = analysis.clusters[lab].color;
+        // with a colour picked, the others are dimmed so its area stands out
+        const k = hl === null || hl === lab ? 1 : 0.25;
+        // parts view: half the colour, half its group's tint (no part = grey: that piece is left out)
+        const g = gm ? (gm[p] ? GROUP_RGB[gm[p] - 1] : [90, 90, 90]) : null;
+        for (let ch = 0; ch < 3; ch++) out.data[o + ch] = (g ? c[ch] * 0.35 + g[ch] * 0.65 : c[ch]) * k;
+      } else {
+        out.data[o] = out.data[o + 1] = out.data[o + 2] = hl === lab ? 140 : 50;
       }
     }
     ctx.putImageData(out, 0, 0);
-    // bigPreview: the canvas is a new element after resizing, draw it again
-  }, [analysis, clusters, alias, highlight, bigPreview]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [analysis, clusters, alias, highlight, view]);
 
   /** A click on the preview picks the colour under it and scrolls its row into view. */
   const pickFromPreview = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -190,6 +255,21 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
     setHighlight((h) => (h === lab ? null : lab));
     rowRefs.current.get(lab)?.scrollIntoView({ block: 'nearest' });
   };
+
+  // opened again after an import: start a new one instead of showing the old report
+  useEffect(() => {
+    if (!isOpen || !report) return;
+    setReport(null);
+    setReportPsd(false);
+    setProgress(null);
+    setImageData(null);
+    setAnalysis(null);
+    setClusters([]);
+    setColorFile(null);
+    setExtras([]);
+    setFiles([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen || !initialFile) return;
@@ -205,6 +285,7 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
   const reset = () => {
     setError(null);
     setReport(null);
+    setReportPsd(false);
     setProgress(null);
   };
 
@@ -228,19 +309,26 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
     if (filesRef.current) filesRef.current.value = '';
   };
 
-  const loadColorFile = async (file: File | undefined) => {
-    if (!file) return;
-    reset();
-    setBusy('Membaca gambar...');
+  const readImage = async (file: File) => {
+    const url = URL.createObjectURL(file);
     try {
-      const url = URL.createObjectURL(file);
-      const img = await new Promise<HTMLImageElement>((res, rej) => {
+      return await new Promise<HTMLImageElement>((res, rej) => {
         const i = new Image();
         i.onload = () => res(i);
         i.onerror = () => rej(new Error('Tidak bisa membuka gambar.'));
         i.src = url;
       });
+    } finally {
       URL.revokeObjectURL(url);
+    }
+  };
+
+  const loadColorFile = async (file: File | undefined) => {
+    if (!file) return;
+    reset();
+    setBusy('Membaca gambar...');
+    try {
+      const img = await readImage(file);
       colorImg.current = img;
       const { data } = imageToData(img, fit);
       setColorFile({ name: file.name, width: img.naturalWidth, height: img.naturalHeight });
@@ -256,16 +344,32 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
     }
   };
 
+  const changeFit = (next: ImageFit) => {
+    setFit(next);
+    if (colorImg.current) setImageData(imageToData(colorImg.current, next).data);
+    setExtras((prev) => prev.map((x) => ({ ...x, data: imageToData(x.img, next).data })));
+  };
+
+  const clearImage = () => {
+    reset();
+    setImageData(null);
+    setAnalysis(null);
+    setClusters([]);
+    setColorFile(null);
+    setExtras([]);
+  };
+
   const runFiles = async () => {
-    const chosen = files.filter((f) => f.on);
-    if (!chosen.length) return setError('Pilih minimal satu file.');
+    const picked = files.filter((f) => f.on);
+    if (!picked.length) return setError('Pilih minimal satu file.');
     const items: ConvertedZone[] = [];
     const rep: { name: string; parts: string[] }[] = [];
+    setError(null);
     setBusy('Mengonversi...');
-    setProgress({ done: 0, total: chosen.length * 2 });
+    setProgress({ done: 0, total: picked.length * 2 });
     try {
       let idx = 0;
-      for (const f of chosen) {
+      for (const f of picked) {
         await new Promise((r) => setTimeout(r, 0));
         const out = await convertPngFile({ name: f.name, file: f.file }, idx, fileMode, fit);
         if (out) {
@@ -277,7 +381,13 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
         }
         setProgress((p) => (p ? { ...p, done: p.done + 1 } : p));
       }
-      await save(items, rep, `Diimpor dari ${chosen.length} file PNG.`);
+      if (!items.length) throw new Error('Semua hasil kosong, tidak ada yang bisa disimpan.');
+      setBusy('Menyimpan...');
+      const tpl = await saveConvertedTemplate(templateName.trim() || 'Template PNG', `Diimpor dari ${picked.length} file PNG.`, items, (done, total) =>
+        setProgress({ done: Math.ceil(total) + done, total: total * 2 })
+      );
+      setReport(rep);
+      onImported(tpl);
     } catch (e: any) {
       setError(e?.message || 'Konversi gagal.');
     } finally {
@@ -288,14 +398,7 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
   const addExtra = async (file: File | undefined) => {
     if (!file) return;
     try {
-      const url = URL.createObjectURL(file);
-      const img = await new Promise<HTMLImageElement>((res, rej) => {
-        const i = new Image();
-        i.onload = () => res(i);
-        i.onerror = () => rej(new Error('Tidak bisa membuka gambar.'));
-        i.src = url;
-      });
-      URL.revokeObjectURL(url);
+      const img = await readImage(file);
       setExtras((prev) => [...prev, { name: file.name, img, data: imageToData(img, fit).data }].slice(0, 2));
     } catch (e: any) {
       setError(e?.message || 'Gagal membaca gambar.');
@@ -305,11 +408,18 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
   const runColors = async () => {
     if (!analysis) return;
     // merged colours become part of the colour they joined
-    const chosen = clusters.filter((c) => c.on && c.merge === undefined);
     if (!chosen.length) return setError('Pilih minimal satu warna.');
     if (!colorImg.current) return setError('Gambar belum dibaca.');
+    setError(null);
     setBusy('Mengonversi...');
     setProgress({ done: 0, total: chosen.length + 1 });
+    logActivity(
+      'png',
+      `konversi "${colorFile?.name}" toleransi ${tolerance}, noise ${denoise}, detail ${fabricDetail}, motif ${fabricDetail && motif}, gradasi ${gradient}, pisah ${splitPieces}, versi lain ${extras.length}; ` +
+        `dipakai: ${chosen.map((c) => `${c.name.trim() || c.auto} ${clusterHex(analysis.clusters[c.id].color)}`).join(', ')}; ` +
+        `tidak: ${clusters.filter((c) => !c.on && c.merge === undefined).map((c) => clusterHex(analysis.clusters[c.id].color)).join(', ') || '-'}; ` +
+        `digabung: ${clusters.filter((c) => c.merge !== undefined).length}`
+    );
     try {
       const images = await Promise.all([colorImg.current, ...extras.map((e) => e.img)].map((img) => createImageBitmap(img)));
       const request: PngPsdRequest = {
@@ -324,6 +434,7 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
         alias,
         gradient,
         detail: fabricDetail,
+        motif: fabricDetail && motif,
         splitPieces,
         minArea,
         maxZones: MAX_ZONES,
@@ -345,57 +456,76 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
       w.terminate();
       worker.current = null;
       setBusy('Menyimpan PSD...');
-      await onAddPsd(new File([buf], `${(templateName.trim() || 'Template PNG').replace(/[\\/:*?"<>|]+/g, '_')}.psd`));
-      onClose();
+      const ok = await onAddPsd(new File([buf], `${(templateName.trim() || 'Template PNG').replace(/[\\/:*?"<>|]+/g, '_')}.psd`));
+      if (!ok) throw new Error('PSD gagal disimpan ke library/templates.');
+      // the report lists the layers the PSD holds, base first, each with its part groups
+      const sorted = [...chosen].sort((a, b) => (a.id === baseId ? -1 : b.id === baseId ? 1 : 0));
+      setReport(sorted.map((c) => ({ name: c.id === baseId ? 'Base' : c.name.trim() || c.auto, parts: groupsOf(c.id) })));
+      setReportPsd(true);
+      logActivity('png', `PSD tersimpan: ${templateName.trim() || 'Template PNG'}`);
     } catch (e: any) {
+      logActivity('error', `Import PNG: ${e?.message || e}`);
       setError(e?.message || 'Konversi gagal.');
     } finally {
       setBusy(null);
     }
   };
 
-  const save = async (items: ConvertedZone[], rep: { name: string; parts: string[] }[], description: string) => {
-    if (!items.length) throw new Error('Semua hasil kosong, tidak ada yang bisa disimpan.');
-    setBusy('Menyimpan...');
-    const tpl = await saveConvertedTemplate(templateName.trim() || 'Template PNG', description, items, (done, total) =>
-      setProgress({ done: Math.ceil(total) + done, total: total * 2 })
-    );
-    setReport(rep);
-    onImported(tpl);
-  };
+  const wide = tab === 'colors' && !!imageData && !report;
+  const advancedCount = [gradient, splitPieces, extras.length > 0].filter(Boolean).length;
+  const setAllOn = (on: boolean) => setClusters((prev) => prev.map((x) => (x.merge === undefined ? { ...x, on } : x)));
+  const canRun = busy === null && !analyzing && (tab === 'colors' ? !!analysis && chosen.length > 0 : files.some((f) => f.on));
+
+  const dropZone = (multiple: boolean) => (
+    <div
+      onClick={() => (multiple ? filesRef : colorRef).current?.click()}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        e.preventDefault();
+        if (multiple) addFiles(e.dataTransfer.files);
+        else loadColorFile(e.dataTransfer.files?.[0]);
+      }}
+      className="cursor-pointer rounded-xl border-2 border-dashed border-slate-700 hover:border-slate-500 bg-slate-900/40 p-7 text-center"
+    >
+      <ImagePlus className="w-6 h-6 mx-auto mb-2 text-sky-400" />
+      <div className="text-xs font-semibold text-slate-200">{multiple ? 'Klik atau seret banyak file PNG' : 'Klik atau seret satu gambar PNG'}</div>
+      <div className="text-[10px] text-slate-500 mt-1 leading-snug">
+        {multiple
+          ? 'Satu file = satu layer, berukuran sama dengan template (persegi). Latar transparan dipakai sebagai bentuk; gambar tanpa transparansi memakai perbedaan dari warna latar.'
+          : 'Peta warna (tiap bagian beda warna) atau desain jadi, sebaiknya persegi seperti template PES (2048 × 2048).'}
+      </div>
+      {multiple ? (
+        <input ref={filesRef} type="file" multiple accept="image/png,image/webp,image/jpeg" className="hidden" onChange={(e) => addFiles(e.target.files)} />
+      ) : (
+        <input ref={colorRef} type="file" accept="image/png,image/webp,image/jpeg" className="hidden" onChange={(e) => loadColorFile(e.target.files?.[0])} />
+      )}
+    </div>
+  );
 
   return (
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none">
-      <div className="bg-[#121622] border border-slate-800 rounded-2xl w-full max-w-xl max-h-[90vh] shadow-2xl overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-[#0f131c]">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-sky-600/20 text-sky-400 border border-sky-500/30">
-              <ImagePlus className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                Import template dari PNG
-                <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">Eksperimental</span>
-              </h3>
-              <p className="text-[11px] text-slate-400">PNG tidak punya layer, jadi dipisah per file atau per warna</p>
-            </div>
+      <div
+        className={`bg-[#121622] border border-slate-800 rounded-2xl w-full shadow-2xl overflow-hidden flex flex-col ${
+          wide ? 'max-w-6xl h-[92vh]' : 'max-w-3xl max-h-[90vh]'
+        }`}
+      >
+        {/* header: title, the two ways, close */}
+        <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-800 bg-[#0f131c]">
+          <div className="p-2 rounded-lg bg-sky-600/20 text-sky-400 border border-sky-500/30">
+            <ImagePlus className="w-4 h-4" />
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="p-4 space-y-3 overflow-y-auto">
-          <div className="flex gap-2 p-2.5 rounded-lg text-[11px] leading-relaxed border bg-amber-950/25 border-amber-900/50 text-amber-200">
-            <span className="shrink-0">⚠</span>
-            <span>
-              Fitur ini masih eksperimental: pemetaan bagian bisa meleset, konversi bisa lambat, dan sebagian efek tidak
-              terbawa. Hasilnya aman dicoba karena disimpan sebagai template baru (tidak menimpa apa pun). Daftar masalah
-              yang diketahui ada di <code>docs/en/KNOWN-ISSUES.md</code>.
-            </span>
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2 whitespace-nowrap">
+              Import template dari PNG
+              <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40" title="Eksperimental">
+                Eksp.
+              </span>
+              <InfoTip text="Hasil pemisahan otomatis adalah perkiraan: tepi antar warna bisa kurang halus, dan bayangan atau gradasi bisa terpecah. Untuk hasil paling bersih, siapkan peta warna datar (tiap area satu warna tanpa gradasi) atau pakai file PNG terpisah per layer." />
+            </h3>
+            <p className="text-[11px] text-slate-400 truncate">Hasilnya template baru, tidak menimpa apa pun</p>
           </div>
           {!report && (
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="ml-auto flex items-center bg-slate-900/90 border border-slate-800 p-0.5 rounded-lg" role="tablist" aria-label="Cara import">
               {(
                 [
                   ['colors', 'Satu PNG, pisah per warna', Palette],
@@ -404,154 +534,147 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
               ).map(([id, label, Icon]) => (
                 <button
                   key={id}
+                  role="tab"
+                  aria-selected={tab === id}
                   onClick={() => {
                     setTab(id);
                     reset();
                   }}
-                  className={`flex items-center justify-center gap-1.5 text-[11px] font-semibold py-2 rounded-lg border transition-colors ${
-                    tab === id
-                      ? 'bg-sky-600/25 border-sky-500 text-sky-100'
-                      : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:bg-slate-800'
+                  className={`flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11px] font-semibold whitespace-nowrap transition-colors ${
+                    tab === id ? 'bg-sky-500/25 text-sky-100' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
-                  <Icon className="w-3.5 h-3.5" />
+                  <Icon className="w-3.5 h-3.5" aria-hidden />
                   {label}
                 </button>
               ))}
             </div>
           )}
+          <button onClick={onClose} className={`${report ? 'ml-auto' : ''} p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800`} aria-label="Tutup" title="Tutup">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
 
-          {!report && (
-            <label className="block">
-              <span className="text-[10px] text-slate-500">Nama template</span>
-              <input
-                value={templateName}
-                onChange={(e) => setTemplateName(e.target.value)}
-                placeholder="Template PNG"
-                className="w-full mt-0.5 bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-sky-500"
-              />
-            </label>
-          )}
-
-          {/* -------- colours tab -------- */}
-          {!report && tab === 'colors' && (
-            <>
-              {!imageData ? (
-                <div
-                  onClick={() => colorRef.current?.click()}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    loadColorFile(e.dataTransfer.files?.[0]);
-                  }}
-                  className="cursor-pointer rounded-xl border-2 border-dashed border-slate-700 hover:border-slate-500 bg-slate-900/40 p-7 text-center"
-                >
-                  <ImagePlus className="w-6 h-6 mx-auto mb-2 text-sky-400" />
-                  <div className="text-xs font-semibold text-slate-200">Klik atau seret satu gambar PNG</div>
-                  <div className="text-[10px] text-slate-500 mt-1 leading-snug">
-                    Cocok untuk peta warna (tiap bagian beda warna) atau desain jadi. Gambar diregangkan ke 1024×1024,
-                    jadi pakai ukuran persegi seperti template PES.
-                  </div>
-                  <input ref={colorRef} type="file" accept="image/png,image/webp,image/jpeg" className="hidden" onChange={(e) => loadColorFile(e.target.files?.[0])} />
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                    <span className="truncate">
-                      {colorFile?.name} — {colorFile?.width}×{colorFile?.height}px
-                    </span>
-                    {colorFile && colorFile.width !== colorFile.height && (
-                      <select
-                        value={fit}
-                        onChange={(e) => {
-                          const next = e.target.value as ImageFit;
-                          setFit(next);
-                          if (colorImg.current) setImageData(imageToData(colorImg.current, next).data);
-                          setExtras((prev) => prev.map((x) => ({ ...x, data: imageToData(x.img, next).data })));
-                        }}
-                        className="bg-slate-900 border border-amber-500/50 rounded px-1.5 py-0.5 text-[11px] text-amber-200 outline-none"
-                        title="Gambar tidak persegi: cara memasukkannya ke tekstur 1024 × 1024"
-                      >
-                        <option value="stretch">Regangkan</option>
-                        <option value="fit">Pas (sisa kosong)</option>
-                        <option value="crop">Potong ke persegi</option>
-                      </select>
-                    )}
+        {/* -------- colours, with a picture: preview left, settings and colours right -------- */}
+        {wide && (
+          <div className="flex-1 min-h-0 grid grid-cols-[minmax(0,1fr)_380px]">
+            <div className="min-h-0 flex flex-col p-4 gap-2 border-r border-slate-800">
+              <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                <span className="truncate" title={colorFile?.name}>
+                  {colorFile?.name}
+                </span>
+                <span className="font-mono text-slate-500 shrink-0">
+                  {colorFile?.width}×{colorFile?.height}
+                </span>
+                {colorFile &&
+                  colorFile.width !== colorFile.height &&
+                  fitSelect(fit, changeFit, 'bg-slate-900 border border-amber-500/50 rounded px-1.5 py-0.5 text-[11px] text-amber-200 outline-none')}
+                <div className="ml-auto flex items-center bg-slate-900/90 border border-slate-800 p-0.5 rounded-lg shrink-0" role="group" aria-label="Pratinjau">
+                  {(
+                    [
+                      ['colors', 'Warna'],
+                      ['parts', 'Bagian'],
+                    ] as const
+                  ).map(([id, text]) => (
                     <button
-                      onClick={() => {
-                        setImageData(null);
-                        setAnalysis(null);
-                        setClusters([]);
-                        setColorFile(null);
-                        setExtras([]);
-                      }}
-                      className="ml-auto text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
+                      key={id}
+                      type="button"
+                      aria-pressed={view === id}
+                      onClick={() => setView(id)}
+                      className={`h-6 px-2.5 rounded-md text-[11px] font-semibold transition-colors ${view === id ? 'bg-sky-500/25 text-sky-100' : 'text-slate-400 hover:text-white'}`}
                     >
-                      Ganti gambar
+                      {text}
                     </button>
+                  ))}
+                </div>
+                <button onClick={clearImage} className={`${smallBtn} shrink-0`}>
+                  Ganti gambar
+                </button>
+              </div>
+              <div className="relative flex-1 min-h-0 flex items-center justify-center [container-type:size]">
+                <canvas
+                  ref={previewRef}
+                  onClick={pickFromPreview}
+                  className="w-[min(100cqw,100cqh)] h-[min(100cqw,100cqh)] rounded-lg border border-slate-800 bg-black cursor-crosshair"
+                  title="Klik sebuah area untuk menyorot warnanya di daftar"
+                />
+                {analyzing && (
+                  <div className="absolute top-2 left-2 flex items-center gap-1.5 text-[11px] text-slate-200 bg-black/70 rounded-md px-2 py-1">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-400" />
+                    Menganalisis warna…
                   </div>
+                )}
+              </div>
+              <div className="min-h-5 flex items-center gap-3 text-[10px] text-slate-500">
+                {view === 'parts' ? (
+                  <>
+                    {LAYER_GROUPS.map(([g], i) => (
+                      <span key={g} className="flex items-center gap-1">
+                        <span className="w-2.5 h-2.5 rounded-sm" style={{ background: `rgb(${GROUP_RGB[i].join(',')})` }} />
+                        {g}
+                      </span>
+                    ))}
+                    <span className="flex items-center gap-1">
+                      <span className="w-2.5 h-2.5 rounded-sm bg-[#5a5a5a]" />
+                      Di luar bagian (tidak dipakai)
+                    </span>
+                  </>
+                ) : (
+                  <span>Klik sebuah area untuk menyorot warnanya di daftar</span>
+                )}
+              </div>
+            </div>
 
-                  {bigPreview && (
-                    <canvas
-                      ref={previewRef}
-                      onClick={pickFromPreview}
-                      className="w-full aspect-square rounded-lg border border-slate-800 bg-black cursor-crosshair"
-                      title="Klik sebuah area untuk menyorot warnanya di daftar"
-                    />
-                  )}
-                  <div className="flex gap-3">
-                    <div className="shrink-0 space-y-1">
-                      {!bigPreview && (
-                        <canvas
-                          ref={previewRef}
-                          onClick={pickFromPreview}
-                          className="w-40 h-40 rounded-lg border border-slate-800 bg-black cursor-crosshair"
-                          title="Klik sebuah area untuk menyorot warnanya di daftar"
-                        />
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setBigPreview((v) => !v)}
-                        className="w-40 text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
-                      >
-                        {bigPreview ? 'Perkecil pratinjau' : 'Perbesar pratinjau'}
-                      </button>
-                    </div>
-                    <div className="flex-1 space-y-2.5 min-w-0">
-                      <label className="block space-y-0.5">
-                        <div className="flex justify-between text-[11px] text-slate-400">
-                          <span className="flex items-center gap-1">
-                            Toleransi warna
-                            <InfoTip text="Kecil = banyak warna terpisah (peta warna rapi). Besar = warna mirip digabung (desain berbayangan)." />
-                          </span>
-                          <span className="font-mono">{tolerance}</span>
-                        </div>
-                        <input type="range" min={4} max={80} value={tolerance} onChange={(e) => setTolerance(Number(e.target.value))} className="w-full accent-sky-500" />
-                      </label>
-                      <label className="flex items-start gap-1.5 text-[11px] text-slate-300 cursor-pointer">
-                        <input type="checkbox" checked={splitPieces} onChange={(e) => setSplitPieces(e.target.checked)} className="mt-0.5 accent-sky-500" />
-                        <span className="flex items-center gap-1">
-                          Pisah tiap bagian yang tidak tersambung
-                          <InfoTip text="Misalnya garis kiri dan kanan jadi dua layer." />
-                        </span>
-                      </label>
-                      {splitPieces && (
-                        <label className="block space-y-0.5">
-                          <div className="flex justify-between text-[11px] text-slate-400">
-                            <span>Luas minimal</span>
-                            <span className="font-mono">{minArea}px</span>
-                          </div>
-                          <input type="range" min={20} max={3000} step={20} value={minArea} onChange={(e) => setMinArea(Number(e.target.value))} className="w-full accent-sky-500" />
-                        </label>
-                      )}
-                      <label className="flex items-start gap-1.5 text-[11px] text-slate-300 cursor-pointer">
-                        <input type="checkbox" checked={denoise} onChange={(e) => setDenoise(e.target.checked)} className="mt-0.5 accent-sky-500" />
-                        <span className="flex items-center gap-1">
-                          Bersihkan noise
-                          <InfoTip text="Untuk WebP / JPG dari situs: bintik dan kotak kompresi dihaluskan dulu, tepi tetap tajam." />
-                        </span>
-                      </label>
-                      <label className="flex items-start gap-1.5 text-[11px] text-slate-300 cursor-pointer">
+            <div className="min-h-0 flex flex-col">
+              <div className="p-4 space-y-2.5 border-b border-slate-800">
+                <label className="block space-y-0.5">
+                  <div className="flex justify-between text-[11px] text-slate-400">
+                    <span className="flex items-center gap-1">
+                      Toleransi warna
+                      <InfoTip text="Kecil = banyak warna terpisah (peta warna rapi). Besar = warna mirip digabung (desain berbayangan)." />
+                    </span>
+                    <span className="font-mono">{tolerance}</span>
+                  </div>
+                  <input type="range" min={4} max={80} value={tolerance} onChange={(e) => setTolerance(Number(e.target.value))} className="w-full accent-sky-500" />
+                </label>
+                <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
+                  <label className={check}>
+                    <input type="checkbox" checked={denoise} onChange={(e) => setDenoise(e.target.checked)} className="mt-0.5 accent-sky-500" />
+                    <span className="flex items-center gap-1">
+                      Bersihkan noise
+                      <InfoTip text="Untuk WebP / JPG dari situs: bintik dan kotak kompresi dihaluskan dulu, tepi tetap tajam." />
+                    </span>
+                  </label>
+                  <label className={check}>
+                    <input type="checkbox" checked={fabricDetail} onChange={(e) => setFabricDetail(e.target.checked)} className="mt-0.5 accent-sky-500" />
+                    <span className="flex items-center gap-1">
+                      Simpan detail kain
+                      <InfoTip text="Garis mesh, lipatan, dan bayangan dari gambar jadi dua layer di atas warna (gelap: multiply, terang: screen), jadi tetap ada saat warnanya diganti. Matikan untuk template yang warnanya rata." />
+                    </span>
+                  </label>
+                  <label className={`${check} col-start-2 pl-5 ${fabricDetail ? '' : 'opacity-40 pointer-events-none'}`}>
+                    <input type="checkbox" checked={motif} disabled={!fabricDetail} onChange={(e) => setMotif(e.target.checked)} className="mt-0.5 accent-sky-500" />
+                    <span className="flex items-center gap-1">
+                      Motif bisa diganti warnanya
+                      <InfoTip text="Untuk motif samar yang hanya sedikit lebih gelap atau terang dari warna dasar (loreng, pola timbul): detailnya jadi layer Motif gelap / Motif terang per bagian, masing-masing dengan slot warna sendiri. Bayangan dan mesh ikut di layer itu, jadi matikan untuk kit polos." />
+                    </span>
+                  </label>
+                </div>
+
+                <div className="rounded-lg border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setAdvancedOpen((o) => !o)}
+                    aria-expanded={advancedOpen}
+                    className="w-full flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold text-slate-300 hover:text-white"
+                  >
+                    <ChevronRight className={`w-3.5 h-3.5 transition-transform ${advancedOpen ? 'rotate-90' : ''}`} aria-hidden />
+                    Lanjutan
+                    {advancedCount > 0 && <span className="ml-auto text-[10px] font-normal text-sky-300">{advancedCount} aktif</span>}
+                  </button>
+                  {advancedOpen && (
+                    <div className="px-2.5 pb-2.5 space-y-2">
+                      <label className={check}>
                         <input
                           type="checkbox"
                           checked={gradient}
@@ -559,7 +682,7 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
                             setGradient(e.target.checked);
                             // a gradient needs only its end colours: untick the ones that are a blend of two others
                             if (e.target.checked && analysis) {
-                              const blends = blendColours(clusters.filter((c) => c.on && c.merge === undefined).map((c) => c.id), analysis.vectors);
+                              const blends = blendColours(chosen.map((c) => c.id), analysis.vectors);
                               // the main colour of the shirt, shorts or socks stays, even between two others (light grey)
                               groupMainColours(analysis.labels).forEach((c) => blends.delete(c));
                               setClusters((prev) => prev.map((x) => (blends.has(x.id) ? { ...x, on: false } : x)));
@@ -572,13 +695,22 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
                           <InfoTip text="Untuk desain bergradasi atau blur: centang hanya warna ujungnya, warna di antaranya menjadi campuran keduanya dan gradasinya tetap ada saat warnanya diganti." />
                         </span>
                       </label>
-                      <label className="flex items-start gap-1.5 text-[11px] text-slate-300 cursor-pointer">
-                        <input type="checkbox" checked={fabricDetail} onChange={(e) => setFabricDetail(e.target.checked)} className="mt-0.5 accent-sky-500" />
+                      <label className={check}>
+                        <input type="checkbox" checked={splitPieces} onChange={(e) => setSplitPieces(e.target.checked)} className="mt-0.5 accent-sky-500" />
                         <span className="flex items-center gap-1">
-                          Simpan detail kain
-                          <InfoTip text="Garis mesh, lipatan, dan bayangan dari gambar jadi dua layer di atas warna (gelap: multiply, terang: screen), jadi tetap ada saat warnanya diganti. Matikan untuk template yang warnanya rata." />
+                          Pisah tiap bagian yang tidak tersambung
+                          <InfoTip text="Misalnya garis kiri dan kanan jadi dua layer." />
                         </span>
                       </label>
+                      {splitPieces && (
+                        <label className="block space-y-0.5 pl-5">
+                          <div className="flex justify-between text-[11px] text-slate-400">
+                            <span>Luas minimal</span>
+                            <span className="font-mono">{minArea}px</span>
+                          </div>
+                          <input type="range" min={20} max={3000} step={20} value={minArea} onChange={(e) => setMinArea(Number(e.target.value))} className="w-full accent-sky-500" />
+                        </label>
+                      )}
                       <div className="space-y-1">
                         <div className="flex items-center gap-1 text-[11px] text-slate-300">
                           Versi warna lain <span className="text-slate-500">(opsional, maks. 2)</span>
@@ -587,21 +719,13 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
                         {extras.map((x, i) => (
                           <div key={`${x.name}-${i}`} className="flex items-center gap-1.5 text-[10px] text-slate-400">
                             <span className="truncate flex-1">{x.name}</span>
-                            <button
-                              type="button"
-                              onClick={() => setExtras((prev) => prev.filter((_, k) => k !== i))}
-                              className="px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
-                            >
+                            <button type="button" onClick={() => setExtras((prev) => prev.filter((_, k) => k !== i))} className={smallBtn}>
                               Hapus
                             </button>
                           </div>
                         ))}
                         {extras.length < 2 && (
-                          <button
-                            type="button"
-                            onClick={() => extraRef.current?.click()}
-                            className="text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
-                          >
+                          <button type="button" onClick={() => extraRef.current?.click()} className={smallBtn}>
                             + Tambah versi warna
                           </button>
                         )}
@@ -617,138 +741,197 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
                         />
                       </div>
                     </div>
-                  </div>
-
-                  {analysis && (
-                    <div className="max-h-52 overflow-y-auto rounded-lg border border-slate-800 divide-y divide-slate-800/70">
-                      {analysis.clusters.map((c) => {
-                        const item = clusters.find((x) => x.id === c.id);
-                        if (!item) return null;
-                        // a colour others joined cannot itself be merged, and only into a colour that is not merged
-                        const joined = clusters.some((x) => x.merge === c.id);
-                        const targets = clusters.filter((x) => x.id !== c.id && x.merge === undefined);
-                        return (
-                          <div
-                            key={c.id}
-                            ref={(el) => {
-                              if (el) rowRefs.current.set(c.id, el);
-                              else rowRefs.current.delete(c.id);
-                            }}
-                            onClick={(e) => {
-                              if ((e.target as HTMLElement).closest('input,select')) return;
-                              setHighlight((h) => (h === c.id ? null : c.id));
-                            }}
-                            className={`flex items-center gap-2 px-2.5 py-1.5 text-xs cursor-pointer ${highlight === c.id ? 'bg-sky-900/40' : ''} ${item.merge !== undefined ? 'opacity-60' : ''}`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={item.on}
-                              disabled={item.merge !== undefined}
-                              onChange={(e) => setClusters((prev) => prev.map((x) => (x.id === c.id ? { ...x, on: e.target.checked } : x)))}
-                              className="accent-sky-500"
-                            />
-                            <span className="w-5 h-5 rounded border border-slate-600 shrink-0" style={{ background: clusterHex(c.color) }} />
-                            <input
-                              value={item.name}
-                              placeholder={item.auto}
-                              aria-label={item.auto}
-                              onChange={(e) => setClusters((prev) => prev.map((x) => (x.id === c.id ? { ...x, name: e.target.value } : x)))}
-                              className="flex-1 min-w-0 bg-transparent border-b border-transparent focus:border-sky-500 text-slate-200 placeholder:text-slate-200 outline-none"
-                            />
-                            <select
-                              value={item.merge ?? ''}
-                              disabled={joined}
-                              onChange={(e) => {
-                                const v = e.target.value === '' ? undefined : Number(e.target.value);
-                                setClusters((prev) => prev.map((x) => (x.id === c.id ? { ...x, merge: v } : x)));
-                              }}
-                              title={joined ? 'Warna lain sudah digabung ke warna ini' : 'Gabungkan warna ini ke warna lain (misalnya bayangan yang terpisah)'}
-                              aria-label={`Gabungkan ${item.name || item.auto} ke warna lain`}
-                              className="w-24 shrink-0 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-[10px] text-slate-300 outline-none focus:border-sky-500 disabled:opacity-40"
-                            >
-                              <option value="">Tidak digabung</option>
-                              {targets.map((x) => (
-                                <option key={x.id} value={x.id}>
-                                  → {x.name || x.auto}
-                                </option>
-                              ))}
-                            </select>
-                            <span className="text-[10px] font-mono text-slate-500 shrink-0">{clusterHex(c.color)}</span>
-                            <span className="text-[10px] font-mono text-slate-500 w-10 text-right shrink-0">{((c.count / opaqueTotal) * 100).toFixed(1)}%</span>
-                          </div>
-                        );
-                      })}
-                    </div>
                   )}
-                </>
-              )}
-            </>
-          )}
-
-          {/* -------- files tab -------- */}
-          {!report && tab === 'files' && (
-            <>
-              <div
-                onClick={() => filesRef.current?.click()}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  addFiles(e.dataTransfer.files);
-                }}
-                className="cursor-pointer rounded-xl border-2 border-dashed border-slate-700 hover:border-slate-500 bg-slate-900/40 p-6 text-center"
-              >
-                <ImagePlus className="w-6 h-6 mx-auto mb-2 text-sky-400" />
-                <div className="text-xs font-semibold text-slate-200">Klik atau seret banyak file PNG</div>
-                <div className="text-[10px] text-slate-500 mt-1 leading-snug">
-                  Satu file = satu layer, berukuran sama dengan template (persegi). Latar transparan dipakai sebagai
-                  bentuk; gambar tanpa transparansi memakai perbedaan dari warna latar.
                 </div>
-                <input ref={filesRef} type="file" multiple accept="image/png,image/webp,image/jpeg" className="hidden" onChange={(e) => addFiles(e.target.files)} />
               </div>
 
-              {files.length > 0 && (
-                <>
-                  <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                    <span>Warna layer:</span>
-                    <select value={fileMode} onChange={(e) => setFileMode(e.target.value as any)} className="bg-slate-900 border border-slate-700 rounded px-1.5 py-1 text-[11px] text-white outline-none">
-                      <option value="auto">Otomatis</option>
-                      <option value="tint">Bisa diwarnai ulang (satu warna)</option>
-                      <option value="keep">Pakai warna asli gambar</option>
-                    </select>
-                    <span title="Untuk file yang tidak persegi">Tidak persegi:</span>
-                    <select value={fit} onChange={(e) => setFit(e.target.value as ImageFit)} className="bg-slate-900 border border-slate-700 rounded px-1.5 py-1 text-[11px] text-white outline-none">
-                      <option value="stretch">Regangkan</option>
-                      <option value="fit">Pas (sisa kosong)</option>
-                      <option value="crop">Potong ke persegi</option>
-                    </select>
-                    <button onClick={() => setFiles([])} className="ml-auto text-[10px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-300 hover:bg-slate-800">
-                      Kosongkan
-                    </button>
-                  </div>
-                  <div className="max-h-52 overflow-y-auto rounded-lg border border-slate-800 divide-y divide-slate-800/70">
-                    {files.map((f) => (
-                      <div key={f.key} className="flex items-center gap-2 px-2.5 py-1.5 text-xs">
-                        <input type="checkbox" checked={f.on} onChange={(e) => setFiles((prev) => prev.map((x) => (x.key === f.key ? { ...x, on: e.target.checked } : x)))} className="accent-sky-500" />
+              {/* colour list */}
+              <div className="flex items-center gap-2 px-4 pt-3 pb-1.5 text-[11px]">
+                <span className="font-semibold text-slate-200">Warna</span>
+                {analysis && (
+                  <span className="text-slate-500">
+                    {chosen.length} / {clusters.filter((c) => c.merge === undefined).length}
+                  </span>
+                )}
+                <InfoTip text="Tiap warna yang dicentang menjadi layer, dipotong per bagian (Baju, Celana, Kaos kaki, Detail). Warna terbesar menjadi Base tiap bagian. Gabungkan bayangan yang terpisah ke warnanya." />
+                <div className="ml-auto flex gap-1">
+                  <button type="button" onClick={() => setAllOn(true)} disabled={!analysis} className={smallBtn}>
+                    Semua
+                  </button>
+                  <button type="button" onClick={() => setAllOn(false)} disabled={!analysis} className={smallBtn}>
+                    Kosongkan
+                  </button>
+                </div>
+              </div>
+              <div className={`flex-1 min-h-0 overflow-y-auto mx-4 mb-4 rounded-lg border border-slate-800 divide-y divide-slate-800/70 ${analyzing ? 'opacity-60' : ''}`}>
+                {analysis?.clusters.map((c) => {
+                  const item = clusters.find((x) => x.id === c.id);
+                  if (!item) return null;
+                  const merged = item.merge !== undefined;
+                  // a colour others joined cannot itself be merged, and only into a colour that is not merged
+                  const isTarget = clusters.some((x) => x.merge === c.id);
+                  const targets = clusters.filter((x) => x.id !== c.id && x.merge === undefined);
+                  const g = groupsOf(c.id);
+                  return (
+                    <div
+                      key={c.id}
+                      ref={(el) => {
+                        if (el) rowRefs.current.set(c.id, el);
+                        else rowRefs.current.delete(c.id);
+                      }}
+                      onClick={(e) => {
+                        if ((e.target as HTMLElement).closest('input,select')) return;
+                        setHighlight((h) => (h === c.id ? null : c.id));
+                      }}
+                      className={`px-2.5 py-1.5 text-xs cursor-pointer space-y-1 ${highlight === c.id ? 'bg-sky-900/40' : ''} ${merged ? 'opacity-60' : ''}`}
+                    >
+                      <div className="flex items-center gap-2">
                         <input
-                          value={f.name}
-                          onChange={(e) => setFiles((prev) => prev.map((x) => (x.key === f.key ? { ...x, name: e.target.value } : x)))}
-                          className="flex-1 min-w-0 bg-transparent border-b border-transparent focus:border-sky-500 text-slate-200 outline-none"
+                          type="checkbox"
+                          checked={item.on}
+                          disabled={merged}
+                          onChange={(e) => setClusters((prev) => prev.map((x) => (x.id === c.id ? { ...x, on: e.target.checked } : x)))}
+                          className="accent-sky-500"
+                          aria-label={item.name || item.auto}
                         />
-                        <span className="text-[10px] font-mono text-slate-500 shrink-0">{Math.round(f.file.size / 1024)} KB</span>
+                        <span className="w-5 h-5 rounded border border-slate-600 shrink-0" style={{ background: clusterHex(c.color) }} title={clusterHex(c.color)} />
+                        <input
+                          value={item.name}
+                          placeholder={item.auto}
+                          aria-label={item.auto}
+                          onChange={(e) => setClusters((prev) => prev.map((x) => (x.id === c.id ? { ...x, name: e.target.value } : x)))}
+                          className="flex-1 min-w-0 bg-transparent border-b border-transparent focus:border-sky-500 text-slate-200 placeholder:text-slate-200 outline-none"
+                        />
+                        {item.on && !merged && c.id === baseId && (
+                          <span className="text-[9px] font-bold uppercase px-1 rounded bg-sky-500/20 text-sky-200" title="Warna terbesar: dasar tiap bagian">
+                            Base
+                          </span>
+                        )}
+                        <span className="text-[10px] font-mono text-slate-500 w-10 text-right shrink-0">{((c.count / opaqueTotal) * 100).toFixed(1)}%</span>
                       </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </>
-          )}
+                      <div className="flex items-center gap-2 pl-[3.25rem]">
+                        <span className="flex-1 min-w-0 truncate text-[10px] text-slate-500">
+                          {merged ? '' : g.length ? joined(g, ' · ') : 'Di luar bagian (tidak dipakai)'}
+                        </span>
+                        <select
+                          value={item.merge ?? ''}
+                          disabled={isTarget}
+                          onChange={(e) => {
+                            const v = e.target.value === '' ? undefined : Number(e.target.value);
+                            setClusters((prev) => prev.map((x) => (x.id === c.id ? { ...x, merge: v } : x)));
+                          }}
+                          title={isTarget ? 'Warna lain sudah digabung ke warna ini' : 'Gabungkan warna ini ke warna lain (misalnya bayangan yang terpisah)'}
+                          aria-label={`Gabungkan ${item.name || item.auto} ke warna lain`}
+                          className="w-28 shrink-0 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-[10px] text-slate-300 outline-none focus:border-sky-500 disabled:opacity-40"
+                        >
+                          <option value="">Tidak digabung</option>
+                          {targets.map((x) => (
+                            <option key={x.id} value={x.id}>
+                              → {x.name || x.auto}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
-          {busy && (
-            <div className="space-y-1">
+        {/* -------- narrow: no picture yet, the files way, or the report -------- */}
+        {!wide && (
+          <div className="p-4 space-y-3 overflow-y-auto">
+            {!report && tab === 'colors' && dropZone(false)}
+
+            {!report && tab === 'files' && (
+              <>
+                {dropZone(true)}
+                {files.length > 0 && (
+                  <>
+                    <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                      <span>Warna layer:</span>
+                      <select value={fileMode} onChange={(e) => setFileMode(e.target.value as any)} className="bg-slate-900 border border-slate-700 rounded px-1.5 py-1 text-[11px] text-white outline-none">
+                        <option value="auto">Otomatis</option>
+                        <option value="tint">Bisa diwarnai ulang (satu warna)</option>
+                        <option value="keep">Pakai warna asli gambar</option>
+                      </select>
+                      <span title="Untuk file yang tidak persegi">Tidak persegi:</span>
+                      {fitSelect(fit, setFit, 'bg-slate-900 border border-slate-700 rounded px-1.5 py-1 text-[11px] text-white outline-none')}
+                      <button onClick={() => setFiles([])} className={`ml-auto ${smallBtn}`}>
+                        Kosongkan
+                      </button>
+                    </div>
+                    <div className="max-h-72 overflow-y-auto rounded-lg border border-slate-800 divide-y divide-slate-800/70">
+                      {files.map((f) => (
+                        <div key={f.key} className="flex items-center gap-2 px-2.5 py-1.5 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={f.on}
+                            onChange={(e) => setFiles((prev) => prev.map((x) => (x.key === f.key ? { ...x, on: e.target.checked } : x)))}
+                            className="accent-sky-500"
+                          />
+                          <input
+                            value={f.name}
+                            onChange={(e) => setFiles((prev) => prev.map((x) => (x.key === f.key ? { ...x, name: e.target.value } : x)))}
+                            className="flex-1 min-w-0 bg-transparent border-b border-transparent focus:border-sky-500 text-slate-200 outline-none"
+                          />
+                          <span className="text-[10px] font-mono text-slate-500 shrink-0">{Math.round(f.file.size / 1024)} KB</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+
+            {report && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs text-emerald-300 font-semibold">
+                  <Check className="w-4 h-4" />
+                  {reportPsd ? (
+                    <span>PSD tersimpan di library/templates. Template-nya sedang dibaca dan langsung dipilih setelah selesai.</span>
+                  ) : (
+                    <span>
+                      Template tersimpan dan sudah dipilih ({report.filter((r) => r.parts.length).length} layer).
+                    </span>
+                  )}
+                </div>
+                <div className="max-h-72 overflow-y-auto rounded-lg border border-slate-800 divide-y divide-slate-800/70 text-[11px]">
+                  {report.map((r, i) => (
+                    <div key={`${r.name}-${i}`} className="px-2.5 py-1.5 flex gap-2">
+                      <span className="flex-1 truncate text-slate-300" title={r.name}>
+                        {r.name}
+                      </span>
+                      <span className="text-slate-500 truncate max-w-[55%]">{r.parts.length ? joined(r.parts, ', ') : '-'}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] text-slate-500 leading-snug">
+                  Bagian ditentukan otomatis dari posisi. Kalau ada yang meleset, buka layernya di tab Template dan ubah
+                  &quot;Menempel di bagian&quot;.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {error && (
+          <div className="mx-4 mb-3 flex gap-2 p-2.5 rounded-lg text-[11px] leading-relaxed border bg-rose-950/40 border-rose-900/60 text-rose-200">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* footer: template name or progress, then the buttons */}
+        <div className="flex items-center gap-3 px-5 py-3 border-t border-slate-800 bg-[#0f131c]">
+          {busy ? (
+            <div className="flex-1 min-w-0 space-y-1">
               <div className="flex items-center gap-2 text-[11px] text-slate-300">
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-400" />
                 {busy}
-                {progress ? ` (${Math.min(progress.done, progress.total)} / ${progress.total})` : ''}
+                {progress && <span className="font-mono text-slate-500">{`${Math.min(progress.done, progress.total)} / ${progress.total}`}</span>}
               </div>
               {progress && (
                 <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
@@ -756,55 +939,26 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
                 </div>
               )}
             </div>
+          ) : !report ? (
+            <label className="flex-1 min-w-0 flex items-center gap-2">
+              <span className="text-[11px] text-slate-400 whitespace-nowrap">Nama template</span>
+              <input
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="Template PNG"
+                className="w-full max-w-xs bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-sky-500"
+              />
+            </label>
+          ) : (
+            <div className="flex-1" />
           )}
-
-          {report && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-xs text-emerald-300 font-semibold">
-                <Check className="w-4 h-4" />
-                Template tersimpan dan sudah dipilih ({report.filter((r) => r.parts.length).length} layer).
-              </div>
-              <div className="max-h-56 overflow-y-auto rounded-lg border border-slate-800 divide-y divide-slate-800/70 text-[11px]">
-                {report.map((r, i) => (
-                  <div key={`${r.name}-${i}`} className="px-2.5 py-1.5 flex gap-2">
-                    <span className="flex-1 truncate text-slate-300" title={r.name}>
-                      {r.name}
-                    </span>
-                    <span className="text-slate-500 truncate max-w-[45%]">{r.parts.join(', ') || '-'}</span>
-                  </div>
-                ))}
-              </div>
-              <p className="text-[10px] text-slate-500 leading-snug">
-                Bagian ditentukan otomatis dari posisi. Kalau ada yang meleset, buka layernya di tab Template dan ubah
-                &quot;Menempel di bagian&quot;.
-              </p>
-            </div>
-          )}
-
-          {error && (
-            <div className="flex gap-2 p-2.5 rounded-lg text-[11px] leading-relaxed border bg-rose-950/40 border-rose-900/60 text-rose-200">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {!report && (
-            <p className="text-[10px] text-slate-500 leading-relaxed">
-              Hasil pemisahan otomatis adalah perkiraan: tepi antar warna bisa kurang halus, dan bayangan atau gradasi
-              bisa terpecah. Untuk hasil paling bersih, siapkan peta warna datar (tiap area satu warna tanpa
-              gradasi) atau pakai file PNG terpisah per layer.
-            </p>
-          )}
-        </div>
-
-        <div className="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-slate-800 bg-[#0f131c]">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800">
             {report ? 'Tutup' : 'Batal'}
           </button>
           {!report && (
             <button
               onClick={tab === 'colors' ? runColors : runFiles}
-              disabled={busy !== null || (tab === 'colors' ? !analysis || !clusters.some((c) => c.on) : !files.some((f) => f.on))}
+              disabled={!canRun}
               className="px-5 py-2 rounded-lg text-xs font-bold text-white bg-sky-600 hover:bg-sky-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {busy ? 'Memproses...' : 'Konversi & simpan'}

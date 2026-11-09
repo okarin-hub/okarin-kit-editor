@@ -1,9 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Eraser, MousePointer2, Pencil, PenTool, Spline, Brush } from 'lucide-react';
+import { Blend, Eraser, MousePointer2, Pencil, PenTool, Spline, Brush } from 'lucide-react';
 
-export type ToolId = 'select' | 'free' | 'poly' | 'stitch' | 'stitchFree' | 'eraser';
+export type ToolId = 'select' | 'free' | 'poly' | 'stitch' | 'stitchFree' | 'gradient' | 'eraser';
 
 interface ToolRailProps {
   active: ToolId;
@@ -38,6 +38,14 @@ const GROUPS: { id: ToolId; icon: React.ReactNode; title: string; key: string }[
       icon: <Brush className="w-4 h-4" />,
       title: 'Seret mouse di canvas 2D untuk menggambar garis jahit bebas',
       key: 'J',
+    },
+  ],
+  [
+    {
+      id: 'gradient',
+      icon: <Blend className="w-4 h-4" />,
+      title: 'Gradasi: tekan dan seret di canvas 2D dari warna awal ke arah pudarnya',
+      key: 'G',
     },
   ],
   [

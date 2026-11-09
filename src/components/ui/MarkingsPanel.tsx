@@ -76,26 +76,6 @@ export const MarkingsPanel: React.FC<MarkingsPanelProps> = ({
             )}
           </button>
         </div>
-
-        {/* PES reads names / numbers from its own fonts: here they are only a placement preview */}
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={markings.includeInExport}
-              onChange={(e) =>
-                onUpdateMarkings({ includeInExport: e.target.checked })
-              }
-              className="accent-sky-500 rounded cursor-pointer"
-            />
-            <span className="text-[11px] text-slate-300">
-              Sertakan nama/nomor saat Export PNG
-            </span>
-          </label>
-          <InfoTip
-            text="Game PES membaca nomor dan nama dari font internal game, terpisah dari tekstur kit. Di sini nama dan nomor hanya pratinjau penempatan. Biarkan mati agar PNG kit tetap bersih (standar PES)."
-          />
-        </div>
       </div>
 
       {/* 2. Text Inputs */}

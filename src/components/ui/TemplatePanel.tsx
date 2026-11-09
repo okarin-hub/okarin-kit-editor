@@ -1,5 +1,6 @@
 'use client';
 
+import { ImportButton } from '@/components/ui/ImportMenu';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Eye,
@@ -97,14 +98,13 @@ interface TemplatePanelProps {
   onSetZoneOrder: (ids: string[]) => void;
   onDeleteZone: (zoneId: string) => void;
   onSaveTemplate: (name: string) => Promise<{ ok: boolean; message: string }>;
-  onStartDraw: (kind: 'free' | 'poly' | 'stitch' | 'stitchFree') => void;
+  onStartDraw: (kind: 'free' | 'poly' | 'stitch' | 'stitchFree' | 'gradient') => void;
   onChangePatterns: (layers: PatternLayer[]) => void;
   /** Imported design (used as the base layer when its mode is replace and it is enabled). */
   baseTexture: BaseTexture | null;
   onChooseBase: (source: 'colour' | 'import') => void;
   onEditBase: () => void;
   onChangeBackground: (color: string | undefined) => void;
-  onChangeSleeveShape: (shape: 'yoke' | 'short') => void;
   onDeleteSeam: (key: string) => void;
   onToggleSeamCurve: (key: string) => void;
   onRenameGroup: (groupId: string, name: string) => void;
@@ -114,7 +114,9 @@ interface TemplatePanelProps {
   editSeam: string | null;
   onToggleEditSeam: (key: string) => void;
   /** Copies a .psd into library/templates, where it is read as a template. */
-  onAddPsd: (file: File) => void;
+  onPickPsd: () => void;
+  onOpenImportDesign: () => void;
+  hasImportedDesign?: boolean;
   /** Renames / deletes a template of library/templates (JSON or PSD); resolves to an error message or null. */
   onRenameLibraryTemplate: (template: KitTemplate, name: string) => Promise<string | null>;
   onDeleteLibraryTemplate: (template: KitTemplate) => Promise<string | null>;
@@ -181,6 +183,14 @@ const EDGES: { id: ZoneEdge; label: string; hint: string }[] = [
   { id: 'rounded', label: 'Tumpul', hint: 'Sudut membulat' },
   { id: 'pointed', label: 'Runcing', hint: 'Ujung meruncing seperti anak panah' },
   { id: 'slant', label: 'Miring', hint: 'Ujung dipotong miring' },
+];
+
+// order of TemplateZoneState.edgeCorners laid out as a 2×2 grid: each cell draws its own corner (rounded on one side)
+const CORNERS = [
+  { label: 'Kiri atas', cls: 'border-r-0 border-b-0 rounded-tl-lg' },
+  { label: 'Kanan atas', cls: 'border-l-0 border-b-0 rounded-tr-lg' },
+  { label: 'Kanan bawah', cls: 'border-l-0 border-t-0 rounded-br-lg' },
+  { label: 'Kiri bawah', cls: 'border-r-0 border-t-0 rounded-bl-lg' },
 ];
 
 const NEW_ZONES: { id: NewZoneKind; label: string }[] = [
@@ -253,7 +263,6 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
   onChooseBase,
   onEditBase,
   onChangeBackground,
-  onChangeSleeveShape,
   onDeleteSeam,
   onToggleSeamCurve,
   onRenameGroup,
@@ -261,7 +270,9 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
   onSetSeamStyle,
   editSeam,
   onToggleEditSeam,
-  onAddPsd,
+  onPickPsd,
+  onOpenImportDesign,
+  hasImportedDesign,
   onRenameLibraryTemplate,
   onDeleteLibraryTemplate,
   view,
@@ -483,8 +494,8 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
     removePattern(l, openPattern.g);
     return true;
   };
-  const shortcutRef = useRef({ groupSelected, mergeSelected, pickedLayers, selectedZoneId, selectedZoneIds, onDeleteZone, deleteOpenPattern, onUngroup, zoneById });
-  shortcutRef.current = { groupSelected, mergeSelected, pickedLayers, selectedZoneId, selectedZoneIds, onDeleteZone, deleteOpenPattern, onUngroup, zoneById };
+  const shortcutRef = useRef({ groupSelected, mergeSelected, pickedLayers, selectedZoneId, selectedZoneIds, onDeleteZone, deleteOpenPattern, onUngroup, zoneById, onDuplicateZone });
+  shortcutRef.current = { groupSelected, mergeSelected, pickedLayers, selectedZoneId, selectedZoneIds, onDeleteZone, deleteOpenPattern, onUngroup, zoneById, onDuplicateZone };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
@@ -511,6 +522,12 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           e.preventDefault();
           s.onUngroup(lg);
         }
+      } else if (k === 'j' && !e.shiftKey) {
+        // Ctrl+J: duplicate the selected layer(s), like Photoshop
+        const ids = s.selectedZoneIds.length ? s.selectedZoneIds : s.selectedZoneId ? [s.selectedZoneId] : [];
+        if (!ids.length) return;
+        e.preventDefault();
+        ids.forEach((id) => s.onDuplicateZone(id));
       } else if (k === 'e' && !e.shiftKey && s.pickedLayers().length >= 2) {
         e.preventDefault();
         e.stopPropagation(); // not Export this time
@@ -1238,6 +1255,71 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
 
         <Slider label="Transparansi" value={Math.round((zs.opacity ?? 1) * 100)} min={10} max={100} step={5} unit="%" onChange={(v) => onUpdateZone(z.id, { opacity: v / 100 })} />
 
+        {!isMask && (
+          <div className="space-y-1.5 text-[11px] text-slate-400">
+            <label className="flex items-center gap-2 text-slate-300 cursor-pointer" title="Warna layer memudar ke warna akhir (atau transparan) di dalam bentuknya; ikut ditirus, diulang, dan digeser bersama bentuknya">
+              <input
+                type="checkbox"
+                checked={!!zs.gradient}
+                onChange={(e) => onUpdateZone(z.id, { gradient: e.target.checked ? { angle: 0 } : undefined })}
+                className="accent-sky-500"
+              />
+              Isi gradasi
+            </label>
+            {zs.gradient && (
+              <div className="space-y-1.5 pl-5">
+                <div className="flex items-center gap-2">
+                  <span className="w-20">Warna akhir</span>
+                  <input
+                    type="color"
+                    value={(zs.gradient.color2 ?? zs.color).slice(0, 7)}
+                    disabled={zs.gradient.color2 === undefined}
+                    onChange={(e) => onUpdateZone(z.id, { gradient: { ...zs.gradient!, color2: e.target.value } })}
+                    className="w-8 h-7 rounded border border-slate-700 bg-transparent cursor-pointer p-0.5 disabled:opacity-40"
+                    aria-label="Warna akhir gradasi"
+                  />
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={zs.gradient.color2 === undefined}
+                      onChange={(e) => onUpdateZone(z.id, { gradient: { ...zs.gradient!, color2: e.target.checked ? undefined : '#000000' } })}
+                      className="accent-sky-500"
+                    />
+                    Pudar ke transparan
+                  </label>
+                </div>
+                <div className="flex gap-1">
+                  {([false, true] as const).map((radial) => (
+                    <button
+                      key={String(radial)}
+                      type="button"
+                      onClick={() => onUpdateZone(z.id, { gradient: { ...zs.gradient!, radial } })}
+                      aria-pressed={!!zs.gradient!.radial === radial}
+                      className={`flex-1 py-1 rounded-md border ${!!zs.gradient!.radial === radial ? 'bg-sky-600/30 border-sky-500 text-white' : 'border-slate-700 hover:text-white'}`}
+                    >
+                      {radial ? 'Melingkar' : 'Lurus'}
+                    </button>
+                  ))}
+                </div>
+                {!zs.gradient.radial && (
+                  <div className="flex items-end gap-2">
+                    <div className="flex-1">
+                      <Slider label="Arah gradasi" value={zs.gradient.angle} min={-180} max={180} unit="°" onChange={(v) => onUpdateZone(z.id, { gradient: { ...zs.gradient!, angle: v } })} />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onUpdateZone(z.id, { gradient: { ...zs.gradient!, angle: zs.gradient!.angle > 0 ? zs.gradient!.angle - 180 : zs.gradient!.angle + 180 } })}
+                      className="text-[10px] px-2 py-1 rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
+                    >
+                      Balik arah
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="space-y-2 pt-2 border-t border-slate-800">
           <div className="text-[11px] font-semibold text-slate-300">Posisi</div>
           <AlignRow
@@ -1396,6 +1478,39 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
             </div>
             {edge !== 'sharp' && (
               <Slider label="Tingkat" value={Math.round((zs.edgeAmount ?? 0.5) * 100)} min={0} max={100} unit="%" onChange={(v) => onUpdateZone(z.id, { edgeAmount: v / 100 })} />
+            )}
+            {(edge === 'rounded' || edge === 'pointed') && (
+              <div className="flex items-center gap-2">
+                {edge === 'rounded' ? (
+                  <span className="text-[11px] text-slate-400" title="Sudut yang dibulatkan, dilihat dari bentuk aslinya (sebelum diputar)">Sudut tumpul</span>
+                ) : (
+                  <span className="text-[11px] text-slate-400" title="Sudut yang dipotong ke arah ujung runcing, dilihat dari bentuk aslinya (sebelum diputar)">Sudut runcing</span>
+                )}
+                <div className="grid grid-cols-2 gap-0.5 p-0.5 rounded-md border border-slate-700/60">
+                  {[0, 1, 3, 2].map((i) => {
+                    const c = CORNERS[i];
+                    const on = (zs.edgeCorners ?? [true, true, true, true])[i];
+                    return (
+                      <button
+                        key={c.label}
+                        type="button"
+                        title={c.label}
+                        aria-label={c.label}
+                        aria-pressed={on}
+                        onClick={() => {
+                          const next = [...(zs.edgeCorners ?? [true, true, true, true])] as [boolean, boolean, boolean, boolean];
+                          next[i] = !next[i];
+                          onUpdateZone(z.id, { edgeCorners: next });
+                        }}
+                        className={`w-5 h-5 border-2 transition-colors ${c.cls} ${
+                          on ? 'border-sky-400 bg-sky-600/25' : 'border-slate-600 bg-slate-800/70 hover:border-slate-400'
+                        }`}
+                      />
+                    );
+                  })}
+                </div>
+                <span className="text-[10px] text-slate-500">klik sudut untuk on/off</span>
+              </div>
             )}
           </div>
         )}
@@ -1571,35 +1686,7 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
         })()}
         {libMsg && <p className="text-[10px] text-rose-300">{libMsg}</p>}
 
-        <div className="grid grid-cols-2 gap-1.5">
-          <label
-            className="flex items-center justify-center gap-1.5 text-[11px] font-semibold py-1.5 rounded-lg border border-sky-700/70 bg-sky-900/30 text-sky-100 hover:bg-sky-800/40 cursor-pointer focus-within:ring-2 focus-within:ring-sky-500"
-            title="Salin file PSD ke library/templates. PSD itu langsung dibaca menjadi template (grup Baca PSD) dan ikut diperbarui saat file-nya disimpan ulang."
-          >
-            <FileUp className="w-3.5 h-3.5" />
-            Tambah PSD
-            <input
-              type="file"
-              accept=".psd"
-              className="sr-only"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = '';
-                if (file) onAddPsd(file);
-              }}
-            />
-          </label>
-          <button
-            type="button"
-            onClick={onOpenPngImport}
-            className="flex items-center justify-center gap-1.5 text-[11px] font-semibold py-1.5 rounded-lg border border-sky-700/70 bg-sky-900/30 text-sky-100 hover:bg-sky-800/40"
-            title="EKSPERIMENTAL: ubah PNG menjadi template (dipisah per warna, atau 1 file = 1 layer). Hasil bisa kurang tepat."
-          >
-            <ImagePlus className="w-3.5 h-3.5" />
-            Import PNG
-            <span className="text-[10px] font-bold uppercase px-1 py-px rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">Eksp.</span>
-          </button>
-        </div>
+        <ImportButton onImportDesign={onOpenImportDesign} onPickPsd={onPickPsd} onImportPng={onOpenPngImport} hasImportedDesign={hasImportedDesign} />
 
         {template.modified && (
           <p className="text-[10px] text-amber-300/90">Template ini sudah kamu ubah. Memilih ulang template akan mengembalikannya ke awal.</p>
@@ -1715,38 +1802,6 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
             </>
           );
         })()}
-      </div>
-
-      {/* Sleeve shape: with the shoulder yoke, or the shorter shape */}
-      <div className="space-y-2 pt-2.5 border-t border-slate-800/70">
-        <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-300">
-          Bentuk lengan
-          <InfoTip text="Sampai pundak mengikuti template PES: lengan menyambung ke area leher. Tanpa pundak memakai lengan yang lebih pendek dan berhenti di lubang lengan, sisanya ikut warna baju." />
-        </div>
-        <div className="grid grid-cols-2 gap-1.5">
-          {(
-            [
-              ['yoke', 'Sampai pundak'],
-              ['short', 'Tanpa pundak'],
-            ] as const
-          ).map(([id, label]) => {
-            const active = (state.sleeveShape ?? 'yoke') === id;
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => onChangeSleeveShape(id)}
-                className={`text-[11px] font-medium py-1.5 rounded-lg border transition-colors ${
-                  active
-                    ? 'bg-sky-600/30 border-sky-500 text-sky-100'
-                    : 'bg-slate-800/70 border-slate-700/60 text-slate-300 hover:bg-slate-700'
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       {/* Background colour */}

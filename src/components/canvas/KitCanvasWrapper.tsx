@@ -34,7 +34,7 @@ interface KitCanvasWrapperProps {
   fabricConfig?: FabricConfig;
   selectedZoneId?: string | null;
   selectedZoneIds?: string[];
-  drawTool?: 'free' | 'poly' | 'stitch' | 'stitchFree' | null;
+  drawTool?: 'free' | 'poly' | 'stitch' | 'stitchFree' | 'gradient' | null;
   drawPts?: Pt[];
   onViewChange?: (patch: Partial<CanvasViewState>) => void;
   drawCurve?: boolean;

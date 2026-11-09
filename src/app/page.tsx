@@ -48,8 +48,10 @@ import KitConfigModal from '@/components/ui/KitConfigModal';
 import FontsetModal from '@/components/ui/FontsetModal';
 import PhotoPatternModal from '@/components/ui/PhotoPatternModal';
 import { newPatternLayer } from '@/components/ui/PatternLayersPanel';
+import { partPolygons, pointInPolygons } from '@/utils/partShape';
 import { PATTERN_LABEL } from '@/constants/patterns';
-import { DEFAULT_KIT_CONFIG, parseKitConfig } from '@/utils/kitConfig';
+import { DEFAULT_KIT_CONFIG, parseKitConfig, setKitConfigValue, kitConfigToFile } from '@/utils/kitConfig';
+import { saveFilesToFolder, type OutFile } from '@/utils/folderSave';
 import {
   saveAutosaveState,
   loadAutosaveState,
@@ -66,7 +68,7 @@ import {
   saveFontsetSettings,
   loadFontsetSettings,
 } from '@/services/storageService';
-import type { FontsetSettings } from '@/components/ui/FontsetModal';
+import type { FontsetSettings, FontExport } from '@/components/ui/FontsetModal';
 import { ColorPopover } from '@/components/ui/ColorPopover';
 import { generateKitTexture, generateShowcaseCard, renderKitCanvas, preloadImage } from '@/utils/textureGenerator';
 import { encodeDDS } from '@/utils/ddsEncoder';
@@ -81,6 +83,7 @@ import {
   buildTemplateState,
 } from '@/constants/templates';
 import { Shirt, Shield, Hash, Type, LayoutGrid, LayoutTemplate } from 'lucide-react';
+import { startActivityLog } from '@/utils/activityLog';
 
 /** Shortest time between two rebuilds of the 3D texture while something keeps changing. */
 const TEXTURE_3D_MIN_MS = 150;
@@ -128,6 +131,8 @@ export default function Home() {
   const [isKitConfigOpen, setIsKitConfigOpen] = useState(false);
   const [isFontsetOpen, setIsFontsetOpen] = useState(false);
   const [kitConfigText, setKitConfigText] = useState<string>(DEFAULT_KIT_CONFIG);
+  const fontExportRef = useRef<FontExport | null>(null);
+  const psdInputRef = useRef<HTMLInputElement | null>(null);
   const [isProjectsModalOpen, setIsProjectsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [helpKind, setHelpKind] = useState<HelpKind | null>(null);
@@ -203,6 +208,9 @@ export default function Home() {
     { partsConfig, graphicItems, markings, baseTexture, patternMask, template: tplBundle, kitConfig: kitConfigText },
     applySnapshot
   );
+
+  // the activity log (library/logs): every step the user takes, to trace a problem back
+  useEffect(() => startActivityLog(), []);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -353,7 +361,7 @@ export default function Home() {
   const [pngImportFile, setPngImportFile] = useState<File | null>(null);
 
   // Drawing a new layer on the 2D canvas
-  const [drawTool, setDrawTool] = useState<'free' | 'poly' | 'stitch' | 'stitchFree' | null>(null);
+  const [drawTool, setDrawTool] = useState<'free' | 'poly' | 'stitch' | 'stitchFree' | 'gradient' | null>(null);
   const [drawCurve, setDrawCurve] = useState(false);
   const [drawPts, setDrawPts] = useState<Pt[]>([]);
   const preloadTemplateMasks = useCallback((t: KitTemplate) => {
@@ -573,7 +581,8 @@ export default function Home() {
   }, []);
 
   const handleDuplicateZone = useCallback((zoneId: string) => {
-    const id = `custom-${Date.now().toString(36)}`;
+    // random tail: Ctrl+J on several layers makes their copies in the same millisecond
+    const id = `custom-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
     setTplBundle((prev) => {
       const src = prev.def.zones.find((z) => z.id === zoneId);
       if (!src) return prev;
@@ -652,7 +661,7 @@ export default function Home() {
   }, []);
 
   const handleStartDraw = useCallback(
-    (kind: 'free' | 'poly' | 'stitch' | 'stitchFree') => {
+    (kind: 'free' | 'poly' | 'stitch' | 'stitchFree' | 'gradient') => {
       setBrush((prev) => ({ ...prev, active: false }));
       setSelectedZoneId(null);
       setEditSeam(null);
@@ -750,6 +759,42 @@ export default function Home() {
       setDrawPts([]);
       if (!kind) return;
 
+      // gradient: an object (panel) along the drag, as long as the drag, its colour fading from the start point to
+      // the end; it then tapers, repeats and moves like any object
+      if (kind === 'gradient') {
+        if (pts.length < 2) return;
+        const [[fx, fy], [tx, ty]] = pts;
+        const shapeParts = partsForSleeveShape(tplBundle.state.sleeveShape).all;
+        const under =
+          shapeParts.find((pt) => pt.id !== 'credit' && pointInPolygons(partPolygons(pt), fx, fy)) ??
+          PART_MAP[viewState.activePartId !== 'all' ? viewState.activePartId : 'front'];
+        const len = Math.hypot(tx - fx, ty - fy);
+        const across = Math.max(40, Math.min(under.bounds.width, under.bounds.height) * 0.6);
+        const cx = (fx + tx) / 2;
+        const cy = (fy + ty) / 2;
+        const id = `custom-${Date.now().toString(36)}`;
+        const zone: KitZoneDef = {
+          id,
+          name: 'Gradasi',
+          part: under.id,
+          group: under.category,
+          rects: [[Math.round(cx - len / 2), Math.round(cy - across / 2), Math.round(len), Math.round(across)]],
+          defaultColor: '#ffffff',
+          defaultVisible: true,
+        };
+        const rot = Math.round((Math.atan2(ty - fy, tx - fx) * 180) / Math.PI);
+        setTplBundle((prev) => ({
+          def: { ...prev.def, modified: true, zones: [...prev.def.zones, zone] },
+          state: {
+            ...prev.state,
+            zones: { ...prev.state.zones, [id]: { color: '#ffffff', visible: true, rot, seam: false, gradient: { angle: 0 } } },
+          },
+        }));
+        setSelectedZoneId(id);
+        setRightTab('template');
+        return;
+      }
+
       // stitch line: an open polyline kept as a layer of the template (can be deleted again)
       if (kind === 'stitch' || kind === 'stitchFree') {
         const line = kind === 'stitchFree' ? simplifyPath(pts, 3) : pts;
@@ -815,7 +860,7 @@ export default function Home() {
       setSelectedZoneId(id);
       setRightTab('template');
     },
-    [drawTool, drawCurve, viewState.activePartId, setSelectedZoneId]
+    [drawTool, drawCurve, viewState.activePartId, setSelectedZoneId, tplBundle.state.sleeveShape]
   );
 
   // Point editing: bake the zone into plain polygons (so the points are in texture space)
@@ -991,8 +1036,10 @@ export default function Home() {
         if (!res.ok || data.error) throw new Error(data.error || `Server menjawab ${res.status}`);
         setPendingPsdId(data.id);
         library.reload();
+        return true;
       } catch (e: any) {
         alert(`Gagal menambah PSD: ${e?.message || e}`);
+        return false;
       }
     },
     [library]
@@ -1440,6 +1487,10 @@ export default function Home() {
 
   // Advanced Export Executor
   const handlePerformExport = useCallback(async (settings: ExportSettings) => {
+    // the one "name / number in the texture" choice lives in Export; it is remembered with the kit
+    if (settings.exportType === 'game-texture' && settings.includeMarkings !== markings.includeInExport) {
+      setMarkings((m) => ({ ...m, includeInExport: settings.includeMarkings }));
+    }
     const download = (dataUrl: string, filename: string) => {
       const link = document.createElement('a');
       link.download = filename;
@@ -1490,6 +1541,40 @@ export default function Home() {
       return;
     }
 
+    // kitserver package: the texture, config.txt and / or the fonts, written together into one folder
+    if (settings.withConfig || settings.withFonts) {
+      let text = kitConfigText;
+      try {
+        const msg = await saveFilesToFolder(async () => {
+          const ext = settings.fileFormat;
+          const tex =
+            ext === 'png'
+              ? await (async () => {
+                  const url = generateKitTexture(partsConfig, graphicItems, markingsView, settings.includeMarkings, settings.resolution, fabricConfig, activeBase, patternMask, tplBundle);
+                  return url ? await (await fetch(url)).blob() : null;
+                })()
+              : await buildGameTexture(settings.resolution, settings.includeMarkings, settings.ddsFormat, settings.ddsMipmaps, ext === 'ftex');
+          if (!tex) throw new Error('tekstur kit gagal dibuat');
+          const files: OutFile[] = [{ name: `${settings.filename}.${ext}`, data: tex as BlobPart }];
+          if (settings.withConfig) text = setKitConfigValue(text, 'KitFile', settings.filename);
+          if (settings.withFonts) {
+            const fonts = await fontExportRef.current?.(text);
+            if (!fonts?.files.length) throw new Error('belum ada file font yang dipilih di Generate Font');
+            files.push(...fonts.files);
+            text = fonts.configText;
+          }
+          if (settings.withConfig) files.push({ name: 'config.txt', data: kitConfigToFile(text) });
+          return files;
+        });
+        if (!msg) return;
+        if (settings.withConfig && !msg.startsWith('Dibatalkan')) setKitConfigText(text);
+        alert(msg);
+      } catch (err) {
+        alert(`Gagal menyimpan: ${(err as Error)?.message || err}`);
+      }
+      return;
+    }
+
     if (settings.fileFormat === 'dds' || settings.fileFormat === 'ftex') {
       let fileBytes: Uint8Array | null;
       try {
@@ -1526,7 +1611,7 @@ export default function Home() {
     );
 
     if (dataUrl) download(dataUrl, `${settings.filename}.png`);
-  }, [partsConfig, graphicItems, markings, markingsView, fabricConfig, baseTexture, patternMask, tplBundle, buildGameTexture]);
+  }, [partsConfig, graphicItems, markings, markingsView, fabricConfig, baseTexture, patternMask, tplBundle, buildGameTexture, kitConfigText, activeBase, fontsetSettings]);
 
   // New kit replaces the colours and patterns: ask first (Undo still brings them back)
   const { t } = useI18n();
@@ -1536,7 +1621,7 @@ export default function Home() {
 
   // Single-key shortcuts (not while typing or while a dialog is open): tools, view mode, save, export, help
   useEffect(() => {
-    const TOOL_KEYS: Record<string, ToolId> = { v: 'select', b: 'free', p: 'poly', s: 'stitch', j: 'stitchFree', e: 'eraser' };
+    const TOOL_KEYS: Record<string, ToolId> = { v: 'select', b: 'free', p: 'poly', s: 'stitch', j: 'stitchFree', g: 'gradient', e: 'eraser' };
     const VIEW_KEYS: Record<string, WorkspaceViewMode> = { '1': '2d', '2': 'split', '3': '3d' };
     const onKeyDown = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
@@ -1568,6 +1653,19 @@ export default function Home() {
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0d1017]">
       <ColorPopover />
+      <input
+        ref={psdInputRef}
+        type="file"
+        accept=".psd"
+        className="hidden"
+        aria-hidden
+        tabIndex={-1}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = '';
+          if (file) handleAddPsd(file);
+        }}
+      />
       {/* Top Navigation */}
       <Navbar
         onOpenHelp={setHelpKind}
@@ -1575,9 +1673,10 @@ export default function Home() {
         onToggleView={(key) => setViewState((prev) => ({ ...prev, [key]: !prev[key] }))}
         onOpenExportModal={() => setIsExportModalOpen(true)}
         onOpenKitConfig={() => setIsKitConfigOpen(true)}
-        onOpenFontset={() => setIsFontsetOpen(true)}
         onOpenProjectsModal={() => setIsProjectsModalOpen(true)}
         onOpenImportModal={() => setIsImportModalOpen(true)}
+        onPickPsd={() => psdInputRef.current?.click()}
+        onOpenPngImport={() => setIsPngImportOpen(true)}
         onOpenPhotoPattern={() => setIsPhotoPatternOpen(true)}
         hasImportedDesign={!!baseTexture}
         onReset={confirmReset}
@@ -1606,6 +1705,8 @@ export default function Home() {
             onFocusPart={handleFocusPart}
             kitConfig={kitConfigText}
             onKitConfigChange={setKitConfigText}
+            sleeveShape={tplBundle.state.sleeveShape ?? 'yoke'}
+            onSleeveShapeChange={handleChangeSleeveShape}
           />
 
           {/* Viewport Area */}
@@ -1786,13 +1887,14 @@ export default function Home() {
                 onChooseBase={handleChooseBase}
                 onEditBase={() => setIsImportModalOpen(true)}
                 onChangeBackground={handleChangeBackground}
-                onChangeSleeveShape={handleChangeSleeveShape}
                 onDeleteSeam={handleDeleteSeam}
                 onToggleSeamCurve={handleToggleSeamCurve}
                 onSetSeamStyle={handleSetSeamStyle}
                 editSeam={editSeam}
                 onToggleEditSeam={(key) => setEditSeam((cur) => (cur === key ? null : key))}
-                onAddPsd={handleAddPsd}
+                onPickPsd={() => psdInputRef.current?.click()}
+                onOpenImportDesign={() => setIsImportModalOpen(true)}
+                hasImportedDesign={!!baseTexture}
                 onRenameLibraryTemplate={handleRenameLibraryTemplate}
                 onDeleteLibraryTemplate={handleDeleteLibraryTemplate}
                 view={rightTab === 'kitTemplate' ? 'template' : 'layers'}
@@ -1839,7 +1941,8 @@ export default function Home() {
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
         onExport={handlePerformExport}
-        defaultProjectName="pes2021_kit"
+        defaultProjectName={parseKitConfig(kitConfigText).KitFile || 'pes2021_kit'}
+        includeMarkingsDefault={markings.includeInExport}
       />
 
       <KitConfigModal
@@ -1849,6 +1952,10 @@ export default function Home() {
         onChange={setKitConfigText}
         kitColors={kitConfigColors}
         buildKitFtex={(res) => buildGameTexture(res, false, 'dxt5', true, true)}
+        onSwitchToFont={() => {
+          setIsKitConfigOpen(false);
+          setIsFontsetOpen(true);
+        }}
       />
 
       <FontsetModal
@@ -1859,6 +1966,11 @@ export default function Home() {
         onConfigChange={setKitConfigText}
         settings={fontsetSettings}
         onSettingsChange={setFontsetSettings}
+        exportRef={fontExportRef}
+        onSwitchToConfig={() => {
+          setIsFontsetOpen(false);
+          setIsKitConfigOpen(true);
+        }}
       />
 
       <ImportPngModal

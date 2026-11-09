@@ -50,6 +50,7 @@ import {
 import InteractiveGraphicItem from './InteractiveGraphicItem';
 import PlayerMarkingsLayer from './PlayerMarkingsLayer';
 import Konva from 'konva';
+import { lockAxis, lockStart, snap45, ROTATION_SNAPS } from '@/utils/dragLock';
 
 interface KitCanvasProps {
   partsConfig: Record<KitPartId, KitPartConfig>;
@@ -72,7 +73,7 @@ interface KitCanvasProps {
   selectedZoneIds?: string[];
   onSelectZone?: (zoneId: string | null) => void;
   onZoneTransform?: (zoneId: string, patch: Partial<TemplateZoneState>) => void;
-  drawTool?: 'free' | 'poly' | 'stitch' | 'stitchFree' | null;
+  drawTool?: 'free' | 'poly' | 'stitch' | 'stitchFree' | 'gradient' | null;
   drawPts?: Pt[];
   onViewChange?: (patch: Partial<CanvasViewState>) => void;
   drawCurve?: boolean;
@@ -212,12 +213,27 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
   const drawPtsRef = useRef<Pt[]>(drawPts);
   drawPtsRef.current = drawPts;
   const locked = brushActive || drawActive;
+  // Shift held: the transformers turn in 15° steps (like Photoshop)
+  const [shiftHeld, setShiftHeld] = useState(false);
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => setShiftHeld(e.shiftKey);
+    const off = () => setShiftHeld(false);
+    window.addEventListener('keydown', on);
+    window.addEventListener('keyup', on);
+    window.addEventListener('blur', off);
+    return () => {
+      window.removeEventListener('keydown', on);
+      window.removeEventListener('keyup', on);
+      window.removeEventListener('blur', off);
+    };
+  }, []);
+  const rotationSnaps = shiftHeld ? ROTATION_SNAPS : [];
 
-  const handleDrawDown = (stage: Konva.Stage | null) => {
+  const handleDrawDown = (stage: Konva.Stage | null, shift = false) => {
     const pos = stage?.getRelativePointerPosition();
     if (!pos || !drawTool) return;
-    const pt: Pt = [Math.round(pos.x * 10) / 10, Math.round(pos.y * 10) / 10];
-    if (drawTool === 'free' || drawTool === 'stitchFree') {
+    let pt: Pt = [Math.round(pos.x * 10) / 10, Math.round(pos.y * 10) / 10];
+    if (drawTool === 'free' || drawTool === 'stitchFree' || drawTool === 'gradient') {
       freeDrawing.current = true;
       onDrawPts?.([pt]);
       return;
@@ -229,24 +245,37 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
       return;
     }
     const last = pts[pts.length - 1];
+    // Shift: the new segment goes straight on, at a multiple of 45°
+    if (last && shift) pt = snap45(last, pt);
     if (last && Math.hypot(last[0] - pt[0], last[1] - pt[1]) < 3) return;
     onDrawPts?.([...pts, pt]);
   };
 
-  const handleDrawMove = (stage: Konva.Stage | null) => {
-    if (!(drawTool === 'free' || drawTool === 'stitchFree') || !freeDrawing.current) return;
+  const handleDrawMove = (stage: Konva.Stage | null, shift = false) => {
+    if (!(drawTool === 'free' || drawTool === 'stitchFree' || drawTool === 'gradient') || !freeDrawing.current) return;
     const pos = stage?.getRelativePointerPosition();
     if (!pos) return;
     const pts = drawPtsRef.current;
+    // gradient: just the start point and where the mouse is now
+    if (drawTool === 'gradient') {
+      const end: Pt = [Math.round(pos.x * 10) / 10, Math.round(pos.y * 10) / 10];
+      onDrawPts?.([pts[0], shift ? snap45(pts[0], end) : end]);
+      return;
+    }
     const last = pts[pts.length - 1];
     if (last && Math.hypot(last[0] - pos.x, last[1] - pos.y) < 2.5) return;
     onDrawPts?.([...pts, [Math.round(pos.x * 10) / 10, Math.round(pos.y * 10) / 10]]);
   };
 
   const handleDrawUp = () => {
-    if (!(drawTool === 'free' || drawTool === 'stitchFree') || !freeDrawing.current) return;
+    if (!(drawTool === 'free' || drawTool === 'stitchFree' || drawTool === 'gradient') || !freeDrawing.current) return;
     freeDrawing.current = false;
     const pts = drawPtsRef.current;
+    if (drawTool === 'gradient') {
+      if (pts.length === 2 && Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]) >= 6) onDrawFinish?.(pts);
+      else onDrawPts?.([]);
+      return;
+    }
     if (pts.length >= 4) onDrawFinish?.(pts);
     else onDrawPts?.([]);
   };
@@ -721,7 +750,7 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
             return;
           }
           if (drawActive) {
-            handleDrawDown(e.target.getStage());
+            handleDrawDown(e.target.getStage(), e.evt.shiftKey);
             return;
           }
           if (brushActive) {
@@ -737,7 +766,7 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
           }
         }}
         onMouseMove={(e) => {
-          if (drawActive) handleDrawMove(e.target.getStage());
+          if (drawActive) handleDrawMove(e.target.getStage(), e.evt.shiftKey);
           else if (brushActive) handleBrushMove(e.target.getStage());
         }}
         onMouseUp={() => {
@@ -1013,6 +1042,8 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
             <Transformer
               ref={trRef}
               keepRatio={ratioLocked}
+              rotationSnaps={rotationSnaps}
+              rotationSnapTolerance={7.5}
               enabledAnchors={
                 ratioLocked
                   ? ['top-left', 'top-right', 'bottom-left', 'bottom-right']
@@ -1146,8 +1177,12 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
               strokeScaleEnabled={false}
               dash={[6, 4]}
               draggable
-              onDragStart={snapshotMulti}
+              onDragStart={(e) => {
+                lockStart(e);
+                snapshotMulti();
+              }}
               onDragMove={(e) => {
+                lockAxis(e);
                 const s = multiStartRef.current;
                 if (!s) return;
                 const ddx = e.target.x() - s.box.cx;
@@ -1184,6 +1219,8 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
             <Transformer
               ref={multiTrRef}
               rotateEnabled
+              rotationSnaps={rotationSnaps}
+              rotationSnapTolerance={7.5}
               keepRatio
               enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
               anchorFill="#0284c7"
@@ -1214,12 +1251,14 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
               strokeScaleEnabled={false}
               dash={[6, 4]}
               draggable
-              onDragMove={(e) =>
+              onDragStart={lockStart}
+              onDragMove={(e) => {
+                lockAxis(e);
                 onZoneTransform?.(selectedZone.id, {
                   dx: Math.round(e.target.x() - zBox.cx),
                   dy: Math.round(e.target.y() - zBox.cy),
-                })
-              }
+                });
+              }}
               onTransformEnd={(e) => {
                 const node = e.target;
                 let sx = node.scaleX();
@@ -1254,6 +1293,8 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
             <Transformer
               ref={zoneTrRef}
               rotateEnabled
+              rotationSnaps={rotationSnaps}
+              rotationSnapTolerance={7.5}
               keepRatio={false}
               anchorFill="#0284c7"
               anchorStroke="#ffffff"
@@ -1349,12 +1390,14 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
                       strokeWidth={1.5}
                       strokeScaleEnabled={false}
                       draggable
-                      onDragMove={(e) =>
+                      onDragStart={lockStart}
+                      onDragMove={(e) => {
+                        lockAxis(e);
                         onZonePointMove?.(selectedZone.id, pi, i, [
                           Math.round(e.target.x() * 10) / 10,
                           Math.round(e.target.y() * 10) / 10,
-                        ])
-                      }
+                        ]);
+                      }}
                       onContextMenu={(e) => {
                         e.evt.preventDefault();
                         onZonePointRemove?.(selectedZone.id, pi, i);
@@ -1417,7 +1460,11 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
                   strokeWidth={1.5}
                   strokeScaleEnabled={false}
                   draggable
-                  onDragMove={(e) => onSeamPointMove?.(editSeam, i, [round(e.target.x()), round(e.target.y())])}
+                  onDragStart={lockStart}
+                  onDragMove={(e) => {
+                    lockAxis(e);
+                    onSeamPointMove?.(editSeam, i, [round(e.target.x()), round(e.target.y())]);
+                  }}
                   onContextMenu={(e) => {
                     e.evt.preventDefault();
                     onSeamPointRemove?.(editSeam, i);

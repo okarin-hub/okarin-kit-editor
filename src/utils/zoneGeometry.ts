@@ -57,33 +57,39 @@ export function zoneBox(zone: KitZoneDef): ZoneBox {
 // Base shapes (before move / scale / rotate), as polygons
 // ---------------------------------------------------------------------------------------------
 
-function rectPolygon(x: number, y: number, w: number, h: number, edge: string, amt: number): Pt[][] {
+const ALL_CORNERS = [true, true, true, true];
+
+function rectPolygon(x: number, y: number, w: number, h: number, edge: string, amt: number, corners = ALL_CORNERS): Pt[][] {
   const short = Math.min(w, h);
   if (edge === 'rounded') {
     const r = clamp(amt, 0, 1) * short * 0.5;
     if (r < 0.5) return [[[x, y], [x + w, y], [x + w, y + h], [x, y + h]]];
     const pts: Pt[] = [];
-    const corner = (cx: number, cy: number, a0: number) => {
+    // (px, py) = the box corner, used as-is when that corner is not rounded
+    const corner = (on: boolean, px: number, py: number, cx: number, cy: number, a0: number) => {
+      if (!on) return void pts.push([px, py]);
       for (let i = 0; i <= 6; i++) {
         const a = rad(a0 + (90 * i) / 6);
         pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
       }
     };
-    corner(x + w - r, y + r, -90);
-    corner(x + w - r, y + h - r, 0);
-    corner(x + r, y + h - r, 90);
-    corner(x + r, y + r, 180);
+    corner(corners[1], x + w, y, x + w - r, y + r, -90);
+    corner(corners[2], x + w, y + h, x + w - r, y + h - r, 0);
+    corner(corners[3], x, y + h, x + r, y + h - r, 90);
+    corner(corners[0], x, y, x + r, y + r, 180);
     return [pts];
   }
   if (edge === 'pointed') {
     const horizontal = w >= h;
     const a = clamp(amt, 0, 1) * short * 1.5;
+    // a corner that is off stays square, so one side of an end can taper alone (both off = a straight end)
+    const [tl, tr, br, bl] = corners.map((on) => (on ? 1 : 0));
     if (horizontal) {
       const t = Math.min(a, w / 2);
-      return [[[x + t, y], [x + w - t, y], [x + w, y + h / 2], [x + w - t, y + h], [x + t, y + h], [x, y + h / 2]]];
+      return [[[x + t * tl, y], [x + w - t * tr, y], [x + w, y + h / 2], [x + w - t * br, y + h], [x + t * bl, y + h], [x, y + h / 2]]];
     }
     const t = Math.min(a, h / 2);
-    return [[[x, y + t], [x + w / 2, y], [x + w, y + t], [x + w, y + h - t], [x + w / 2, y + h], [x, y + h - t]]];
+    return [[[x, y + t * tl], [x + w / 2, y], [x + w, y + t * tr], [x + w, y + h - t * br], [x + w / 2, y + h], [x, y + h - t * bl]]];
   }
   if (edge === 'slant') {
     const horizontal = w >= h;
@@ -108,8 +114,8 @@ function ellipsePolygon(x: number, y: number, w: number, h: number): Pt[] {
   return pts;
 }
 
-/** Rounds the corners of a polygon with the given radius. */
-function roundPolygon(poly: Pt[], radius: number): Pt[] {
+/** Rounds the corners of a polygon with the given radius; `keep(p)` true leaves that vertex sharp. */
+function roundPolygon(poly: Pt[], radius: number, keep?: (p: Pt) => boolean): Pt[] {
   if (radius < 0.5 || poly.length < 3) return poly;
   const out: Pt[] = [];
   const n = poly.length;
@@ -117,6 +123,10 @@ function roundPolygon(poly: Pt[], radius: number): Pt[] {
     const p0 = poly[(i + n - 1) % n];
     const p1 = poly[i];
     const p2 = poly[(i + 1) % n];
+    if (keep?.(p1)) {
+      out.push(p1);
+      continue;
+    }
     const v1: Pt = [p0[0] - p1[0], p0[1] - p1[1]];
     const v2: Pt = [p2[0] - p1[0], p2[1] - p1[1]];
     const l1 = Math.hypot(v1[0], v1[1]);
@@ -184,13 +194,16 @@ export function simplifyPath(points: Pt[], epsilon: number): Pt[] {
 export function zoneBasePolygons(zone: KitZoneDef, zs: Partial<TemplateZoneState>): Pt[][] {
   const edge = zs.edge ?? 'sharp';
   const amt = zs.edgeAmount ?? 0.5;
+  const corners = zs.edgeCorners ?? ALL_CORNERS;
   const polys: Pt[][] = [];
-  zone.rects?.forEach(([x, y, w, h]) => polys.push(...rectPolygon(x, y, w, h, edge, amt)));
+  zone.rects?.forEach(([x, y, w, h]) => polys.push(...rectPolygon(x, y, w, h, edge, amt, corners)));
   zone.ellipses?.forEach(([x, y, w, h]) => polys.push(ellipsePolygon(x, y, w, h)));
   zone.polygons?.forEach((p) => {
     if (edge === 'rounded') {
       const box = zoneBox(zone);
-      polys.push(roundPolygon(p, clamp(amt, 0, 1) * Math.min(box.w, box.h) * 0.25));
+      // a drawn shape's vertex belongs to the corner of the box quarter it lies in
+      const keep = (q: Pt) => !corners[q[1] < box.cy ? (q[0] < box.cx ? 0 : 1) : q[0] < box.cx ? 3 : 2];
+      polys.push(roundPolygon(p, clamp(amt, 0, 1) * Math.min(box.w, box.h) * 0.25, keep));
     } else {
       polys.push(p);
     }

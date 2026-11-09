@@ -48,6 +48,7 @@ export function mergeZones(
       st(z).color.toLowerCase() === topState.color.toLowerCase() &&
       (st(z).opacity ?? 1) === (topState.opacity ?? 1) &&
       !!st(z).followShoulder === !!topState.followShoulder &&
+      !st(z).gradient &&
       partsKey(z) === partsKey(top)
   );
   if (asShape) {

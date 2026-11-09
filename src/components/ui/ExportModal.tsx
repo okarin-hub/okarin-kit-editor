@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   Download,
@@ -20,6 +20,8 @@ interface ExportModalProps {
   onClose: () => void;
   onExport: (settings: ExportSettings) => void;
   defaultProjectName: string;
+  /** the last choice for name / number in the texture (kept with the kit) */
+  includeMarkingsDefault?: boolean;
 }
 
 export const ExportModal: React.FC<ExportModalProps> = ({
@@ -27,6 +29,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   onClose,
   onExport,
   defaultProjectName,
+  includeMarkingsDefault = false,
 }) => {
   const [exportType, setExportType] = useState<'game-texture' | 'project-file' | 'showcase-card'>('game-texture');
   const [resolution, setResolution] = useState<ExportTextureResolution>(1024);
@@ -34,9 +37,20 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const [fileFormat, setFileFormat] = useState<ExportFileFormat>('png');
   const [ddsFormat, setDdsFormat] = useState<ExportDdsFormat>('dxt5');
   const [ddsMipmaps, setDdsMipmaps] = useState<boolean>(true);
+  const [withConfig, setWithConfig] = useState(false);
+  const [withFonts, setWithFonts] = useState(false);
+  const pack = exportType === 'game-texture' && (withConfig || withFonts);
   const [filename, setFilename] = useState<string>(
     defaultProjectName.toLowerCase().replace(/[^a-z0-9_-]/g, '_') || 'pes2021_kit'
   );
+
+  // each time it opens, the file name starts from the kit's name (KitFile in the kitserver config)
+  useEffect(() => {
+    if (!isOpen) return;
+    setFilename(defaultProjectName.replace(/[^\w-]/g, '_') || 'pes2021_kit');
+    setIncludeMarkings(includeMarkingsDefault);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -48,6 +62,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       fileFormat,
       ddsFormat,
       ddsMipmaps,
+      withConfig: exportType === 'game-texture' && withConfig,
+      withFonts: exportType === 'game-texture' && withFonts,
       filename: filename.trim() || 'pes2021_kit',
     });
     onClose();
@@ -250,6 +266,27 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   </div>
                 </label>
               </div>
+
+              {/* Kitserver package: texture + config + fonts in one folder */}
+              <div className="pt-2 border-t border-slate-800/80 space-y-1.5">
+                <span className="text-xs font-semibold text-slate-300">Sekalian simpan (Kitserver):</span>
+                <label className="flex items-center gap-2 text-[11px] text-slate-300 cursor-pointer">
+                  <input type="checkbox" checked={withConfig} onChange={(e) => setWithConfig(e.target.checked)} className="accent-rose-500 cursor-pointer" />
+                  config.txt
+                </label>
+                <label className="flex items-center gap-2 text-[11px] text-slate-300 cursor-pointer">
+                  <input type="checkbox" checked={withFonts} onChange={(e) => setWithFonts(e.target.checked)} className="accent-rose-500 cursor-pointer" />
+                  Font nomor & nama (dari Generate Font)
+                </label>
+                {pack && (
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    Semua file disimpan ke satu folder yang kamu pilih (misalnya folder kit p1).
+                    {withConfig && ' KitFile di config ikut nama file di bawah.'}
+                    {withConfig && withFonts && ' Nama file font juga ditulis ke config.'}
+                    {withFonts && ' Font memakai pilihan file dan format terakhir di Generate Font.'}
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
@@ -293,7 +330,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             className="flex items-center gap-2 px-5 py-2 rounded-lg text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 active:scale-95 transition-colors"
           >
             <Download className="w-4 h-4" />
-            <span>Download Sekarang</span>
+            <span>{pack ? 'Simpan ke Folder' : 'Download Sekarang'}</span>
           </button>
         </div>
       </div>

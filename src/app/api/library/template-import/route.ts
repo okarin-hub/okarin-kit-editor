@@ -31,6 +31,7 @@ function folderPath(folder: unknown): string | null {
  *  - { action: 'init', name }                 -> creates library/templates/<slug>/masks, returns { folder }
  *  - { action: 'mask', folder, file, dataUrl } -> writes masks/<file>.png
  *  - { action: 'finish', folder, template }    -> validates and writes template.json, returns the template
+ *  - { action: 'abort', folder }               -> removes an unfinished folder (no template.json yet)
  */
 export async function POST(req: NextRequest) {
   try {
@@ -69,6 +70,12 @@ export async function POST(req: NextRequest) {
     const dir = folderPath(body.folder);
     if (!dir || !fs.existsSync(dir)) {
       return NextResponse.json({ error: 'Folder template tidak valid.' }, { status: 400 });
+    }
+
+    if (body.action === 'abort') {
+      // an import that failed halfway: remove its folder, never one that already holds a finished template
+      if (!fs.existsSync(path.join(dir, 'template.json'))) fs.rmSync(dir, { recursive: true, force: true });
+      return NextResponse.json({ ok: true });
     }
 
     if (body.action === 'mask') {

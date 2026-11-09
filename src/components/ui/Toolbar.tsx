@@ -1,10 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { ZoomIn, ZoomOut, Maximize2, Box, Layout, Columns, X } from 'lucide-react';
 import { CanvasViewState, KitPartId } from '@/types/kit';
 import { PART_MAP, PES_2021_PARTS } from '@/constants/pes2021Parts';
-import KitModelBar from './KitModelBar';
+import { KitModelButton, KitModelStrip } from './KitModelBar';
 
 export type WorkspaceViewMode = '2d' | '3d' | 'split';
 
@@ -17,6 +17,8 @@ interface ToolbarProps {
   onFocusPart: (partId: KitPartId) => void;
   kitConfig: string;
   onKitConfigChange: (text: string) => void;
+  sleeveShape: 'yoke' | 'short';
+  onSleeveShapeChange: (shape: 'yoke' | 'short') => void;
 }
 
 /** Strip above the workspace: view mode (2D / Split / 3D), the focused part, the 3D model parts and the zoom. */
@@ -29,6 +31,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onFocusPart,
   kitConfig,
   onKitConfigChange,
+  sleeveShape,
+  onSleeveShapeChange,
 }) => {
   const activePart = viewState.activePartId !== 'all' ? PART_MAP[viewState.activePartId] : null;
 
@@ -38,6 +42,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     { id: '3d', label: '3D', icon: <Box className="w-3.5 h-3.5" /> },
   ];
 
+  const [modelOpen, setModelOpen] = useState(false);
+  const closeModel = useCallback(() => setModelOpen(false), []);
+  const model = { kitConfig, onKitConfigChange, sleeveShape, onSleeveShapeChange };
+
   const zoomBy = (delta: number) =>
     setViewState((prev) => ({
       ...prev,
@@ -45,6 +53,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     }));
 
   return (
+    <>
     <div className="relative z-30 h-10 shrink-0 border-b border-slate-800 bg-[#161a26]/90 backdrop-blur px-3 flex items-center gap-2 text-xs text-slate-300 select-none">
       {/* View mode (2D / Split / 3D) */}
       <div className="flex items-center bg-slate-900/90 border border-slate-800 p-0.5 rounded-lg shrink-0" role="group" aria-label="Tampilan">
@@ -98,9 +107,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         </div>
       )}
 
-      {/* 3D model parts (collar, sleeves, tight kit, shorts), next to the zoom */}
+      {/* the kit model in one button: sleeve shape and the 3D model parts, next to the zoom */}
       <div className="flex-1 min-w-0 flex justify-end">
-        {viewMode !== '2d' && <KitModelBar kitConfig={kitConfig} onKitConfigChange={onKitConfigChange} />}
+        <KitModelButton {...model} open={modelOpen} onToggle={() => setModelOpen((o) => !o)} />
       </div>
 
       {/* Zoom */}
@@ -132,6 +141,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         </button>
       </div>
     </div>
+    {modelOpen && <KitModelStrip {...model} onClose={closeModel} />}
+    </>
   );
 };
 

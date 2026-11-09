@@ -6,6 +6,7 @@ import useImage from 'use-image';
 import { KitGraphicItem } from '@/types/kit';
 import { getStyledLogo } from '@/utils/logoStyle';
 import { drawTextItem, fitTextBox } from '@/utils/textItem';
+import { lockAxis, lockStart } from '@/utils/dragLock';
 
 interface InteractiveGraphicItemProps {
   item: KitGraphicItem;
@@ -57,8 +58,10 @@ export const InteractiveGraphicItem: React.FC<InteractiveGraphicItemProps> = ({
       }}
       onDragStart={(e) => {
         e.cancelBubble = true;
+        lockStart(e);
         onSelect();
       }}
+      onDragMove={lockAxis}
       onDragEnd={(e) => {
         onChange({
           ...item,

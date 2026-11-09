@@ -39,7 +39,8 @@ Folder `library` di sebelah exe awalnya **kosong**: tambahkan logo, pola, font, 
 - Export: **PNG**, **DDS** (DXT1 / DXT5 / BGRA, mipmap), **FTEX** (ditulis langsung, sudah diuji di PES 2021),
   file proyek `.peskit`, kartu showcase. 1024 atau 2048 px.
 - Generator fontset kitserver (font nomor dan nama, FTEX sudah diuji di PES 2021).
-- Alat eksperimental: pola dari foto jersey dan editor config.txt kitserver.
+- Editor config.txt kitserver (kerah, model celana dan lengan tampil di pratinjau 3D).
+- Eksperimental: pola dari foto jersey.
 - Bahasa: English, Bahasa Indonesia, Português, Español. Pintasan keyboard, undo / redo, autosave, proyek tersimpan.
 - Aplikasi Windows bisa memperbarui dirinya dari rilis GitHub (*Bantuan → Cek pembaruan*).
 

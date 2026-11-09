@@ -4,7 +4,26 @@ import { partPolygons, tracePolygons, insetPolygon } from '@/utils/partShape';
 const hasShape = (z: KitZoneDef) => !!(z.rects?.length || z.polygons?.length || z.ellipses?.length);
 import { getCachedImage, preloadImage } from '@/utils/imageCache';
 import { drawPatternLayersForPart, patternLayersForPart, tintedTile } from '@/utils/patternRenderer';
-import { zonePath, drawMaskTransformed, zoneParts, zoneMatrix } from '@/utils/zoneGeometry';
+import { zonePath, drawMaskTransformed, zoneParts, zoneMatrix, zoneBox, transformPoint, repeatOffsets } from '@/utils/zoneGeometry';
+
+/** The gradient of a layer in texture space (for its first copy): along `angle` across the layer's own box. */
+function zoneGradient(g: CanvasRenderingContext2D, zone: KitZoneDef, zs: TemplateState['zones'][string]): CanvasGradient {
+  const gr = zs.gradient!;
+  const box = zoneBox(zone);
+  const a = (gr.angle * Math.PI) / 180;
+  const [dx, dy] = [Math.cos(a), Math.sin(a)];
+  const half = (Math.abs(box.w * dx) + Math.abs(box.h * dy)) / 2;
+  const [cx, cy] = transformPoint([box.cx, box.cy], box, zs);
+  const [sx, sy] = transformPoint([box.cx - dx * half, box.cy - dy * half], box, zs);
+  const [ex, ey] = transformPoint([box.cx + dx * half, box.cy + dy * half], box, zs);
+  const grad = gr.radial
+    ? g.createRadialGradient(cx, cy, 0, cx, cy, Math.max(1, Math.hypot(ex - cx, ey - cy)))
+    : g.createLinearGradient(sx, sy, ex, ey);
+  grad.addColorStop(0, zs.color);
+  // fading to transparent keeps the hue (rgba(0,0,0,0) would darken the middle)
+  grad.addColorStop(1, gr.color2 ?? `${zs.color.slice(0, 7)}00`);
+  return grad;
+}
 import { PES_2021_PARTS } from '@/constants/pes2021Parts';
 
 /**
@@ -402,7 +421,19 @@ export function drawTemplateForPart(
   // 1. Coloured zones (move / scale / rotate / edge shaping / opacity come from the zone state)
   /** Draws one layer (shape and / or mask image) onto g with g's composite operation. */
   const paint = (g: CanvasRenderingContext2D, zone: KitTemplate['zones'][number], zs: TemplateState['zones'][string]) => {
-    if (hasShape(zone)) {
+    if (hasShape(zone) && zs.gradient) {
+      const grad = zoneGradient(g, zone, zs);
+      const one = { ...zs, repeat: 1 };
+      repeatOffsets(zone, zs).forEach(([ox, oy]) => {
+        g.save();
+        g.globalAlpha = zs.opacity ?? 1;
+        g.translate(ox, oy);
+        g.fillStyle = grad;
+        zonePath(g, zone, one);
+        g.fill(zone.fill ?? 'evenodd');
+        g.restore();
+      });
+    } else if (hasShape(zone)) {
       g.save();
       g.globalAlpha = zs.opacity ?? 1;
       g.fillStyle = zs.color;

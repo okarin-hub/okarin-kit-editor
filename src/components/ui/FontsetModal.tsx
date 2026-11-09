@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Type, FolderDown, ImageDown, AlertCircle, ImagePlus, Trash2, Library } from 'lucide-react';
 import { FontPicker } from '@/components/ui/FontPicker';
+import { KitserverHeader } from '@/components/ui/KitserverHeader';
 import { useI18n } from '@/i18n/I18nProvider';
 import { AssetLibrary } from '@/hooks/useAssetLibrary';
 import {
@@ -102,6 +103,49 @@ interface SheetState {
   missing: string[][];
 }
 
+/**
+ * The characters of a PES font texture made earlier (one sheet file, laid out in the PES slots), cut out per slot and
+ * trimmed to their ink, as one sheet row each. Null when the picture is not there.
+ */
+async function slotRows(url: string | undefined, layout: FontsetLayout): Promise<{ row: SheetRow; chars: string }[] | null> {
+  if (!url) return null;
+  const im = new Image();
+  im.src = url;
+  if (!(await im.decode().then(() => true, () => false))) return null;
+  const k = im.width / layout.width;
+  const src = document.createElement('canvas');
+  src.width = im.width;
+  src.height = im.height;
+  const sctx = src.getContext('2d', { willReadFrequently: true })!;
+  sctx.drawImage(im, 0, 0);
+  return layout.rows.map((slots, r) => {
+    const glyphs: SheetGlyph[] = [];
+    let chars = '';
+    for (const sl of slots) {
+      const x0 = Math.round(sl.x0 * k), x1 = Math.round(sl.x1 * k), y0 = Math.round(r * layout.rowHeight * k), h = Math.round(layout.rowHeight * k);
+      const d = sctx.getImageData(x0, y0, Math.max(1, x1 - x0), h).data;
+      const w = Math.max(1, x1 - x0);
+      let minX = w, maxX = -1, minY = h, maxY = -1;
+      for (let y = 0; y < h; y++)
+        for (let x = 0; x < w; x++)
+          if (d[(y * w + x) * 4 + 3] > 8) {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+      if (maxX < 0) continue; // an empty slot: the font fills that character in
+      const c = document.createElement('canvas');
+      c.width = maxX - minX + 1;
+      c.height = maxY - minY + 1;
+      c.getContext('2d')!.drawImage(src, x0 + minX, y0 + minY, c.width, c.height, 0, 0, c.width, c.height);
+      glyphs.push({ canvas: c, base: layout.baseline * k - minY, capH: (layout.baseline - layout.top) * k });
+      chars += sl.ch;
+    }
+    return { row: { glyphs }, chars };
+  });
+}
+
 const thumbOf = (c: HTMLCanvasElement) => {
   const h = 36;
   const t = document.createElement('canvas');
@@ -149,7 +193,13 @@ interface FontsetModalProps {
   /** saved settings to start from (autosave or an opened project) */
   settings?: FontsetSettings | null;
   onSettingsChange?: (settings: FontsetSettings) => void;
+  /** filled with the font file builder, so Export can save the fonts next to the kit (the files, and the config with their names) */
+  exportRef?: React.MutableRefObject<FontExport | null>;
+  /** the Kitserver dialog's other tab */
+  onSwitchToConfig?: () => void;
 }
+
+export type FontExport = (configText: string) => Promise<{ files: OutFile[]; configText: string }>;
 
 /** Number and name font textures for kitserver, generated from a font or a font sheet image into the PES slots. */
 export const FontsetModal: React.FC<FontsetModalProps> = ({
@@ -160,6 +210,8 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
   onConfigChange,
   settings,
   onSettingsChange,
+  exportRef,
+  onSwitchToConfig,
 }) => {
   const [styles, setStyles] = useState<Record<Group, FontsetStyle>>({ number: DEFAULT_STYLE, name: DEFAULT_STYLE });
   const [prefix, setPrefix] = useState('');
@@ -247,6 +299,20 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
   const config = useMemo(() => parseKitConfig(configText), [configText]);
   const filePrefix = (prefix || config.KitFile || 'kit').replace(/[^\w-]/g, '_');
   const fileName = (kind: FileKind) => `${filePrefix}_${kind}`;
+
+  // the config's font file names follow the generator: a new prefix (or KitFile, when the prefix is empty) or another
+  // file choice is written into the config right away (an unticked file is cleared); only on a change, so opening the app keeps the config as saved
+  const namesKey = writeConfig ? FILES.map((f) => (f.configKey && selected[f.kind] ? `${f.configKey}=${fileName(f.kind)}` : '')).join('|') : '';
+  const lastNames = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = lastNames.current;
+    lastNames.current = namesKey;
+    if (prev === null || prev === namesKey || !namesKey) return;
+    let text = configText;
+    for (const f of FILES) if (f.configKey) text = setKitConfigValue(text, f.configKey, selected[f.kind] ? fileName(f.kind) : '');
+    if (text !== configText) onConfigChange(text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [namesKey]);
 
   // character -> glyph cut from the sheet ('_' in a row's text skips that glyph)
   const sheetMap = useMemo(() => {
@@ -402,6 +468,26 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, styles.number.fontFamily, styles.number.fontWeight, styles.name.fontFamily, styles.name.fontWeight, sheetMap, useSheet]);
 
+  /** The font files of `kinds` in the chosen format, and `text` with their names set in the config keys. */
+  const buildFiles = async (kinds: typeof FILES, text: string) => {
+    // a file that is not made is cleared in the config (empty = the game's own font), so no name points at nothing
+    for (const f of FILES) if (f.configKey) text = setKitConfigValue(text, f.configKey, kinds.includes(f) ? fileName(f.kind) : '');
+    const files: OutFile[] = [];
+    for (const f of kinds) {
+      const canvas = render(f.kind);
+      let data: BlobPart;
+      if (format === 'png') {
+        data = await new Promise<Blob>((ok, fail) => canvas.toBlob((b) => (b ? ok(b) : fail(new Error('PNG'))), 'image/png'));
+      } else {
+        const dds = encodeDDS(fontsetImageData(canvas), 'dxt5', true);
+        data = (format === 'dds' ? dds : await encodeFtex(dds)) as BlobPart;
+      }
+      files.push({ name: `${fileName(f.kind)}.${format}`, data });
+    }
+    return { files, configText: text };
+  };
+  if (exportRef) exportRef.current = (text) => buildFiles(FILES.filter((f) => selected[f.kind]), text);
+
   if (!isOpen) return null;
 
   const setStyle = (group: Group, patch: Partial<FontsetStyle>) =>
@@ -456,6 +542,34 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
     }
   };
 
+  // a PES font saved to the library before: its five textures become the font image again (numbers from the back
+  // number file, else chest / leg; letters from name + name_ex), so it can be changed and saved under a new name
+  const loadLibraryFontset = async (name: string) => {
+    const fs = library.fontsets.find((f) => f.name === name);
+    if (!fs) return;
+    setStatus(`Memuat ${name}…`);
+    const parts = (
+      await Promise.all([
+        slotRows(fs.files.back, BACK_NUMBER_LAYOUT).then((r) => r ?? slotRows(fs.files.chest, NUMBER_LAYOUT)).then((r) => r ?? slotRows(fs.files.leg, NUMBER_LAYOUT)),
+        slotRows(fs.files.name, NAME_LAYOUT),
+        slotRows(fs.files.name_ex, NAME_EX_LAYOUT),
+      ])
+    ).flatMap((p) => p ?? []).filter((p) => p.row.glyphs.length);
+    if (!parts.length) return setStatus(`${name}: file font tidak bisa dibaca.`);
+    const rows = parts.map((p) => p.row);
+    setSheet({
+      name: `${name} (library)`,
+      rows,
+      chars: parts.map((p) => p.chars),
+      thumbs: rows.map((r) => r.glyphs.map((g) => thumbOf(g.canvas))),
+      confidence: parts.map((p) => Array.from(p.chars).map(() => 1)),
+      missing: parts.map(() => []),
+    });
+    setUseSheet({ number: true, name: true });
+    setRecolor({ number: false, name: false });
+    setStatus(`${name} dimuat dari library: ${parts.map((p) => p.chars.length).join(' + ')} karakter.`);
+  };
+
   const setLogoUrl = async (url: string | null) => {
     if (!url) return setLogo((l) => ({ ...l, url: null, image: null }));
     try {
@@ -494,24 +608,12 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
     setBusy(true);
     setStatus('Membuat file font…');
     try {
-      let text = configText;
-      for (const f of kinds) if (f.configKey) text = setKitConfigValue(text, f.configKey, fileName(f.kind));
       const withConfig = writeConfig && format === 'ftex';
+      let text = configText;
       const msg = await saveFilesToFolder(async () => {
-        const files: OutFile[] = [];
-        for (const f of kinds) {
-          const canvas = render(f.kind);
-          let data: BlobPart;
-          if (format === 'png') {
-            data = await new Promise<Blob>((ok, fail) => canvas.toBlob((b) => (b ? ok(b) : fail(new Error('PNG'))), 'image/png'));
-          } else {
-            const dds = encodeDDS(fontsetImageData(canvas), 'dxt5', true);
-            data = (format === 'dds' ? dds : await encodeFtex(dds)) as BlobPart;
-          }
-          files.push({ name: `${fileName(f.kind)}.${format}`, data });
-        }
-        if (withConfig) files.push({ name: 'config.txt', data: kitConfigToFile(text) });
-        return files;
+        const built = await buildFiles(kinds, configText);
+        text = built.configText;
+        return withConfig ? [...built.files, { name: 'config.txt', data: kitConfigToFile(text) }] : built.files;
       });
       if (withConfig && msg && !msg.startsWith('Dibatalkan')) onConfigChange(text);
       setStatus(msg);
@@ -550,9 +652,12 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
   const input = 'bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-200 outline-none focus:border-sky-500';
   const h4 = 'text-xs font-semibold text-slate-200 border-b border-slate-800 pb-1';
   const slider = (label: string, value: number, min: number, max: number, step: number, on: (v: number) => void) => (
-    <label className="flex items-center justify-between gap-2 text-[11px] text-slate-400">
-      <span>{`${label} ${value}`}</span>
-      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => on(Number(e.target.value))} className="w-24 accent-sky-500" />
+    <label className="col-span-2 block space-y-0.5 text-[11px] text-slate-400">
+      <span className="flex items-center justify-between gap-2">
+        <span>{label}</span>
+        <span className="font-mono tabular-nums text-slate-300">{value}</span>
+      </span>
+      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => on(Number(e.target.value))} className="w-full accent-sky-500" />
     </label>
   );
 
@@ -630,7 +735,6 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
             Outline
             <input type="color" value={st.outline} onChange={(e) => setStyle(group, { outline: e.target.value.toUpperCase() })} className="w-8 h-6 bg-transparent cursor-pointer" />
           </label>
-          {slider('Tebal outline', st.outlineWidth, 0, 20, 1, (v) => setStyle(group, { outlineWidth: v }))}
           <label className="flex items-center justify-between gap-2">
             Posisi outline
             <select
@@ -644,6 +748,7 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
               <option value="inside">Dalam</option>
             </select>
           </label>
+          {slider('Tebal outline', st.outlineWidth, 0, 20, 1, (v) => setStyle(group, { outlineWidth: v }))}
           {slider('Ukuran huruf %', st.size ?? 100, 50, 150, 1, (v) => setStyle(group, { size: v }))}
         </div>
         {patternBlock(group)}
@@ -828,6 +933,20 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
           }}
         />
       </div>
+      {library.fontsets.length > 0 && (
+        <select
+          value=""
+          onChange={(e) => e.target.value && loadLibraryFontset(e.target.value)}
+          className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-[11px] text-slate-300 outline-none focus:border-sky-500"
+          aria-label="Ambil font PES dari library"
+          title="Font PES yang pernah disimpan ke library (library/fonts/font_pes), dipakai lagi sebagai gambar font"
+        >
+          <option value="">Ambil font PES dari library…</option>
+          {library.fontsets.map((f) => (
+            <option key={f.name} value={f.name}>{f.name}</option>
+          ))}
+        </select>
+      )}
       {sheet?.rows.map((row, i) => {
         const n = Array.from(sheet.chars[i] ?? '').length;
         const bad = n !== row.glyphs.length;
@@ -875,21 +994,8 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
 
   return (
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none">
-      <div className="bg-[#121622] border border-slate-800 rounded-2xl w-full max-w-6xl max-h-[92vh] shadow-2xl overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#0f131c]">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-sky-600/20 text-sky-400 border border-sky-500/30">
-              <Type className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">Generator Fontset</h3>
-              <p className="text-[11px] text-slate-400">Nomor dan nama untuk kitserver, ditaruh di slot karakter template PES 2021.</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+      <div className="bg-[#121622] border border-slate-800 rounded-2xl w-full max-w-6xl h-[92vh] shadow-2xl overflow-hidden flex flex-col">
+        <KitserverHeader tab="font" onTab={(t) => t === 'config' && onSwitchToConfig?.()} onClose={onClose} />
 
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain lg:overflow-hidden grid grid-cols-1 lg:grid-cols-[20rem_1fr]">
           <div className="p-5 space-y-5 border-r border-slate-800 lg:overflow-y-auto lg:overscroll-contain">

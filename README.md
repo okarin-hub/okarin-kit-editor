@@ -40,7 +40,8 @@ The `library` folder next to the exe starts **empty**: add your own logos, patte
 - Export: **PNG**, **DDS** (DXT1 / DXT5 / BGRA, mipmaps), **FTEX** (written directly, tested in PES 2021),
   `.peskit` project file, showcase card. 1024 or 2048 px.
 - Kitserver fontset generator (number and name fonts, FTEX tested in PES 2021).
-- Experimental tools: pattern from a jersey photo and the kitserver config.txt editor.
+- Kitserver config.txt editor (collar, shorts and sleeve model shown in the 3D preview).
+- Experimental: pattern from a jersey photo.
 - Languages: English, Bahasa Indonesia, Português, Español. Keyboard shortcuts, undo / redo, autosave, saved projects.
 - Windows app updates itself from the GitHub releases (*Help → Check for updates*).
 

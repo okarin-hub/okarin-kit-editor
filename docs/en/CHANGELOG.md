@@ -2,6 +2,59 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## Unreleased
+
+- **Activity log.** The app writes what you do (buttons, menus, tabs, settings, shortcuts, messages and errors) to
+  `library/logs/aktivitas-YYYY-MM-DD.log`, so a problem can be traced back step by step. Labels and setting values
+  only, no pictures; files older than 14 days are removed.
+- **Import PNG, cleaner and easier to read.**
+  - The *split by colour* dialog is now wide: a big preview on the left, settings and colours on the right. The
+    template name sits next to the buttons.
+  - The basic settings (tolerance, clean up noise, fabric detail) are always shown; *Advanced* holds smooth
+    gradient, split pieces and other colourways, and tells how many are on.
+  - Each colour shows the parts it lands on (Shirt, Shorts, Socks, Details) and which one is the Base. *Parts* in
+    the preview colours the picture by part, so you see before saving where each colour goes.
+  - *All* / *Clear* for the colour list.
+  - After saving, a short report lists the layers and their parts, the same as for *Many PNGs*.
+  - The colours are worked out in the background, so the tolerance slider no longer stalls on a big picture.
+  - An import that fails halfway no longer leaves an empty folder in `library/templates`.
+  - **Motif can be recoloured** (under *Keep fabric detail*): a faint motif a shade off the base (camo, an embossed
+    pattern) becomes *Dark motif* / *Light motif* layers per part, each with its own colour slot, instead of the
+    fixed black / white detail.
+  - Opening Import PNG again after an import starts a new one instead of showing the old report.
+  - **Fix: an unticked colour came back.** With *Keep fabric detail* on, a colour you unticked (a white logo, a
+    watermark) was left out of the colour layers but returned as a white or black shadow in the fabric detail
+    layer. Unticked colours, with their soft edge, are now left out of the detail and motif layers too.
+
+- **Tidier menus.** Things that belong together now live together:
+  - **Kit model** is one toolbar button that opens a thin row under the toolbar (sleeve shape, collar, sleeve model,
+    tight kit, shorts). It does not cover the 3D view and stays open while you turn the model. Sleeve shape moved here from the Template tab.
+  - **Import** is one list (finished kit design, PSD template, PNG to layers), the same in File and in the Template tab.
+  - **Kitserver** is no longer experimental: it is one dialog with two tabs: config.txt and the number / name fonts (Tools > Kitserver).
+  - **Name / number in the texture** is set only in Export now, and remembered with the kit.
+  - The font tab's sliders are full width with their value on the right.
+- **PES fonts from the library in the font generator.** *Load a PES font from the library* brings a font you saved
+  before back in as the font image, so you can change it and save it again.
+- **Photoshop-style Shift.** Hold Shift while dragging a layer, logo or point to move it straight along one axis; while
+  turning, it snaps in 15° steps; while resizing an object, it keeps its proportions. While drawing (points or the
+  gradient), Shift keeps the line at 45° steps. **Ctrl+J** duplicates the selected layer.
+- **Pointed corners too.** The 4-corner picker now also works with *Pointed*: turn a corner off and that side of the
+  end stays square.
+- **Export the whole kit folder.** For a game texture, Export can also save `config.txt` and the number / name fonts
+  (from Generate Font) in the same folder, with the file names written into the config.
+- **File names stay in sync.** Changing the file prefix in Generate Font (or KitFile, when the prefix is empty) updates
+  the font file names in the kitserver config right away (an unticked font is cleared, so the game uses its own), and
+  Export starts with KitFile as the file name.
+
+- **Choose which corners are rounded.** *Edge shape* > *Round* now has a 4-corner picker: click the corners to round,
+  the rest stay sharp. Works on box objects and drawn shapes.
+- **Gradient tool (G).** Pick it in the toolbar and drag on the 2D canvas from where the colour starts to where it
+  fades. It makes an object you handle like any object: taper its ends, repeat it, move, turn and align it. Any object
+  can have a *Gradient fill* too: end colour or fade to transparent, straight or radial, direction, reverse.
+- **One-colour vector logos.** With *Colour* or *Gradient* in the Logo tab, a logo can be redrawn as a sharp vector
+  shape: silhouette, or detail (only its dark or light parts, with a brightness cut), like the logo option of the
+  fontset generator. A plain JPG background is dropped too.
+
 ## 0.6.6 — Stable patch: pattern library search and list, align buttons, follow the shoulder
 
 - **Pattern library search and list view.** Search by name or folder, and switch between the grid and a list with the

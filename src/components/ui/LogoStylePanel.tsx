@@ -112,6 +112,46 @@ export const LogoStylePanel: React.FC<LogoStylePanelProps> = ({ item, onChange }
         )}
       </div>
 
+      {fill.mode !== 'original' && (
+        <div className="space-y-1.5">
+          <label className="flex items-center gap-2 text-[11px] text-slate-400" title="Satu warna: logo digambar ulang sebagai bentuk vektor yang tajam, latar polos (JPG) ikut dibuang">
+            <span className="w-12">Bentuk</span>
+            <select
+              value={fill.trace ?? 'none'}
+              onChange={(e) => setFill({ trace: e.target.value === 'none' ? undefined : (e.target.value as 'shape' | 'detail') })}
+              className="flex-1 bg-slate-900 border border-slate-700 rounded px-1.5 py-1 text-[11px] text-slate-200"
+            >
+              <option value="none">Gambar asli</option>
+              <option value="shape">Vektor – siluet</option>
+              <option value="detail">Vektor – detail</option>
+            </select>
+          </label>
+          {fill.trace === 'detail' && (
+            <>
+              <div className="space-y-0.5">
+                <div className="flex justify-between text-[11px] text-slate-400">
+                  <span>Batas terang</span>
+                  <span className="font-mono">{fill.traceCut ?? 50}</span>
+                </div>
+                <input
+                  type="range"
+                  min={5}
+                  max={95}
+                  step={1}
+                  value={fill.traceCut ?? 50}
+                  onChange={(e) => setFill({ traceCut: parseInt(e.target.value) })}
+                  className="w-full accent-sky-500 cursor-pointer"
+                />
+              </div>
+              <label className="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer" title="Bagian terang logo yang diberi warna, bagian gelap jadi bolong">
+                <input type="checkbox" checked={!!fill.traceInvert} onChange={(e) => setFill({ traceInvert: e.target.checked })} className="accent-sky-500" />
+                Balik: bagian terang yang diwarnai
+              </label>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Outline */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">

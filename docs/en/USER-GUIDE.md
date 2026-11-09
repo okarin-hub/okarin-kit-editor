@@ -17,7 +17,7 @@
 
 - **Menu bar** – *File* (new kit, open / save project, import design, export), *Edit* (undo, redo, settings, colour presets),
   *View* (part outlines, part labels, original PES template, *Zoom speed (scroll)*, *Interface size*), *Tools* (pattern from a jersey
-  photo and kitserver config.txt, both experimental; fontset generator), *Help* (guide, shortcuts, update check,
+  photo, experimental; Kitserver: config.txt and the number / name fonts), *Help* (guide, shortcuts, update check,
   credits, about). *New kit* asks first; *Undo* brings the old kit back.
 - **Tool rail (left)** – select / move, freehand shape, point shape, stitch line by points, stitch line freehand,
   eraser brush (keys `V`, `B`, `P`, `S`, `J`, `E`). One tool is active at a time; click the active tool again to go
@@ -84,7 +84,7 @@ PSD blend modes, clipping masks, layer and vector masks, shape layers and group 
   in `library/templates`: one layer per colour and part group, the largest colour as the *Base* of each group (its
   own colour slot), soft edges from the picture. Options: *Colour tolerance*; the list next to each colour to merge
   it into another (a shade that split off joins its colour); a click on the preview finds a colour in the list
-  (*Enlarge preview* shows it full width); *Clean up noise* (for WebP / JPG); *Other colourways* (up to two more
+  (*Parts* colours the preview by part: Shirt, Shorts, Socks, Details, and each colour in the list names its parts); *Clean up noise* (for WebP / JPG); *Other colourways* (up to two more
   pictures of the same template in other colours, so areas that share a colour in one picture are still told
   apart); *Smooth gradient* (tick only the end colours of a fade); *Keep fabric detail* (the mesh lines and shading
   become two layers over the colours, dark in multiply and light in screen, so they stay after a colour change). A
@@ -218,9 +218,11 @@ parts with an opacity. You can switch between *Colour* and *Imported design* any
 Keep a copy of the file you replace in your game before testing a new one. 2048 px output has not been
 tested in the game yet.
 
-### Kitserver (config.txt) – experimental
+### Kitserver (config.txt)
 
-This only edits the config file: the 2D/3D preview does not follow its values yet.
+The 3D preview follows the collar, shorts model, short sleeves model and tight kit (also set with *Kit model* in the
+toolbar), and the name / number values set in the *Name* tab. Shirt model and the winter collar are only written to
+the file.
 
 *Tools → Kitserver config.txt…* edits the `config.txt` that kserv.lua (Sider) reads for one kit. The form follows
 kserv's own menu and limits; *Edit as text* shows the file itself. *Import config.txt* loads an existing config and

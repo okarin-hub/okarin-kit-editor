@@ -25,15 +25,17 @@ import {
 import { PRESET_KITS, KitPreset } from '@/constants/presets';
 import { CanvasViewState } from '@/types/kit';
 import { MenuHeading, MenuItem, MenuSeparator, TopMenu } from '@/components/ui/Menus';
+import { ImportItems } from '@/components/ui/ImportMenu';
 import { applyUiScale, canSetUiScale, getUiScale, getZoomSpeed, setUiScale, setZoomSpeed, UiScale, uiScaleFactor, ZoomSpeed } from '@/utils/uiPrefs';
 import type { HelpKind } from '@/components/ui/HelpDialogs';
 
 interface NavbarProps {
   onOpenExportModal: () => void;
   onOpenKitConfig: () => void;
-  onOpenFontset: () => void;
   onOpenProjectsModal: () => void;
   onOpenImportModal: () => void;
+  onPickPsd: () => void;
+  onOpenPngImport: () => void;
   onOpenPhotoPattern: () => void;
   hasImportedDesign: boolean;
   onReset: () => void;
@@ -53,9 +55,10 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   onOpenExportModal,
   onOpenKitConfig,
-  onOpenFontset,
   onOpenProjectsModal,
   onOpenImportModal,
+  onPickPsd,
+  onOpenPngImport,
   onOpenPhotoPattern,
   hasImportedDesign,
   onReset,
@@ -133,13 +136,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={run(close, onOpenProjectsModal)}
               />
               <MenuSeparator />
-              <MenuItem
-                icon={<ImageDown className="w-3.5 h-3.5" />}
-                label="Import desain…"
-                title="Import desain kit yang sudah jadi (PNG / JPG / DDS)"
-                checked={hasImportedDesign}
-                onClick={run(close, onOpenImportModal)}
+              <ImportItems
+                onImportDesign={onOpenImportModal}
+                onPickPsd={onPickPsd}
+                onImportPng={onOpenPngImport}
+                hasImportedDesign={hasImportedDesign}
+                onPicked={close}
               />
+              <MenuSeparator />
               <MenuItem
                 icon={<Download className="w-3.5 h-3.5" />}
                 label="Export kit…"
@@ -281,16 +285,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={run(close, onOpenPhotoPattern)}
               />
               <MenuItem
-                icon={<Type className="w-3.5 h-3.5" />}
-                label="Generator fontset…"
-                title="Buat file font nomor dan nama untuk kitserver"
-                onClick={run(close, onOpenFontset)}
-              />
-              <MenuItem
                 icon={<FileCog className="w-3.5 h-3.5" />}
-                label="Kitserver config.txt…"
-                badge="Eksp."
-                title="Atur config.txt kitserver dan simpan folder kit"
+                label="Kitserver (config & font)…"
+                title="config.txt kitserver dan font nomor / nama, dalam satu dialog"
                 onClick={run(close, onOpenKitConfig)}
               />
             </>

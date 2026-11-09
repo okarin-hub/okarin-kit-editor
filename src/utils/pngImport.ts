@@ -372,7 +372,9 @@ export async function masksToPsd(
   /** Colours merged by the user: cluster -> the cluster it joined (itself when not merged). */
   alias?: Int32Array,
   /** Also keep the fabric detail (mesh, shading) of the first picture as two layers on top. */
-  detail = false
+  detail = false,
+  /** ...as colour layers per part group (motifLayers) instead of black / white. */
+  motif = false
 ): Promise<ArrayBuffer> {
   const { writePsd } = await import('ag-psd');
   const S = PSD_SIZE, k = SIZE / S;
@@ -439,7 +441,31 @@ export async function masksToPsd(
     children.push({ name: l.name, canvas: c, left: x0, top: y0 });
   }
   if (detail) {
-    for (const d of fabricDetail(srcs[0], cctx.getImageData(0, 0, S, S), t)) {
+    // a colour the user left unticked is covered by the Base: its pixels must not come back as detail (a white logo
+    // returning as a white screen layer), so they are skipped like edge pixels
+    // grown 2 px: the soft edge just outside such a logo is counted as the base colour, a little lighter or darker
+    const off = new Uint8Array(t.length);
+    for (let p = 0; p < t.length; p++) if (a[p] !== 65535 && rank[a[p]] < 0) off[p] = 1;
+    const R = 2;
+    const row = new Uint8Array(t.length);
+    for (let y = 0; y < S; y++) {
+      for (let x = 0; x < S; x++) {
+        for (let dx = -R; dx <= R; dx++) {
+          const xx = x + dx;
+          if (xx >= 0 && xx < S && off[y * S + xx]) { row[y * S + x] = 1; break; }
+        }
+      }
+    }
+    for (let y = 0; y < S; y++) {
+      for (let x = 0; x < S; x++) {
+        for (let dy = -R; dy <= R; dy++) {
+          const yy = y + dy;
+          if (yy >= 0 && yy < S && row[yy * S + x]) { t[y * S + x] = 255; break; }
+        }
+      }
+    }
+    const flat = cctx.getImageData(0, 0, S, S);
+    for (const d of motif ? motifLayers(srcs[0], flat, t) : fabricDetail(srcs[0], flat, t)) {
       cctx.save();
       cctx.globalCompositeOperation = d.blendMode as GlobalCompositeOperation;
       cctx.drawImage(d.canvas, d.left, d.top);
@@ -511,6 +537,83 @@ function fabricDetail(pic: ImageData, flat: ImageData, t: Uint8Array) {
   return out;
 }
 
+/**
+ * A tonal motif (camo patches, an embossed pattern a shade off the base) as colour layers: per part group one layer
+ * for the darker detail and one for the lighter, each in the motif's own colour M with alpha a so that
+ * flat * (1 - a) + M * a matches the picture's brightness. Read back, each is a normal colour layer with a slot, so
+ * the motif can take any colour. M is the mean of the stronger half of the detail: the motif itself, not the few
+ * logos far off the base that would make the motif faint (they end up solid in M).
+ */
+export function motifLayers(pic: ImageData, flat: ImageData, t: Uint8Array) {
+  const S = pic.width, k = SIZE / S;
+  const lum = (d: Uint8ClampedArray, i: number) => 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+  const out: { name: string; canvas: HTMLCanvasElement; left: number; top: number; blendMode?: string }[] = [];
+  // typed arrays shared by all passes: a 2048 picture has 4M pixels
+  const px = new Int32Array(S * S), dl = new Float32Array(S * S);
+  for (const [group, parts] of LAYER_GROUPS) {
+    const area = partsMask(parts.filter((id) => id !== 'armband' && id !== 'credit'));
+    for (const dark of [true, false]) {
+      // the brightness change of every detail pixel of this group and direction
+      let len = 0;
+      for (let p = 0, i = 0; p < S * S; p++, i += 4) {
+        if (t[p] || flat.data[i + 3] < 255 || !area[((((p / S) | 0) * k) | 0) * SIZE + (((p % S) * k) | 0)]) continue;
+        const d = dark ? lum(flat.data, i) - lum(pic.data, i) : lum(pic.data, i) - lum(flat.data, i);
+        if (d < 5) continue;
+        px[len] = p;
+        dl[len++] = d;
+      }
+      if (len < 200) continue;
+      const cut = dl.slice(0, len).sort()[Math.floor(len * 0.5)];
+      const m = [0, 0, 0];
+      let n = 0;
+      for (let j = 0; j < len; j++) {
+        const p = px[j];
+        if (dl[j] < cut) continue;
+        m[0] += pic.data[p * 4]; m[1] += pic.data[p * 4 + 1]; m[2] += pic.data[p * 4 + 2];
+        n++;
+      }
+      const M = m.map((v) => Math.round(v / n)) as [number, number, number];
+      const lumM = 0.299 * M[0] + 0.587 * M[1] + 0.114 * M[2];
+      const alpha = new Uint8Array(S * S);
+      let x0 = S, y0 = S, x1 = -1, y1 = -1;
+      for (let j = 0; j < len; j++) {
+        const p = px[j];
+        // how far towards M this pixel is, measured from its own flat colour
+        const span = dark ? lum(flat.data, p * 4) - lumM : lumM - lum(flat.data, p * 4);
+        if (span <= 0) continue;
+        const a = Math.min(255, Math.round((255 * dl[j]) / span));
+        if (a < 8) continue;
+        alpha[p] = a;
+        const x = p % S, y = (p / S) | 0;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+      if (x1 < 0) continue;
+      const w = x1 - x0 + 1, h = y1 - y0 + 1;
+      const c = newCanvas(w, h);
+      const ctx = c.getContext('2d')!;
+      const img = ctx.createImageData(w, h);
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const a = alpha[(y + y0) * S + x + x0];
+          if (!a) continue;
+          const i = (y * w + x) * 4;
+          img.data[i] = M[0]; img.data[i + 1] = M[1]; img.data[i + 2] = M[2]; img.data[i + 3] = a;
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+      out.push({ name: `${dark ? MOTIF_DARK : MOTIF_LIGHT} – ${group}`, canvas: c, left: x0, top: y0 });
+    }
+  }
+  return out;
+}
+
+/** Layer names of the recolourable motif (the group is added: "Motif gelap – Baju"). */
+export const MOTIF_DARK = 'Motif gelap';
+export const MOTIF_LIGHT = 'Motif terang';
+
 /** Splits a mask by part group; groups with only a few stray pixels are left out. */
 export function splitByGroup(mask: Uint8Array, minPixels = 60): { group: string; mask: Uint8Array }[] {
   const out: { group: string; mask: Uint8Array }[] = [];
@@ -570,6 +673,8 @@ export interface PngPsdRequest {
   gradient: boolean;
   /** Keep the fabric detail (mesh, shading) as two layers on top. */
   detail: boolean;
+  /** The detail as colour layers per part group (a tonal motif whose colour can be changed) instead of black / white. */
+  motif?: boolean;
   splitPieces: boolean;
   minArea: number;
   maxZones: number;
@@ -617,7 +722,7 @@ export async function buildPngPsd(r: PngPsdRequest, onProgress?: (done: number, 
   const rank = new Int16Array(r.counts.length).fill(-1);
   ordered.forEach((cl, k) => (rank[cl.id] = k));
   const srcs = r.images.map((i) => pictureData(i, r.fit, PSD_SIZE, r.denoise));
-  const buf = await masksToPsd(layers, srcs, r.vectors, rank, r.gradient, r.alias, r.detail);
+  const buf = await masksToPsd(layers, srcs, r.vectors, rank, r.gradient, r.alias, r.detail, r.motif);
   onProgress?.(ordered.length + 1, ordered.length + 1);
   return buf;
 }
@@ -700,4 +805,29 @@ export function clusterPartShares(labels: Uint16Array, clusterCount: number, onl
     if (mask[p]) inside[l]++;
   }
   return Array.from(total, (t, i) => (t ? inside[i] / t : 0));
+}
+
+/** Part group index per texture pixel: 0 = no part, 1.. = LAYER_GROUPS order (shirt, shorts, socks, details). */
+let groupMapCache: Uint8Array | null = null;
+export function groupMap(): Uint8Array {
+  if (groupMapCache) return groupMapCache;
+  const m = new Uint8Array(SIZE * SIZE);
+  LAYER_GROUPS.forEach(([, parts], g) => {
+    const area = partsMask(parts);
+    for (let p = 0; p < m.length; p++) if (area[p] && !m[p]) m[p] = g + 1;
+  });
+  return (groupMapCache = m);
+}
+
+/** The part groups a colour would be cut into, with the same 60-pixel floor as splitByGroup. */
+export function clusterGroups(labels: Uint16Array, clusterCount: number, alias: Int32Array): string[][] {
+  const gm = groupMap();
+  const n = LAYER_GROUPS.length;
+  const counts = new Uint32Array(clusterCount * n);
+  for (let p = 0; p < labels.length; p++) {
+    const l = labels[p];
+    if (l === 65535 || !gm[p]) continue;
+    counts[alias[l] * n + gm[p] - 1]++;
+  }
+  return Array.from({ length: clusterCount }, (_, c) => LAYER_GROUPS.filter((_, g) => counts[c * n + g] >= 60).map(([name]) => name));
 }

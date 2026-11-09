@@ -4,7 +4,7 @@ import React from 'react';
 import { PenLine, Pencil, Check, Undo2, X, Spline } from 'lucide-react';
 
 interface DrawBarProps {
-  tool: 'free' | 'poly' | 'stitch' | 'stitchFree' | null;
+  tool: 'free' | 'poly' | 'stitch' | 'stitchFree' | 'gradient' | null;
   pointCount: number;
   onFinish: () => void;
   onUndoPoint: () => void;
@@ -17,6 +17,18 @@ interface DrawBarProps {
 /** Bar shown above the 2D canvas while a new template layer is being drawn. */
 export const DrawBar: React.FC<DrawBarProps> = ({ tool, pointCount, onFinish, onUndoPoint, onCancel, curve, onToggleCurve }) => {
   if (!tool) return null;
+  if (tool === 'gradient')
+    return (
+      <div className="w-full max-w-[720px] shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1.5 bg-[#121622]/95 border border-sky-700/70 rounded-xl shadow-lg px-3 py-2 select-none">
+        <span className="text-[11px] font-bold text-white whitespace-nowrap">Gradasi</span>
+        <span className="text-[11px] text-slate-400 flex-1 leading-snug">
+          Tekan di titik warna awal lalu seret ke arah pudarnya. Hasilnya jadi object di tab Layer: bisa diwarnai, ditirus, digandakan, dan digeser seperti object lain.
+        </span>
+        <button onClick={onCancel} className="h-6 px-2 rounded-md text-[11px] font-medium text-slate-300 border border-slate-700/60 hover:bg-slate-800">
+          Batal
+        </button>
+      </div>
+    );
   const isPoly = tool === 'poly' || tool === 'stitch';
   const isStitch = tool === 'stitch' || tool === 'stitchFree';
   const minPts = tool === 'poly' ? 3 : 2;

@@ -591,8 +591,9 @@ export function assignSlots(zones: Record<string, unknown>[], flats: { flat?: st
   zones.forEach((z, i) => {
     const g = flats[i]?.flat;
     if (!g) return;
-    // every Base layer (one per part group from Import PNG) is its own colour: shirt, shorts and socks can differ
-    z.slot = z.base
+    // every Base layer (one per part group from Import PNG) is its own colour: shirt, shorts and socks can differ;
+    // so is each motif layer of Import PNG ("Motif terang – Baju"), named so it is found among the slots
+    z.slot = z.base || /^Motif (gelap|terang) – /.test(String(z.name).split(' / ').pop() ?? '')
       ? String(z.name).split(' / ').pop()!.replace(/\.[a-z]+$/i, '')
       : `Warna ${order.indexOf(g) + 1}`;
   });

@@ -138,6 +138,13 @@ export interface LogoFill {
   mode: 'original' | 'solid' | 'gradient';
   color: string;
   color2: string;
+  /** Solid / gradient: redraw the logo as a traced vector shape first ('shape' = whole silhouette, 'detail' = only
+   * its dark parts, the rest becomes holes). Unset = keep the picture's own edges. */
+  trace?: 'shape' | 'detail';
+  /** 'detail': brightness 5..95 that separates ink from the rest. */
+  traceCut?: number;
+  /** 'detail': the light parts get the colour instead. */
+  traceInvert?: boolean;
   /** Gradient direction in degrees (0 = left to right, 90 = top to bottom). */
   angle: number;
 }
@@ -304,8 +311,15 @@ export interface TemplateZoneState {
   edge?: ZoneEdge;
   /** 0..1 strength of the edge shaping. */
   edgeAmount?: number;
+  /** Rounded / pointed edge: which corners are shaped, [top-left, top-right, bottom-right, bottom-left] in the layer's own frame (default all). */
+  edgeCorners?: [boolean, boolean, boolean, boolean];
   /** Stitch line along the outline of this zone (default on). */
   seam?: boolean;
+  /**
+   * Fill the shape with a gradient from `color` to `color2` (unset = fade to transparent) instead of one colour. It is
+   * laid out in the layer's own box, so it moves / turns / tapers / repeats with the shape; angle 0 = along its width.
+   */
+  gradient?: { color2?: string; angle: number; radial?: boolean };
   /** On a sleeve: bend the layer with the sleeve piece, so it narrows and curves over the shoulder yoke to the neck. */
   followShoulder?: boolean;
   /** 0..1 fill opacity (default 1). */

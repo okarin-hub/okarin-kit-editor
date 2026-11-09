@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useMemo, useRef, useState } from 'react';
-import { X, FileCog, FileUp, Download, FolderDown, Palette, RotateCcw, AlertCircle } from 'lucide-react';
+import { KitserverHeader } from '@/components/ui/KitserverHeader';
+import { FileUp, Download, FolderDown, Palette, RotateCcw, AlertCircle } from 'lucide-react';
 import {
   KIT_CONFIG_FIELDS,
   KIT_CONFIG_GROUPS,
@@ -15,6 +16,8 @@ import { ExportTextureResolution } from '@/types/project';
 import { downloadFile as download, saveFilesToFolder } from '@/utils/folderSave';
 
 interface KitConfigModalProps {
+  /** the Kitserver dialog's other tab */
+  onSwitchToFont?: () => void;
   isOpen: boolean;
   onClose: () => void;
   configText: string;
@@ -30,6 +33,7 @@ export const KitConfigModal: React.FC<KitConfigModalProps> = ({
   isOpen,
   onClose,
   configText,
+  onSwitchToFont,
   onChange,
   kitColors,
   buildKitFtex,
@@ -84,27 +88,8 @@ export const KitConfigModal: React.FC<KitConfigModalProps> = ({
 
   return (
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none">
-      <div className="bg-[#121622] border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#0f131c]">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-sky-600/20 text-sky-400 border border-sky-500/30">
-              <FileCog className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                Kitserver: config.txt
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                  Eksperimental
-                </span>
-              </h3>
-              <p className="text-[11px] text-slate-400">Pengaturan kit untuk kserv.lua (Sider). Batas nilai mengikuti kserv 1.13.</p>
-              <p className="text-[10px] text-amber-300/80">Preview 3D mengikuti Kerah, Model celana, Model lengan pendek, Baju ketat, serta posisi dan ukuran nama dan nomor; nilai lain hanya untuk file config.</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+      <div className="bg-[#121622] border border-slate-800 rounded-2xl w-full max-w-6xl h-[92vh] shadow-2xl overflow-hidden flex flex-col">
+        <KitserverHeader tab="config" onTab={(t) => t === 'font' && onSwitchToFont?.()} onClose={onClose} />
 
         <div className="flex items-center gap-2 px-6 py-2 border-b border-slate-800 text-[11px]">
           <button type="button" onClick={() => fileRef.current?.click()} className="flex items-center gap-1.5 px-2.5 py-1 rounded border border-slate-700 text-slate-300 hover:bg-slate-800">
@@ -131,7 +116,10 @@ export const KitConfigModal: React.FC<KitConfigModalProps> = ({
           >
             <RotateCcw className="w-3.5 h-3.5" /> Bawaan
           </button>
-          <label className="ml-auto flex items-center gap-1.5 text-slate-400 cursor-pointer">
+          <span className="ml-auto text-[10px] text-slate-500" title="Nilai lain hanya untuk file config">
+            Preview 3D ikut kerah, celana, lengan, baju ketat, dan posisi nama/nomor
+          </span>
+          <label className="flex items-center gap-1.5 text-slate-400 cursor-pointer">
             <input type="checkbox" checked={showText} onChange={(e) => setShowText(e.target.checked)} className="accent-sky-500" />
             Edit sebagai teks
           </label>

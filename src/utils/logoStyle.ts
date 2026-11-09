@@ -1,5 +1,24 @@
 import { KitGraphicItem, LogoFill, LogoOutline } from '@/types/kit';
 import { traceCoverage } from '@/utils/glyphTrace';
+import { oneColourLogo } from '@/utils/logoMono';
+
+// the traced vector version of a logo depends only on the picture and the trace settings, not on the size
+const traced = new Map<string, HTMLCanvasElement>();
+function tracedLogo(img: HTMLImageElement, item: KitGraphicItem, fill: LogoFill): HTMLCanvasElement {
+  const key = JSON.stringify([item.src?.length, item.src?.slice(-24), fill.trace, fill.traceCut, fill.traceInvert]);
+  let c = traced.get(key);
+  if (!c) {
+    const t = oneColourLogo(img, fill.trace!, '#000', fill.traceCut ?? 50, !!fill.traceInvert);
+    // oneColourLogo adds one pixel of margin on each side: cut it off so the shape fills the logo box
+    c = document.createElement('canvas');
+    c.width = Math.max(1, t.width - 2);
+    c.height = Math.max(1, t.height - 2);
+    c.getContext('2d')!.drawImage(t, -1, -1);
+    if (traced.size > 30) traced.clear();
+    traced.set(key, c);
+  }
+  return c;
+}
 
 /** How far a sharp corner of the outline may reach, in outline widths (sharper tips are cut off). */
 const MITER_LIMIT = 3;
@@ -103,13 +122,15 @@ function linearGradient(x: CanvasRenderingContext2D, w: number, h: number, ox: n
  * Returns the styled bitmap for an image logo at `scale` px per logo unit, or null when the logo has no style
  * (draw the plain image then). Results are cached.
  */
-export function getStyledLogo(img: HTMLImageElement, item: KitGraphicItem, scale: number): StyledLogo | null {
+export function getStyledLogo(srcImg: HTMLImageElement, item: KitGraphicItem, scale: number): StyledLogo | null {
   if (!logoHasStyle(item)) return null;
   const fill = item.fill ?? DEFAULT_LOGO_FILL;
   const outline = item.outline?.enabled ? item.outline : null;
   const key = JSON.stringify([item.src?.length, item.src?.slice(-24), item.width, item.height, scale, fill, outline]);
   const hit = cache.get(key);
   if (hit) return hit;
+  // one-colour vector: the traced shape stands in for the picture (its colour comes from the fill below)
+  const img: CanvasImageSource = fill.mode !== 'original' && fill.trace ? tracedLogo(srcImg, item, fill) : srcImg;
 
   const w = Math.max(1, Math.round(item.width * scale));
   const h = Math.max(1, Math.round(item.height * scale));

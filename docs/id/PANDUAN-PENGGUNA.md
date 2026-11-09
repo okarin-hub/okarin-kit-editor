@@ -17,7 +17,7 @@
 
 - **Menu bar** – *File* (kit baru, buka / simpan proyek, import desain, export), *Edit* (undo, redo, pengaturan, preset warna),
   *Tampilan* (garis bagian, label bagian, template PES asli, *Kecepatan zoom (scroll)*, *Ukuran tampilan*), *Alat* (pola dari foto
-  jersey dan config.txt kitserver, keduanya eksperimental; generator fontset), *Bantuan* (panduan, pintasan, cek
+  jersey, eksperimental; Kitserver: config.txt dan font nomor / nama), *Bantuan* (panduan, pintasan, cek
   pembaruan, kredit, tentang). *Kit baru* bertanya dulu; *Undo* mengembalikan kit sebelumnya.
 - **Rail alat (kiri)** – pilih / geser, bentuk bebas, bentuk titik, garis jahit titik, garis jahit bebas, kuas hapus
   (tombol `V`, `B`, `P`, `S`, `J`, `E`). Satu alat aktif sekali waktu; klik alat yang aktif lagi untuk kembali
@@ -83,7 +83,7 @@ style (bayangan, stroke, glow, bevel, overlay) dan layer adjustment belum.
   berlayer di `library/templates`: satu layer per warna dan grup bagian, warna terluas menjadi *Base* tiap grup (slot
   warnanya sendiri), dengan tepi halus dari gambar. Opsi: *Toleransi warna*; daftar di samping tiap warna untuk
   menggabungkannya ke warna lain (bayangan yang terpisah ikut ke warnanya); klik pada pratinjau untuk mencari warnanya
-  di daftar (*Perbesar pratinjau* menampilkannya selebar jendela); *Bersihkan noise* (untuk WebP / JPG); *Versi warna
+  di daftar (*Bagian* mewarnai pratinjau per bagian: Baju, Celana, Kaos kaki, Detail, dan tiap warna di daftar menyebut bagiannya); *Bersihkan noise* (untuk WebP / JPG); *Versi warna
   lain* (sampai dua gambar lagi dari template yang sama dengan warna lain, supaya area yang warnanya sama di satu
   gambar tetap bisa dipisah); *Gradasi halus* (centang hanya warna ujung gradasinya); *Simpan detail kain* (garis mesh dan
   bayangan menjadi dua layer di atas warna, gelap dengan multiply dan terang dengan screen, jadi tetap ada setelah
@@ -218,9 +218,10 @@ di atas bagian dengan opasitas. Kamu bisa berpindah antara *Warna* dan *Desain i
 
 Simpan salinan file yang kamu ganti di game sebelum mencoba yang baru. Output 2048 px belum diuji di game.
 
-### Kitserver (config.txt) – eksperimental
+### Kitserver (config.txt)
 
-Fitur ini hanya mengatur file config: pratinjau 2D/3D belum mengikuti nilainya.
+Pratinjau 3D mengikuti kerah, model celana, model lengan pendek, dan baju ketat (juga bisa diatur lewat *Model kit* di
+toolbar), serta nilai nama / nomor yang diatur di tab *Nama*. Model baju dan kerah musim dingin hanya ditulis ke file.
 
 *Alat → Kitserver config.txt…* mengedit `config.txt` yang dibaca kserv.lua (Sider) untuk satu kit. Form mengikuti
 menu dan batas nilai kserv; *Edit sebagai teks* menampilkan isi filenya langsung. *Impor config.txt* memuat config yang

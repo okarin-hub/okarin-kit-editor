@@ -60,4 +60,7 @@ export interface ExportSettings {
   ddsFormat: ExportDdsFormat;
   ddsMipmaps: boolean;
   exportType: 'game-texture' | 'project-file' | 'showcase-card';
+  /** Game texture: also write the kitserver config.txt / the number and name fonts, all into one folder. */
+  withConfig?: boolean;
+  withFonts?: boolean;
 }
