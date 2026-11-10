@@ -79,7 +79,9 @@ style (bayangan, stroke, glow, bevel, overlay) dan layer adjustment belum.
 
 **Import PNG** (eksperimental) punya dua cara:
 
-- *Satu PNG, pisah per warna* mengubah gambar template (idealnya 2048 × 2048 dengan tata letak PES) menjadi PSD
+- *Satu PNG, pisah per warna* dibuka di *Hasil*, pratinjau template seperti yang akan jadi, dengan *Asli* dan *Beda*
+  (merah di area yang hasilnya berbeda) di sampingnya dan ringkasan di atas: seberapa mirip dengan gambar, jumlah warna
+  dan logo, dan warnanya sebagai contoh warna; opsinya dilipat di bawah *Pengaturan*. Ia mengubah gambar template (idealnya 2048 × 2048 dengan tata letak PES) menjadi PSD
   berlayer di `library/templates`: satu layer per warna dan grup bagian, warna terluas menjadi *Base* tiap grup (slot
   warnanya sendiri), dengan tepi halus dari gambar. *Pisahkan logo & sponsor* (aktif secara bawaan) menemukan sponsor,
   lambang klub, dan logo apparel (kotak kuning di pratinjau) dan menyimpan masing-masing sebagai layer dengan warna

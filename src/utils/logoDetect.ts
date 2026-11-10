@@ -468,9 +468,26 @@ function dropStripes(mask: Uint8Array, labels: Uint16Array): Uint8Array {
   return dropped;
 }
 
-/** The labels with every logo pixel turned into the colour around it (the colour layers then run under the logos). */
+/**
+ * The labels with every logo pixel turned into the colour of the nearest pixel around it, so the colour layers run on
+ * under the logos (an orange band of a gradient print carries on where a logo sat, not one flat colour).
+ */
 export function labelsWithoutLogos(labels: Uint16Array, det: LogoDetection): Uint16Array {
   const out = labels.slice();
-  for (let p = 0; p < out.length; p++) if (det.map[p]) out[p] = det.logos[(det.map[p] & ~LOGO_INSIDE) - 1].bg;
+  const queue = new Int32Array(out.length);
+  const done = new Uint8Array(out.length);
+  let qh = 0, qt = 0;
+  for (let p = 0; p < out.length; p++) if (!det.map[p] && out[p] !== 65535) { done[p] = 1; queue[qt++] = p; }
+  while (qh < qt) {
+    const p = queue[qh++], x = p % SIZE, y = (p / SIZE) | 0;
+    for (const q of [x > 0 ? p - 1 : -1, x < SIZE - 1 ? p + 1 : -1, y > 0 ? p - SIZE : -1, y < SIZE - 1 ? p + SIZE : -1]) {
+      if (q < 0 || done[q] || !det.map[q]) continue;
+      done[q] = 1;
+      out[q] = out[p];
+      queue[qt++] = q;
+    }
+  }
+  // a logo with nothing around it (should not happen) keeps its background colour
+  for (let p = 0; p < out.length; p++) if (det.map[p] && !done[p]) out[p] = det.logos[(det.map[p] & ~LOGO_INSIDE) - 1].bg;
   return out;
 }

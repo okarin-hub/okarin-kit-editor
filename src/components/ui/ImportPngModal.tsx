@@ -7,6 +7,8 @@ import { KitTemplate } from '@/types/kit';
 import {
   clusterPartShares,
   clusterHex,
+  backdropClusters,
+  predictResult,
   blendColours,
   groupMainColours,
   clusterGroups,
@@ -129,8 +131,11 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
   // the colour picked in the preview (or in the list): shown bright, the rest dimmed
   const [highlight, setHighlight] = useState<number | null>(null);
   // the preview shows the colours, or which part group each chosen colour lands on
-  const [view, setView] = useState<'colors' | 'parts'>('colors');
+  // result = what the template will look like, original = the picture, diff = where they differ (red)
+  const [view, setView] = useState<'result' | 'original' | 'diff' | 'colors' | 'parts'>('result');
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  // the settings start folded: the summary, the preview and the colour list are enough for most pictures
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const rowRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const worker = useRef<Worker | null>(null);
   const analyzer = useRef<Worker | null>(null);
@@ -191,7 +196,10 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
         // template sites put their watermark / credit boxes in the armband and credit areas
         const onBadges = clusterPartShares(a.labels, a.clusters.length, ['armband', 'credit']);
         // the empty background (almost no pixels on a kit part) and tiny noise colours start off
-        const onOf = (i: number) => onParts[i] >= 0.3 && a.clusters[i].count / opaque >= 0.003 && onBadges[i] < 0.8 * onParts[i];
+        // ...and so does the texture's own backdrop (the black around the parts), which never shows on the kit
+        const backdrop = backdropClusters(a.labels, a.clusters.length);
+        const onOf = (i: number) =>
+          onParts[i] >= 0.3 && a.clusters[i].count / opaque >= 0.003 && onBadges[i] < 0.8 * onParts[i] && !backdrop[i];
         setClusters(
           a.clusters.map((c, i) => {
             // a shade of another colour (mesh, folds, shadow) starts merged into it; the fabric detail keeps the shading
@@ -217,6 +225,22 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
     return () => clearTimeout(timer);
   }, [imageData, tolerance, extras, denoise, separateLogos]);
 
+  // the template as it will come out, and how close it stays to the picture
+  const predicted = useMemo(() => {
+    if (!analysis || !imageData || alias.length !== analysis.clusters.length) return null;
+    const on = new Set(chosen.map((c) => c.id));
+    const base = baseId >= 0 ? analysis.clusters[baseId].color : ([128, 128, 128] as [number, number, number]);
+    return predictResult(
+      imageData,
+      analysis.labels,
+      (l) => (on.has(alias[l]) ? analysis.clusters[alias[l]].color : null),
+      base,
+      fabricDetail,
+      analysis.logos?.map
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [analysis, imageData, alias, clusters, baseId, fabricDetail]);
+
   // preview of the selected clusters (merged colours drawn as the colour they joined), or of their part groups
   useEffect(() => {
     const cv = previewRef.current;
@@ -225,6 +249,21 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
     cv.height = SIZE;
     const ctx = cv.getContext('2d');
     if (!ctx) return;
+    if (view === 'result' || view === 'original' || view === 'diff') {
+      if (!imageData || !predicted) return;
+      if (view === 'result') return ctx.putImageData(predicted.image, 0, 0);
+      if (view === 'original') return ctx.putImageData(imageData, 0, 0);
+      // the picture dimmed, the pixels the template will not match in red
+      const img = ctx.createImageData(SIZE, SIZE);
+      for (let p = 0, i = 0; p < SIZE * SIZE; p++, i += 4) {
+        const off = predicted.off[p];
+        img.data[i] = off ? 239 : imageData.data[i] * 0.3;
+        img.data[i + 1] = off ? 68 : imageData.data[i + 1] * 0.3;
+        img.data[i + 2] = off ? 68 : imageData.data[i + 2] * 0.3;
+        img.data[i + 3] = 255;
+      }
+      return ctx.putImageData(img, 0, 0);
+    }
     const out = ctx.createImageData(SIZE, SIZE);
     const on = new Set(chosen.map((c) => c.id));
     const gm = view === 'parts' ? groupMap() : null;
@@ -266,7 +305,7 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
       for (const l of logos.logos) ctx.strokeRect(l.box[0] - 3, l.box[1] - 3, l.box[2] + 6, l.box[3] + 6);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [analysis, clusters, alias, highlight, view, imageData]);
+  }, [analysis, clusters, alias, highlight, view, imageData, predicted]);
 
   /** A click on the preview picks the colour under it and scrolls its row into view. */
   const pickFromPreview = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -278,6 +317,8 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
     if (raw === 65535) return setHighlight(null);
     const lab = alias[raw];
     setHighlight((h) => (h === lab ? null : lab));
+    // the highlight shows in the colour view
+    if (view !== 'colors' && view !== 'parts') setView('colors');
     rowRefs.current.get(lab)?.scrollIntoView({ block: 'nearest' });
   };
 
@@ -603,6 +644,9 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
                 <div className="ml-auto flex items-center bg-slate-900/90 border border-slate-800 p-0.5 rounded-lg shrink-0" role="group" aria-label="Pratinjau">
                   {(
                     [
+                      ['result', 'Hasil'],
+                      ['original', 'Asli'],
+                      ['diff', 'Beda'],
                       ['colors', 'Warna'],
                       ['parts', 'Bagian'],
                     ] as const
@@ -650,6 +694,12 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
                       Di luar bagian (tidak dipakai)
                     </span>
                   </>
+                ) : view === 'result' ? (
+                  <span>Perkiraan hasil: warna yang dipilih, logo, dan detail kain</span>
+                ) : view === 'diff' ? (
+                  <span>Merah = area yang hasilnya berbeda dari gambar asli</span>
+                ) : view === 'original' ? (
+                  <span>Gambar asli</span>
                 ) : (
                   <span>Klik sebuah area untuk menyorot warnanya di daftar</span>
                 )}
@@ -657,7 +707,59 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
             </div>
 
             <div className="min-h-0 flex flex-col">
-              <div className="p-4 space-y-2.5 border-b border-slate-800">
+              {/* summary: how close the result stays, and what it is made of */}
+              <div className="px-4 pt-4 pb-3 space-y-2 border-b border-slate-800">
+                <div className="flex items-baseline gap-2">
+                  <span
+                    className={`text-2xl font-bold tabular-nums ${
+                      !predicted ? 'text-slate-500' : predicted.likeness >= 0.95 ? 'text-emerald-300' : predicted.likeness >= 0.85 ? 'text-amber-300' : 'text-rose-300'
+                    }`}
+                  >
+                    {predicted ? `${Math.floor(predicted.likeness * 100)}%` : '–'}
+                  </span>
+                  <span className="text-[11px] text-slate-400">mirip gambar asli</span>
+                  <InfoTip text="Perkiraan: bagian kit yang warnanya tetap dekat dengan gambar asli setelah dipisah. Lihat Beda untuk area yang berubah; biasanya karena warna yang tidak dicentang atau gradasi." />
+                  {predicted && predicted.likeness < 0.95 && (
+                    <button type="button" onClick={() => setView('diff')} className={`ml-auto ${smallBtn}`}>
+                      Lihat beda
+                    </button>
+                  )}
+                </div>
+                <div className="text-[11px] text-slate-300">{`${chosen.length} warna · ${analysis?.logos?.logos.length ?? 0} logo`}</div>
+                <div className="flex flex-wrap gap-1">
+                  {chosen.map((c) => {
+                    const cl = analysis?.clusters.find((x) => x.id === c.id);
+                    if (!cl) return null;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setHighlight((h) => (h === c.id ? null : c.id));
+                          setView('colors');
+                          rowRefs.current.get(c.id)?.scrollIntoView({ block: 'nearest' });
+                        }}
+                        title={`${c.name.trim() || c.auto}${c.id === baseId ? ' (Base)' : ''}`}
+                        className={`w-6 h-6 rounded-md border ${highlight === c.id ? 'border-sky-400 ring-1 ring-sky-400' : 'border-slate-600'}`}
+                        style={{ background: clusterHex(cl.color) }}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="border-b border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setSettingsOpen((o) => !o)}
+                  aria-expanded={settingsOpen}
+                  className="w-full flex items-center gap-1.5 px-4 py-2 text-[11px] font-semibold text-slate-300 hover:text-white"
+                >
+                  <ChevronRight className={`w-3.5 h-3.5 transition-transform ${settingsOpen ? 'rotate-90' : ''}`} aria-hidden />
+                  Pengaturan
+                  {!settingsOpen && <span className="ml-auto font-normal text-[10px] text-slate-500">{`toleransi ${tolerance}`}</span>}
+                </button>
+              {settingsOpen && (
+              <div className="px-4 pb-3 space-y-2.5">
                 <label className="block space-y-0.5">
                   <div className="flex justify-between text-[11px] text-slate-400">
                     <span className="flex items-center gap-1">
@@ -789,6 +891,8 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
                     </div>
                   )}
                 </div>
+              </div>
+              )}
               </div>
 
               {/* colour list */}

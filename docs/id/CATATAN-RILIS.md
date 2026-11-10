@@ -16,6 +16,18 @@
   warna untuk semua bagian* (aktif secara bawaan) biru di baju, celana, dan kaus kaki jadi satu slot, tampil di baris
   *Semua* pada slot warna. Pada kit Persib slot warna turun dari 26 jadi 7, dan satu kali ganti Base mengubah warna
   seluruh kit dengan logo dan bayangannya tetap.
+- **Import PNG lebih mudah dibaca.** Dialog dibuka di *Hasil*, pratinjau template seperti yang akan jadi (warna, logo,
+  dan detail kain), di samping *Asli* dan *Beda* (area yang akan berbeda, berwarna merah). Di atas ada ringkasan:
+  seberapa mirip hasilnya dengan gambar (*99% mirip gambar asli*), jumlah warna dan logo, dan warnanya sebagai contoh
+  warna (klik untuk mencarinya di daftar). Pengaturan dilipat di bawah *Pengaturan*. Latar tekstur (hitam di sekitar
+  bagian kit) sekarang tidak dicentang dari awal; celana hitam di atas latar hitam tetap jadi warna kit.
+- **Menyembunyikan logo tidak meninggalkan lubang.** Di bawah setiap logo desainnya berlanjut: area itu diisi dari
+  warna di sekitarnya (gradasi, motif buram, strip), jadi logo apparel yang disembunyikan atau dihapus tidak lagi
+  meninggalkan bentuknya dalam satu warna rata. Layer logo dipotong terhadap latar yang sudah diisi itu, jadi tepinya
+  tetap bersih di atas gradasi.
+- **Gradasi tetap berwarna.** Penggabungan bayangan tidak lagi merambat di sepanjang gradasi yang buram: dua kelompok
+  bayangan hanya digabung kalau warna utamanya juga dekat, jadi oranye pada motif merah ke oranye tetap oranye, tidak
+  berubah jadi bayangan merah muda dari merahnya.
 
 ## 0.6.9 — Pas otomatis untuk huruf font, kotak karakter seragam, gambar font lebih tajam
 

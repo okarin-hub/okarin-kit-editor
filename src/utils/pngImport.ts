@@ -378,7 +378,9 @@ export async function masksToPsd(
   /** Logos and sponsors (logoDetect): each becomes a layer in its own colours, on top. */
   logos?: PngPsdRequest['logos'],
   /** One colour slot per colour for all part groups (read back by assignSlots). */
-  sharedSlots = false
+  sharedSlots = false,
+  /** The first picture before its logos were filled in (srcs[0] has them filled in): the logo layers are cut from it. */
+  logoPic?: ImageData
 ): Promise<ArrayBuffer> {
   const { writePsd } = await import('ag-psd');
   const S = PSD_SIZE, k = SIZE / S;
@@ -444,9 +446,8 @@ export async function masksToPsd(
     cctx.drawImage(c, x0, y0);
     children.push({ name: l.name, canvas: c, left: x0, top: y0 });
   }
-  const logoChildren = logos?.list.length
-    ? logoLayers(logos, srcs[0], a, b, t, (cluster) => layers.find((l) => l.cluster === cluster)?.color ?? (palette[cluster].slice(0, 3) as [number, number, number]), palette, alias)
-    : [];
+  // the logos come from the picture as it was; the colour layers and the fabric detail from the one with them filled in
+  const logoChildren = logos?.list.length && logoPic ? logoLayers(logos, logoPic, srcs[0]) : [];
   if (detail) {
     // a colour the user left unticked is covered by the Base: its pixels must not come back as detail (a white logo
     // returning as a white screen layer), so they are skipped like edge pixels
@@ -496,41 +497,124 @@ export async function masksToPsd(
   );
 }
 
-/**
- * Logo layers: each logo of the detection, cut from the picture at PSD_SIZE with a soft edge. The edge's share of the
- * background colour is taken out (alpha + unmixed colour), so the logo sits clean on any base colour, not in a ring of
- * the old one. Its area (grown 2 px at 1024) is marked in t, so the fabric detail does not bring it back.
- */
-function logoLayers(
-  logos: NonNullable<PngPsdRequest['logos']>,
-  pic: ImageData,
-  a: Uint16Array,
-  b: Uint16Array,
-  t: Uint8Array,
-  colourOf: (cluster: number) => [number, number, number],
-  palette: ColourVector[],
-  alias?: Int32Array
-) {
-  const S = pic.width, k = SIZE / S, d = pic.data;
-  const grow = (src: Uint16Array) => {
-    // the ids only: the inside flag stays on the pixels the detection gave it
-    const out = src.map((v) => v & 0x7fff);
+/** The logo pixels at 1024 grown by one pixel per step (ids only, the inside flag dropped). */
+function growLogoMap(src: Uint16Array, steps: number): Uint16Array {
+  let cur = src.map((v) => v & 0x7fff);
+  for (let s = 0; s < steps; s++) {
+    const out = cur.slice();
     for (let y = 0; y < SIZE; y++) {
       for (let x = 0; x < SIZE; x++) {
         const p = y * SIZE + x;
-        if (src[p]) continue;
+        if (cur[p]) continue;
         for (let dy = -1; dy <= 1 && !out[p]; dy++) {
           for (let dx = -1; dx <= 1; dx++) {
             const yy = y + dy, xx = x + dx;
-            if (yy >= 0 && yy < SIZE && xx >= 0 && xx < SIZE && src[yy * SIZE + xx]) { out[p] = src[yy * SIZE + xx] & 0x7fff; break; }
+            if (yy >= 0 && yy < SIZE && xx >= 0 && xx < SIZE && cur[yy * SIZE + xx]) { out[p] = cur[yy * SIZE + xx]; break; }
           }
         }
       }
     }
-    return out;
+    cur = out;
+  }
+  return cur;
+}
+
+/** The area under the logos at the picture's size (logos grown 2 px at 1024, so their soft edge goes too). */
+export function logoHole(map: Uint16Array, size: number): Uint8Array {
+  const g = growLogoMap(map, 2), k = SIZE / size;
+  return Uint8Array.from({ length: size * size }, (_, p) => (g[((((p / size) | 0) * k) | 0) * SIZE + (((p % size) * k) | 0)] ? 1 : 0));
+}
+
+/**
+ * Fills the `hole` pixels of a picture from their surroundings, so the area under a removed logo carries on the design
+ * around it (a gradient, a blurred print, a stripe): ring by ring from the edge inwards, each pixel the mean of its
+ * filled neighbours, then smoothed so the fill has no streaks.
+ */
+export function inpaint(img: ImageData, hole: Uint8Array): void {
+  const W = img.width, H = img.height, d = img.data;
+  const known = Uint8Array.from(hole, (v) => (v ? 0 : 1));
+  const queued = new Uint8Array(hole.length);
+  const nb8 = (p: number, f: (q: number) => void) => {
+    const x = p % W, y = (p / W) | 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const xx = x + dx, yy = y + dy;
+      if (xx >= 0 && yy >= 0 && xx < W && yy < H) f(yy * W + xx);
+    }
   };
-  const area = grow(logos.map);
-  const quiet = grow(area);
+  let front: number[] = [];
+  const cells: number[] = [];
+  for (let p = 0; p < hole.length; p++) {
+    if (!hole[p]) continue;
+    cells.push(p);
+    let edge = false;
+    nb8(p, (q) => {
+      if (known[q]) edge = true;
+    });
+    if (edge) {
+      front.push(p);
+      queued[p] = 1;
+    }
+  }
+  while (front.length) {
+    const vals = front.map((p) => {
+      const sum = [0, 0, 0, 0];
+      let n = 0;
+      nb8(p, (q) => {
+        if (!known[q]) return;
+        for (let c = 0; c < 4; c++) sum[c] += d[q * 4 + c];
+        n++;
+      });
+      return n ? sum.map((v) => v / n) : null;
+    });
+    const next: number[] = [];
+    front.forEach((p, i) => {
+      const v = vals[i];
+      if (v) for (let c = 0; c < 4; c++) d[p * 4 + c] = v[c];
+      known[p] = 1;
+    });
+    for (const p of front) {
+      nb8(p, (q) => {
+        if (!known[q] && !queued[q]) {
+          queued[q] = 1;
+          next.push(q);
+        }
+      });
+    }
+    front = next;
+  }
+  // smoothing: each filled pixel the mean of its four neighbours, a few dozen times (the pixels around stay as they are)
+  for (let it = 0; it < 40; it++) {
+    for (const p of cells) {
+      const x = p % W, y = (p / W) | 0;
+      const qs = [x > 0 ? p - 1 : p, x < W - 1 ? p + 1 : p, y > 0 ? p - W : p, y < H - 1 ? p + W : p];
+      for (let c = 0; c < 3; c++) d[p * 4 + c] = (d[qs[0] * 4 + c] + d[qs[1] * 4 + c] + d[qs[2] * 4 + c] + d[qs[3] * 4 + c]) / 4;
+    }
+  }
+}
+
+// self-check: a hole in a left-to-right gradient fills with the gradient
+{
+  // a plain object: this module is also loaded on the server, which has no ImageData
+  const W = 9, img = { width: W, height: 1, data: new Uint8ClampedArray(W * 4) } as ImageData;
+  for (let x = 0; x < W; x++) {
+    img.data[x * 4] = x * 30;
+    img.data[x * 4 + 3] = 255;
+  }
+  const hole = Uint8Array.from({ length: W }, (_, x) => (x >= 3 && x <= 5 ? 1 : 0));
+  inpaint(img, hole);
+  if (Math.abs(img.data[4 * 4] - 120) > 8) console.error('pngImport inpaint self-check failed');
+}
+
+/**
+ * Logo layers: each logo of the detection, cut from the picture at PSD_SIZE with a soft edge. Against the background
+ * the logo hides (the picture with the logos filled in, `bg`), every pixel is split into the logo's own colour and
+ * how much of it covers there: the nearest solid logo colour gives the direction, the pixel how far along it lies.
+ * So the logo sits clean on any base colour, without a ring of the old one.
+ */
+function logoLayers(logos: NonNullable<PngPsdRequest['logos']>, pic: ImageData, bg: ImageData) {
+  const S = pic.width, k = SIZE / S, d = pic.data, b = bg.data;
+  const area = growLogoMap(logos.map, 1);
   const n = logos.list.length;
   const box = Array.from({ length: n }, () => [S, S, -1, -1]);
   const idAt = (m: Uint16Array, p: number) => m[((((p / S) | 0) * k) | 0) * SIZE + (((p % S) * k) | 0)];
@@ -548,34 +632,58 @@ function logoLayers(
     const [x0, y0, x1, y1] = box[i];
     if (x1 < 0) return;
     const w = x1 - x0 + 1, h = y1 - y0 + 1;
-    const bg = alias ? alias[logo.bg] : logo.bg;
-    const [br, bgc, bb] = colourOf(bg);
-    // every shade of the background (a base split into light, dark and mesh blue) counts as the background
-    const isBg = palette.map((c) => Math.hypot(c[0] - br, c[1] - bgc, c[2] - bb) < 60);
+    const mine = (lx: number, ly: number) => idAt(area, (y0 + ly) * S + x0 + lx) === i + 1;
+    // solid logo pixels (far from the background) and, for the rest, the colour of the nearest solid one
+    const fg = new Int32Array(w * h).fill(-1);
+    const queue: number[] = [];
+    for (let ly = 0; ly < h; ly++) {
+      for (let lx = 0; lx < w; lx++) {
+        if (!mine(lx, ly)) continue;
+        const p = (y0 + ly) * S + x0 + lx, i4 = p * 4;
+        const dist = Math.hypot(d[i4] - b[i4], d[i4 + 1] - b[i4 + 1], d[i4 + 2] - b[i4 + 2]);
+        if (dist >= 60 || idAt(logos.map, p) & 0x8000) {
+          fg[ly * w + lx] = p;
+          queue.push(ly * w + lx);
+        }
+      }
+    }
+    for (let qi = 0; qi < queue.length; qi++) {
+      const c = queue[qi], cx = c % w, cy = (c / w) | 0;
+      for (const [nx, ny] of [[cx - 1, cy], [cx + 1, cy], [cx, cy - 1], [cx, cy + 1]]) {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h || !mine(nx, ny) || fg[ny * w + nx] >= 0) continue;
+        fg[ny * w + nx] = fg[c];
+        queue.push(ny * w + nx);
+      }
+    }
     const c = newCanvas(w, h);
     const ctx = c.getContext('2d')!;
     const img = ctx.createImageData(w, h);
     let solid = 0;
-    for (let y = y0; y <= y1; y++) {
-      for (let x = x0; x <= x1; x++) {
-        const p = y * S + x;
-        if (idAt(area, p) !== i + 1 || a[p] === 65535) continue;
-        const i4 = p * 4;
+    for (let ly = 0; ly < h; ly++) {
+      for (let lx = 0; lx < w; lx++) {
+        if (!mine(lx, ly)) continue;
+        const p = (y0 + ly) * S + x0 + lx, i4 = p * 4;
+        if (d[i4 + 3] < 128) continue;
         let al: number;
-        // inside a badge's outline: solid, as in the picture
-        if (idAt(logos.map, p) & 0x8000) al = 1;
-        else if (isBg[a[p]] && !isBg[b[p]] && t[p] > 0) al = t[p] / 255; // an edge between the background and the logo
-        else if (isBg[a[p]]) {
-          // nearest to the background, off any line to another colour: judged by how far it is from it
-          const dist = Math.hypot(d[i4] - br, d[i4 + 1] - bgc, d[i4 + 2] - bb);
+        const f = fg[ly * w + lx];
+        // inside a badge's outline, or a solid pixel: as in the picture
+        if (idAt(logos.map, p) & 0x8000 || f === p) al = 1;
+        else if (f >= 0) {
+          // how far the pixel lies from the background towards the nearest solid logo colour
+          const f4 = f * 4;
+          const vr = d[f4] - b[i4], vg = d[f4 + 1] - b[i4 + 1], vb = d[f4 + 2] - b[i4 + 2];
+          const len = vr * vr + vg * vg + vb * vb;
+          const dot = (d[i4] - b[i4]) * vr + (d[i4 + 1] - b[i4 + 1]) * vg + (d[i4 + 2] - b[i4 + 2]) * vb;
+          al = len > 0 ? Math.max(0, Math.min(1, dot / len)) : 0;
+        } else {
+          const dist = Math.hypot(d[i4] - b[i4], d[i4 + 1] - b[i4 + 1], d[i4 + 2] - b[i4 + 2]);
           al = Math.max(0, Math.min(1, (dist - 12) / 70));
-        } else if (isBg[b[p]]) al = 1 - t[p] / 255;
-        else al = 1;
+        }
         if (al < 0.04) continue;
-        const o = ((y - y0) * w + x - x0) * 4;
-        img.data[o] = Math.round((d[i4] - (1 - al) * br) / al);
-        img.data[o + 1] = Math.round((d[i4 + 1] - (1 - al) * bgc) / al);
-        img.data[o + 2] = Math.round((d[i4 + 2] - (1 - al) * bb) / al);
+        const o = (ly * w + lx) * 4;
+        img.data[o] = Math.round((d[i4] - (1 - al) * b[i4]) / al);
+        img.data[o + 1] = Math.round((d[i4 + 1] - (1 - al) * b[i4 + 1]) / al);
+        img.data[o + 2] = Math.round((d[i4 + 2] - (1 - al) * b[i4 + 2]) / al);
         img.data[o + 3] = Math.round(al * 255);
         if (al > 0.5) solid++;
       }
@@ -584,8 +692,6 @@ function logoLayers(
     ctx.putImageData(img, 0, 0);
     out.push({ name: `Logo ${out.length + 1} – ${logo.group}`, canvas: c, left: x0, top: y0 });
   });
-  // the logos' area gives no fabric detail (it would bring a ghost of the logo back on the new colour)
-  for (let p = 0; p < S * S; p++) if (idAt(quiet, p)) t[p] = 255;
   return out;
 }
 
@@ -830,7 +936,14 @@ export async function buildPngPsd(r: PngPsdRequest, onProgress?: (done: number, 
   const rank = new Int16Array(r.counts.length).fill(-1);
   ordered.forEach((cl, k) => (rank[cl.id] = k));
   const srcs = r.images.map((i) => pictureData(i, r.fit, PSD_SIZE, r.denoise));
-  const buf = await masksToPsd(layers, srcs, r.vectors, rank, r.gradient, r.alias, r.detail, r.motif, r.logos, r.sharedSlots);
+  // under the logos the design carries on, so hiding a logo leaves no hole of a flat colour
+  let logoPic: ImageData | undefined;
+  if (r.logos?.list.length) {
+    logoPic = new ImageData(new Uint8ClampedArray(srcs[0].data), PSD_SIZE, PSD_SIZE);
+    const hole = logoHole(r.logos.map, PSD_SIZE);
+    srcs.forEach((src) => inpaint(src, hole));
+  }
+  const buf = await masksToPsd(layers, srcs, r.vectors, rank, r.gradient, r.alias, r.detail, r.motif, r.logos, r.sharedSlots, logoPic);
   onProgress?.(ordered.length + 1, ordered.length + 1);
   return buf;
 }
@@ -876,6 +989,8 @@ export function groupMainColours(labels: Uint16Array): Set<number> {
  * Shades of one colour: clusters a step apart (RGB distance < 48) whose pixels are mixed through each other (their
  * shared border is at least 0.2 of the smaller one's pixels: mesh, folds, light and shadow) are one colour. Two
  * shades that each make an area of their own (stripes, a panel, a gradient band) share little border and stay apart.
+ * The step-by-step joining stops where a group would drift too far: the main colours (the largest of each) of two
+ * groups must also be closer than 60, or a blurred gradient from red to orange would chain into one red.
  * Returns per cluster the cluster it joins: the largest of its group (itself when alone).
  */
 export function shadeMerges(labels: Uint16Array, colors: [number, number, number][], width = SIZE): Int32Array {
@@ -899,14 +1014,18 @@ export function shadeMerges(labels: Uint16Array, colors: [number, number, number
   }
   const root = Int32Array.from(colors, (_, i) => i);
   const find = (i: number): number => (root[i] === i ? i : (root[i] = find(root[i])));
-  for (let i = 0; i < K; i++) {
-    for (let j = i + 1; j < K; j++) {
-      const [a, b] = [colors[i], colors[j]];
-      if (Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) >= 48) continue;
-      if (border[i * K + j] < 0.2 * Math.min(count[i], count[j])) continue;
-      const ri = find(i), rj = find(j);
-      if (ri !== rj) root[count[ri] >= count[rj] ? rj : ri] = count[ri] >= count[rj] ? ri : rj;
-    }
+  const dist = (a: [number, number, number], b: [number, number, number]) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  // the closest pairs first, so a group grows from its own shades before it meets another group
+  const pairs: [number, number, number][] = [];
+  for (let i = 0; i < K; i++) for (let j = i + 1; j < K; j++) pairs.push([i, j, dist(colors[i], colors[j])]);
+  pairs.sort((a, b) => a[2] - b[2]);
+  for (const [i, j, dij] of pairs) {
+    if (dij >= 48) break;
+    if (border[i * K + j] < 0.2 * Math.min(count[i], count[j])) continue;
+    const ri = find(i), rj = find(j);
+    if (ri === rj || dist(colors[ri], colors[rj]) >= 60) continue;
+    if (count[ri] >= count[rj]) root[rj] = ri;
+    else root[ri] = rj;
   }
   return Int32Array.from(colors, (_, i) => find(i));
 }
@@ -919,6 +1038,91 @@ export function shadeMerges(labels: Uint16Array, colors: [number, number, number
   const c: [number, number, number][] = [[20, 30, 120], [25, 35, 135]];
   const m1 = shadeMerges(chk, c, 20), m2 = shadeMerges(halves, c, 20);
   if (!(m1[0] === 0 && m1[1] === 0 && m2[0] === 0 && m2[1] === 1)) console.error('pngImport shadeMerges self-check failed');
+}
+
+/**
+ * Per cluster: true when it is the texture's backdrop (the colour around and between the parts) rather than a colour
+ * of the kit: at least 80 % of its pixels connect to the area outside the parts without leaving the colour, and it
+ * covers none of the shirt, shorts or socks for 40 % or more (black shorts on a black backdrop stay a kit colour; the
+ * collar / armband / credit boxes are mostly backdrop anyway).
+ */
+export function backdropClusters(labels: Uint16Array, clusterCount: number): boolean[] {
+  const gm = groupMap();
+  const G = LAYER_GROUPS.length + 1;
+  const reached = new Uint8Array(labels.length);
+  const queue = new Int32Array(labels.length);
+  let qh = 0, qt = 0;
+  for (let p = 0; p < labels.length; p++) if (!gm[p] && labels[p] !== 65535) { reached[p] = 1; queue[qt++] = p; }
+  while (qh < qt) {
+    const p = queue[qh++], x = p % SIZE, y = (p / SIZE) | 0;
+    for (const q of [x > 0 ? p - 1 : -1, x < SIZE - 1 ? p + 1 : -1, y > 0 ? p - SIZE : -1, y < SIZE - 1 ? p + SIZE : -1]) {
+      if (q >= 0 && !reached[q] && labels[q] === labels[p]) { reached[q] = 1; queue[qt++] = q; }
+    }
+  }
+  const count = new Float64Array(clusterCount), reach = new Float64Array(clusterCount);
+  const inGroup = new Float64Array(clusterCount * G), groupArea = new Float64Array(G);
+  for (let p = 0; p < labels.length; p++) {
+    groupArea[gm[p]]++;
+    const l = labels[p];
+    if (l === 65535) continue;
+    count[l]++;
+    if (reached[p]) reach[l]++;
+    inGroup[l * G + gm[p]]++;
+  }
+  return Array.from({ length: clusterCount }, (_, l) => {
+    if (!count[l] || reach[l] < count[l] * 0.8) return false;
+    for (let g = 1; g <= 3; g++) if (inGroup[l * G + g] >= groupArea[g] * 0.4) return false;
+    return true;
+  });
+}
+
+/**
+ * What the template will look like, at 1024, for the preview and the likeness score: each pixel in the colour of its
+ * chosen layer (a colour left out shows the Base), logos as in the picture, and with the fabric detail the picture's
+ * brightness on top (the multiply / screen layers carry brightness, not hue). Returns the picture and the share
+ * (0..1) of the kit's pixels that stay close to the original, plus a mask of the ones that do not.
+ */
+export function predictResult(
+  pic: ImageData,
+  labels: Uint16Array,
+  colourOf: (label: number) => [number, number, number] | null,
+  base: [number, number, number],
+  detail: boolean,
+  logoMap?: Uint16Array
+): { image: ImageData; likeness: number; off: Uint8Array } {
+  const gm = groupMap();
+  const d = pic.data;
+  const out = new ImageData(SIZE, SIZE);
+  const o = out.data;
+  const off = new Uint8Array(SIZE * SIZE);
+  let kit = 0, close = 0;
+  const lum = (r: number, g: number, b: number) => 0.299 * r + 0.587 * g + 0.114 * b;
+  for (let p = 0, i = 0; p < SIZE * SIZE; p++, i += 4) {
+    o[i + 3] = 255;
+    const l = labels[p];
+    if (l === 65535) continue;
+    let r: number, g: number, b: number;
+    if (logoMap?.[p]) [r, g, b] = [d[i], d[i + 1], d[i + 2]];
+    else {
+      [r, g, b] = colourOf(l) ?? base;
+      if (detail) {
+        const lp = lum(d[i], d[i + 1], d[i + 2]), lf = lum(r, g, b);
+        if (lp < lf) {
+          const k = lp / Math.max(1, lf);
+          r *= k; g *= k; b *= k;
+        } else if (lf < 255) {
+          const k = (lp - lf) / (255 - lf);
+          r += (255 - r) * k; g += (255 - g) * k; b += (255 - b) * k;
+        }
+      }
+    }
+    o[i] = r; o[i + 1] = g; o[i + 2] = b;
+    if (!gm[p]) continue;
+    kit++;
+    if (Math.hypot(r - d[i], g - d[i + 1], b - d[i + 2]) < 40) close++;
+    else off[p] = 1;
+  }
+  return { image: out, likeness: kit ? close / kit : 1, off };
 }
 
 /** Pixel mask of a whole cluster. */

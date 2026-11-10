@@ -80,7 +80,9 @@ PSD blend modes, clipping masks, layer and vector masks, shape layers and group 
 
 **Import PNG** (experimental) has two ways:
 
-- *One PNG, split by colour* turns a picture of a template (ideally 2048 × 2048 in the PES layout) into a layered PSD
+- *One PNG, split by colour* opens on *Result*, a preview of the template as it will come out, with *Original* and
+  *Diff* (red where the result will differ) next to it and a summary on top: how close it stays to the picture, the
+  number of colours and logos, and the colours as swatches; the options are folded under *Settings*. It turns a picture of a template (ideally 2048 × 2048 in the PES layout) into a layered PSD
   in `library/templates`: one layer per colour and part group, the largest colour as the *Base* of each group (its
   own colour slot), soft edges from the picture. *Separate logos & sponsors* (on by default) finds the sponsors, crests
   and maker logos (yellow boxes in the preview) and keeps each as a layer in its own colours, with the base colour

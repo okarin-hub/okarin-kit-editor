@@ -16,6 +16,17 @@
   slot for all parts* (on by default) the blue of the shirt, shorts and socks is one slot, shown in an *All* row of
   the colour slots. On the Persib kit the colour slots drop from 26 to 7, and one change to Base turns the whole kit
   another colour with its logos and shading kept.
+- **Import PNG is easier to read.** The dialog opens on *Result*, a preview of the template as it will come out
+  (colours, logos and fabric detail), next to *Original* and *Diff* (the areas that will differ, in red). On top a
+  summary: how close the result stays to the picture (*99% like the picture*), the number of colours and logos, and
+  the colours as swatches (a click finds one in the list). The settings are folded under *Settings*. The texture's own
+  backdrop (the black around the parts) now starts unticked; black shorts on a black backdrop stay a kit colour.
+- **Hiding a logo leaves no hole.** Under every logo the design carries on: the area is filled from the colours around
+  it (a gradient, a blurred print, a stripe), so a hidden or removed maker logo no longer leaves its shape in one flat
+  colour. The logo layers are cut against that filled background, so their edges stay clean on gradients too.
+- **Gradients keep their colours.** Shade merging no longer chains across a blurred gradient: two groups of shades
+  join only when their main colours are close as well, so the orange of a red-to-orange print stays orange instead of
+  turning into a pink shade of the red.
 
 ## 0.6.9 — Auto fit for font letters, same-width character boxes, sharper font sheets
 
