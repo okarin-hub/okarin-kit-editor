@@ -2,7 +2,7 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
-## Belum dirilis
+## 0.7.0 — Import PNG jadi mudah: logo terpisah, satu slot per warna, pratinjau hasil
 
 - **Import PNG memisahkan logo dan sponsor.** Dengan *Pisahkan logo & sponsor* (aktif secara bawaan), sponsor,
   lambang klub, dan logo apparel di gambar kit ditemukan lalu jadi layer sendiri dengan warna aslinya (kotak kuning di

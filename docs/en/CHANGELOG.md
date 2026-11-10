@@ -2,7 +2,7 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
-## Unreleased
+## 0.7.0 — Import PNG made easy: logos kept apart, one slot per colour, result preview
 
 - **Import PNG keeps logos and sponsors apart.** With *Separate logos & sponsors* (on by default), the sponsors,
   crests and maker logos of a kit picture are found and become layers of their own in their original colours (a yellow
