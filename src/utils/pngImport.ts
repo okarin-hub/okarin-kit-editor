@@ -1,4 +1,4 @@
-import { finalizeMask, ConvertedZone, newCanvas, PNG_PSD_MARK, DETAIL_DARK, DETAIL_LIGHT, LAYER_GROUPS } from '@/utils/psdImport';
+import { finalizeMask, ConvertedZone, newCanvas, PNG_PSD_MARK, PNG_SHARED_SLOTS, DETAIL_DARK, DETAIL_LIGHT, LAYER_GROUPS } from '@/utils/psdImport';
 import { analyzeColors, ColorAnalysis } from '@/utils/colorClusters';
 import { PES_2021_PARTS } from '@/constants/pes2021Parts';
 
@@ -374,7 +374,11 @@ export async function masksToPsd(
   /** Also keep the fabric detail (mesh, shading) of the first picture as two layers on top. */
   detail = false,
   /** ...as colour layers per part group (motifLayers) instead of black / white. */
-  motif = false
+  motif = false,
+  /** Logos and sponsors (logoDetect): each becomes a layer in its own colours, on top. */
+  logos?: PngPsdRequest['logos'],
+  /** One colour slot per colour for all part groups (read back by assignSlots). */
+  sharedSlots = false
 ): Promise<ArrayBuffer> {
   const { writePsd } = await import('ag-psd');
   const S = PSD_SIZE, k = SIZE / S;
@@ -440,6 +444,9 @@ export async function masksToPsd(
     cctx.drawImage(c, x0, y0);
     children.push({ name: l.name, canvas: c, left: x0, top: y0 });
   }
+  const logoChildren = logos?.list.length
+    ? logoLayers(logos, srcs[0], a, b, t, (cluster) => layers.find((l) => l.cluster === cluster)?.color ?? (palette[cluster].slice(0, 3) as [number, number, number]), palette, alias)
+    : [];
   if (detail) {
     // a colour the user left unticked is covered by the Base: its pixels must not come back as detail (a white logo
     // returning as a white screen layer), so they are skipped like edge pixels
@@ -473,16 +480,113 @@ export async function masksToPsd(
       children.push(d);
     }
   }
+  for (const l of logoChildren) {
+    cctx.drawImage(l.canvas, l.left, l.top);
+    children.push(l);
+  }
   return writePsd(
     {
       width: S,
       height: S,
       canvas: composite,
       children,
-      imageResources: { xmpMetadata: `<x:xmpmeta xmlns:x="adobe:ns:meta/"><!-- ${PNG_PSD_MARK} --></x:xmpmeta>` },
+      imageResources: { xmpMetadata: `<x:xmpmeta xmlns:x="adobe:ns:meta/"><!-- ${PNG_PSD_MARK}${sharedSlots ? ` ${PNG_SHARED_SLOTS}` : ''} --></x:xmpmeta>` },
     } as any,
     { generateThumbnail: false }
   );
+}
+
+/**
+ * Logo layers: each logo of the detection, cut from the picture at PSD_SIZE with a soft edge. The edge's share of the
+ * background colour is taken out (alpha + unmixed colour), so the logo sits clean on any base colour, not in a ring of
+ * the old one. Its area (grown 2 px at 1024) is marked in t, so the fabric detail does not bring it back.
+ */
+function logoLayers(
+  logos: NonNullable<PngPsdRequest['logos']>,
+  pic: ImageData,
+  a: Uint16Array,
+  b: Uint16Array,
+  t: Uint8Array,
+  colourOf: (cluster: number) => [number, number, number],
+  palette: ColourVector[],
+  alias?: Int32Array
+) {
+  const S = pic.width, k = SIZE / S, d = pic.data;
+  const grow = (src: Uint16Array) => {
+    // the ids only: the inside flag stays on the pixels the detection gave it
+    const out = src.map((v) => v & 0x7fff);
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const p = y * SIZE + x;
+        if (src[p]) continue;
+        for (let dy = -1; dy <= 1 && !out[p]; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const yy = y + dy, xx = x + dx;
+            if (yy >= 0 && yy < SIZE && xx >= 0 && xx < SIZE && src[yy * SIZE + xx]) { out[p] = src[yy * SIZE + xx] & 0x7fff; break; }
+          }
+        }
+      }
+    }
+    return out;
+  };
+  const area = grow(logos.map);
+  const quiet = grow(area);
+  const n = logos.list.length;
+  const box = Array.from({ length: n }, () => [S, S, -1, -1]);
+  const idAt = (m: Uint16Array, p: number) => m[((((p / S) | 0) * k) | 0) * SIZE + (((p % S) * k) | 0)];
+  for (let p = 0; p < S * S; p++) {
+    const id = idAt(area, p);
+    if (!id) continue;
+    const bx = box[id - 1], x = p % S, y = (p / S) | 0;
+    if (x < bx[0]) bx[0] = x;
+    if (y < bx[1]) bx[1] = y;
+    if (x > bx[2]) bx[2] = x;
+    if (y > bx[3]) bx[3] = y;
+  }
+  const out: { name: string; canvas: HTMLCanvasElement; left: number; top: number }[] = [];
+  logos.list.forEach((logo, i) => {
+    const [x0, y0, x1, y1] = box[i];
+    if (x1 < 0) return;
+    const w = x1 - x0 + 1, h = y1 - y0 + 1;
+    const bg = alias ? alias[logo.bg] : logo.bg;
+    const [br, bgc, bb] = colourOf(bg);
+    // every shade of the background (a base split into light, dark and mesh blue) counts as the background
+    const isBg = palette.map((c) => Math.hypot(c[0] - br, c[1] - bgc, c[2] - bb) < 60);
+    const c = newCanvas(w, h);
+    const ctx = c.getContext('2d')!;
+    const img = ctx.createImageData(w, h);
+    let solid = 0;
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const p = y * S + x;
+        if (idAt(area, p) !== i + 1 || a[p] === 65535) continue;
+        const i4 = p * 4;
+        let al: number;
+        // inside a badge's outline: solid, as in the picture
+        if (idAt(logos.map, p) & 0x8000) al = 1;
+        else if (isBg[a[p]] && !isBg[b[p]] && t[p] > 0) al = t[p] / 255; // an edge between the background and the logo
+        else if (isBg[a[p]]) {
+          // nearest to the background, off any line to another colour: judged by how far it is from it
+          const dist = Math.hypot(d[i4] - br, d[i4 + 1] - bgc, d[i4 + 2] - bb);
+          al = Math.max(0, Math.min(1, (dist - 12) / 70));
+        } else if (isBg[b[p]]) al = 1 - t[p] / 255;
+        else al = 1;
+        if (al < 0.04) continue;
+        const o = ((y - y0) * w + x - x0) * 4;
+        img.data[o] = Math.round((d[i4] - (1 - al) * br) / al);
+        img.data[o + 1] = Math.round((d[i4 + 1] - (1 - al) * bgc) / al);
+        img.data[o + 2] = Math.round((d[i4 + 2] - (1 - al) * bb) / al);
+        img.data[o + 3] = Math.round(al * 255);
+        if (al > 0.5) solid++;
+      }
+    }
+    if (solid < 20) return;
+    ctx.putImageData(img, 0, 0);
+    out.push({ name: `Logo ${out.length + 1} – ${logo.group}`, canvas: c, left: x0, top: y0 });
+  });
+  // the logos' area gives no fabric detail (it would bring a ghost of the logo back on the new colour)
+  for (let p = 0; p < S * S; p++) if (idAt(quiet, p)) t[p] = 255;
+  return out;
 }
 
 /**
@@ -678,6 +782,10 @@ export interface PngPsdRequest {
   splitPieces: boolean;
   minArea: number;
   maxZones: number;
+  /** Logos and sponsors found by logoDetect: logo id + 1 per pixel at 1024, and per logo its background colour. */
+  logos?: { map: Uint16Array; list: { bg: number; group: string }[] };
+  /** One colour slot per colour for the shirt, shorts and socks together. */
+  sharedSlots?: boolean;
 }
 
 /** The picture at a size, cleaned up when asked (the same way as in the dialog's analysis). */
@@ -722,7 +830,7 @@ export async function buildPngPsd(r: PngPsdRequest, onProgress?: (done: number, 
   const rank = new Int16Array(r.counts.length).fill(-1);
   ordered.forEach((cl, k) => (rank[cl.id] = k));
   const srcs = r.images.map((i) => pictureData(i, r.fit, PSD_SIZE, r.denoise));
-  const buf = await masksToPsd(layers, srcs, r.vectors, rank, r.gradient, r.alias, r.detail, r.motif);
+  const buf = await masksToPsd(layers, srcs, r.vectors, rank, r.gradient, r.alias, r.detail, r.motif, r.logos, r.sharedSlots);
   onProgress?.(ordered.length + 1, ordered.length + 1);
   return buf;
 }
@@ -762,6 +870,55 @@ export function groupMainColours(labels: Uint16Array): Set<number> {
     if (best >= 0) out.add(best);
   }
   return out;
+}
+
+/**
+ * Shades of one colour: clusters a step apart (RGB distance < 48) whose pixels are mixed through each other (their
+ * shared border is at least 0.2 of the smaller one's pixels: mesh, folds, light and shadow) are one colour. Two
+ * shades that each make an area of their own (stripes, a panel, a gradient band) share little border and stay apart.
+ * Returns per cluster the cluster it joins: the largest of its group (itself when alone).
+ */
+export function shadeMerges(labels: Uint16Array, colors: [number, number, number][], width = SIZE): Int32Array {
+  const K = colors.length;
+  const count = new Float64Array(K);
+  const border = new Float64Array(K * K);
+  const h = labels.length / width;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < width; x++) {
+      const p = y * width + x, l = labels[p];
+      if (l === 65535) continue;
+      count[l]++;
+      for (const q of [x < width - 1 ? p + 1 : -1, y < h - 1 ? p + width : -1]) {
+        if (q < 0) continue;
+        const m = labels[q];
+        if (m === 65535 || m === l) continue;
+        border[l * K + m]++;
+        border[m * K + l]++;
+      }
+    }
+  }
+  const root = Int32Array.from(colors, (_, i) => i);
+  const find = (i: number): number => (root[i] === i ? i : (root[i] = find(root[i])));
+  for (let i = 0; i < K; i++) {
+    for (let j = i + 1; j < K; j++) {
+      const [a, b] = [colors[i], colors[j]];
+      if (Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) >= 48) continue;
+      if (border[i * K + j] < 0.2 * Math.min(count[i], count[j])) continue;
+      const ri = find(i), rj = find(j);
+      if (ri !== rj) root[count[ri] >= count[rj] ? rj : ri] = count[ri] >= count[rj] ? ri : rj;
+    }
+  }
+  return Int32Array.from(colors, (_, i) => find(i));
+}
+
+// self-check: a checkerboard of two close blues joins (the larger wins); two halves of them stay apart
+{
+  const chk = Uint16Array.from({ length: 80 }, (_, p) => ((p % 20) + ((p / 20) | 0)) % 2);
+  chk[1] = 0;
+  const halves = Uint16Array.from({ length: 80 }, (_, p) => (p % 20 < 10 ? 0 : 1));
+  const c: [number, number, number][] = [[20, 30, 120], [25, 35, 135]];
+  const m1 = shadeMerges(chk, c, 20), m2 = shadeMerges(halves, c, 20);
+  if (!(m1[0] === 0 && m1[1] === 0 && m2[0] === 0 && m2[1] === 1)) console.error('pngImport shadeMerges self-check failed');
 }
 
 /** Pixel mask of a whole cluster. */

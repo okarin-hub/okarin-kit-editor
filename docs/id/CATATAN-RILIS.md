@@ -2,6 +2,21 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## Belum dirilis
+
+- **Import PNG memisahkan logo dan sponsor.** Dengan *Pisahkan logo & sponsor* (aktif secara bawaan), sponsor,
+  lambang klub, dan logo apparel di gambar kit ditemukan lalu jadi layer sendiri dengan warna aslinya (kotak kuning di
+  pratinjau, *N ditemukan* di samping opsinya). Di bawahnya diisi warna dasar, tepinya dibersihkan dari warna dasar
+  lama sehingga tetap rapi di warna baru, dan logo tidak lagi pecah jadi layer warna atau muncul lagi di detail kain.
+  Strip, garis, panel samping, dan manset tetap jadi layer warna. Pada kit Persib ditemukan 15 logo dan slot warna turun
+  dari 26 jadi 22; pada kit Dundalk sponsor hitam di atas abu-abu dan lambang di celana hitam juga ditemukan.
+- **Import PNG: satu warna, satu slot.** Bayangan dari satu warna yang saling bercampur (garis mesh, lipatan, terang
+  dan gelap: biru yang pecah jadi biru, biru tua, dan biru mesh) langsung digabung ke warnanya; detail kain menyimpan
+  bayangannya. Bayangan yang membentuk area sendiri (strip, panel, pita gradasi) tetap terpisah. Dengan *Satu slot per
+  warna untuk semua bagian* (aktif secara bawaan) biru di baju, celana, dan kaus kaki jadi satu slot, tampil di baris
+  *Semua* pada slot warna. Pada kit Persib slot warna turun dari 26 jadi 7, dan satu kali ganti Base mengubah warna
+  seluruh kit dengan logo dan bayangannya tetap.
+
 ## 0.6.9 — Pas otomatis untuk huruf font, kotak karakter seragam, gambar font lebih tajam
 
 - **Pas otomatis untuk ukuran huruf.** Di samping *Ukuran huruf %* di font generator, *Pas otomatis* mencari ukuran

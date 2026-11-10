@@ -15,6 +15,8 @@ const SIZE = 1024;
 
 /** Written into the XMP of a PSD made by Import PNG (see parsePsd). */
 export const PNG_PSD_MARK = 'okarin-kit-editor:png-template';
+/** Next to PNG_PSD_MARK: the colour slots are shared by all part groups. */
+export const PNG_SHARED_SLOTS = 'shared-slots';
 
 /**
  * The part groups of the Layer tab. Import PNG writes one layer per colour and group, named "<colour> – <group>",
@@ -204,6 +206,8 @@ export interface ParsedPsd {
   height: number;
   layers: PsdLayerInfo[];
   skipped: { name: string; reason: string }[];
+  /** Written by Import PNG with one colour slot per colour for all part groups. */
+  sharedSlots?: boolean;
 }
 
 export interface ConvertedZone {
@@ -303,13 +307,14 @@ export async function parsePsd(file: File): Promise<ParsedPsd> {
   };
   walk(psd.children, [], { hidden: false, opacity: 1, masks: [], vmasks: [] });
   // a PSD written by Import PNG has only real colour layers: none of them is a helper or a backdrop
-  const fromPng = String((psd as any).imageResources?.xmpMetadata ?? '').includes(PNG_PSD_MARK);
+  const xmp = String((psd as any).imageResources?.xmpMetadata ?? '');
+  const fromPng = xmp.includes(PNG_PSD_MARK);
   layers.forEach((l) => {
     l.junk = fromPng ? undefined : junkReason(l, psd.width, psd.height);
     l.fromPng = fromPng;
   });
 
-  return { fileName: file.name, width: psd.width, height: psd.height, layers, skipped };
+  return { fileName: file.name, width: psd.width, height: psd.height, layers, skipped, sharedSlots: fromPng && xmp.includes(PNG_SHARED_SLOTS) };
 }
 
 const hex2 = (n: number) => Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, '0');
@@ -554,8 +559,9 @@ export function convertLayer(info: PsdLayerInfo, psdW: number, psdH: number, ind
     for (let i = 0; i < d.length; i += 4) d[i + 3] = (d[i + 3] * md[i + 3]) / 255;
   }
 
-  // the fabric detail layers of an Import PNG PSD keep their own black / white (no colour slot, no flattening)
-  const detail = info.name === DETAIL_DARK || info.name === DETAIL_LIGHT;
+  // the fabric detail layers and the logo layers of an Import PNG PSD keep their own colours (no colour slot, no
+  // flattening: a white sponsor stays white, not a slot)
+  const detail = info.name === DETAIL_DARK || info.name === DETAIL_LIGHT || (!!info.fromPng && /^Logo \d+ – /.test(info.name));
   const out = finalizeMask(
     canvas,
     ctx,
@@ -583,7 +589,7 @@ export function convertLayer(info: PsdLayerInfo, psdW: number, psdH: number, ind
  * Grey-coded templates: zones whose layer is the same flat grey share one colour slot. Slots are named
  * "Warna 1", "Warna 2"... from the largest total area down. Needs at least two flat layers.
  */
-export function assignSlots(zones: Record<string, unknown>[], flats: { flat?: string; pixels: number }[]): void {
+export function assignSlots(zones: Record<string, unknown>[], flats: { flat?: string; pixels: number }[], shared = false): void {
   const area = new Map<string, number>();
   flats.forEach((f) => f.flat && area.set(f.flat, (area.get(f.flat) ?? 0) + f.pixels));
   if (flats.filter((f) => f.flat).length < 2) return;
@@ -597,8 +603,11 @@ export function assignSlots(zones: Record<string, unknown>[], flats: { flat?: st
     // an Import PNG colour layer ("Warna 2 – Baju") gets a slot per part group, so the shirt motif and a shorts panel
     // that happen to share a colour can still be changed apart
     const group = /\s–\s(Baju|Celana|Kaos kaki|Detail)(\s+\d+)?$/.exec(own)?.[1];
-    z.slot = z.base || /^Motif (gelap|terang) – /.test(own)
-      ? own.replace(/\.[a-z]+$/i, '')
-      : `Warna ${order.indexOf(g) + 1}${group ? ` – ${group}` : ''}`;
+    // shared (Import PNG, the default): one slot per colour for every part group, the Bases included
+    if (shared && !/^Motif (gelap|terang) – /.test(own)) z.slot = z.base ? 'Base' : `Warna ${order.indexOf(g) + 1}`;
+    else
+      z.slot = z.base || /^Motif (gelap|terang) – /.test(own)
+        ? own.replace(/\.[a-z]+$/i, '')
+        : `Warna ${order.indexOf(g) + 1}${group ? ` – ${group}` : ''}`;
   });
 }

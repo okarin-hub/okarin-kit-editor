@@ -1894,11 +1894,15 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
             <div className="space-y-1.5 pb-2 mb-1 border-b border-slate-800/70">
               {slots.size > 0 && (() => {
                 // per part group (Baju, Celana...), each slot a small chip; "Warna 2 – Baju" shows as "Warna 2" in the Baju row
-                const byGroup = new Map<KitCategory, [string, KitZoneDef[]][]>();
+                // a slot used in several part groups (Import PNG's shared slots) goes in its own row
+                const byGroup = new Map<KitCategory | 'all', [string, KitZoneDef[]][]>();
                 [...slots]
                   .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
-                  .forEach((e) => byGroup.set(e[1][0].group, [...(byGroup.get(e[1][0].group) ?? []), e]));
-                const order = (Object.keys(GROUP_LABEL) as KitCategory[]).filter((g) => byGroup.has(g));
+                  .forEach((e) => {
+                    const g = new Set(e[1].map((z) => z.group)).size > 1 ? 'all' : e[1][0].group;
+                    byGroup.set(g, [...(byGroup.get(g) ?? []), e]);
+                  });
+                const order = (['all', ...Object.keys(GROUP_LABEL)] as (KitCategory | 'all')[]).filter((g) => byGroup.has(g));
                 return (
                   <div className="space-y-1">
                     <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-300">
@@ -1920,7 +1924,7 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
                     {slotsOpen &&
                       order.map((g) => (
                         <div key={g} className="flex items-start gap-1.5">
-                          {order.length > 1 && <span className="w-14 shrink-0 pt-1 text-[10px] text-slate-500">{GROUP_LABEL[g]}</span>}
+                          {order.length > 1 && <span className="w-14 shrink-0 pt-1 text-[10px] text-slate-500">{g === 'all' ? 'Semua' : GROUP_LABEL[g]}</span>}
                           <div className="flex-1 min-w-0 flex flex-wrap gap-1">
                             {byGroup.get(g)!.map(([name, zs]) => (
                               <label

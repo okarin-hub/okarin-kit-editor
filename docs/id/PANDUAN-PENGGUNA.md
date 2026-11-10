@@ -81,7 +81,12 @@ style (bayangan, stroke, glow, bevel, overlay) dan layer adjustment belum.
 
 - *Satu PNG, pisah per warna* mengubah gambar template (idealnya 2048 × 2048 dengan tata letak PES) menjadi PSD
   berlayer di `library/templates`: satu layer per warna dan grup bagian, warna terluas menjadi *Base* tiap grup (slot
-  warnanya sendiri), dengan tepi halus dari gambar. Opsi: *Toleransi warna*; daftar di samping tiap warna untuk
+  warnanya sendiri), dengan tepi halus dari gambar. *Pisahkan logo & sponsor* (aktif secara bawaan) menemukan sponsor,
+  lambang klub, dan logo apparel (kotak kuning di pratinjau) dan menyimpan masing-masing sebagai layer dengan warna
+  aslinya, dengan warna dasar di bawahnya, jadi bisa disembunyikan atau diganti; strip dan panel tetap jadi warna.
+  Bayangan dari satu warna (mesh, lipatan, bayangan) langsung digabung ke warnanya, dan *Satu slot per warna untuk
+  semua bagian* (aktif secara bawaan) memberi tiap warna satu slot untuk baju, celana, dan kaus kaki sekaligus (baris
+  *Semua* di slot warna). Opsi: *Toleransi warna*; daftar di samping tiap warna untuk
   menggabungkannya ke warna lain (bayangan yang terpisah ikut ke warnanya); klik pada pratinjau untuk mencari warnanya
   di daftar (*Bagian* mewarnai pratinjau per bagian: Baju, Celana, Kaos kaki, Detail, dan tiap warna di daftar menyebut bagiannya); *Bersihkan noise* (untuk WebP / JPG); *Versi warna
   lain* (sampai dua gambar lagi dari template yang sama dengan warna lain, supaya area yang warnanya sama di satu

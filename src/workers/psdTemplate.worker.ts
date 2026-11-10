@@ -75,7 +75,7 @@ self.onmessage = async (e: MessageEvent<PsdSyncRequest>) => {
       reply({ type: 'progress', path, done: k + 1, total: chosen.length });
     }
     if (!zones.length) throw new Error('Semua layer kosong.');
-    assignSlots(zones, flats);
+    assignSlots(zones, flats, parsed.sharedSlots);
     await post({
       action: 'finish',
       folder,

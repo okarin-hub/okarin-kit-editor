@@ -6,21 +6,19 @@ import { InfoTip } from '@/components/ui/InfoTip';
 import { KitTemplate } from '@/types/kit';
 import {
   clusterPartShares,
-  ColorAnalysis,
   clusterHex,
   blendColours,
   groupMainColours,
   clusterGroups,
   groupMap,
   PngPsdRequest,
-  ColourVector,
   convertPngFile,
   imageToData,
   type ImageFit,
 } from '@/utils/pngImport';
 import { ConvertedZone, LAYER_GROUPS } from '@/utils/psdImport';
 import type { PngPsdReply } from '@/workers/pngPsd.worker';
-import type { PngAnalyzeReply, PngAnalyzeRequest } from '@/workers/pngAnalyze.worker';
+import type { PngAnalysis, PngAnalyzeReply, PngAnalyzeRequest } from '@/workers/pngAnalyze.worker';
 import { saveConvertedTemplate } from '@/utils/templateSave';
 import { logActivity } from '@/utils/activityLog';
 import { PES_2021_PARTS } from '@/constants/pes2021Parts';
@@ -109,7 +107,9 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
   const [tolerance, setTolerance] = useState(22);
   const [splitPieces, setSplitPieces] = useState(false);
   const [minArea, setMinArea] = useState(300);
-  const [analysis, setAnalysis] = useState<(ColorAnalysis & { vectors: ColourVector[] }) | null>(null);
+  const [analysis, setAnalysis] = useState<PngAnalysis | null>(null);
+  // logos and sponsors become their own layers (their colours leave the colour list)
+  const [separateLogos, setSeparateLogos] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [clusters, setClusters] = useState<ClusterItem[]>([]);
   const previewRef = useRef<HTMLCanvasElement | null>(null);
@@ -124,6 +124,8 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
   const [fabricDetail, setFabricDetail] = useState(true);
   // ...as colour layers (a tonal motif that can be recoloured) instead of fixed black / white shading
   const [motif, setMotif] = useState(false);
+  // one colour slot per colour for the shirt, shorts and socks together (off: a slot per part group, as before)
+  const [sharedSlots, setSharedSlots] = useState(true);
   // the colour picked in the preview (or in the list): shown bright, the rest dimmed
   const [highlight, setHighlight] = useState<number | null>(null);
   // the preview shows the colours, or which part group each chosen colour lands on
@@ -188,25 +190,32 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
         const onParts = clusterPartShares(a.labels, a.clusters.length);
         // template sites put their watermark / credit boxes in the armband and credit areas
         const onBadges = clusterPartShares(a.labels, a.clusters.length, ['armband', 'credit']);
+        // the empty background (almost no pixels on a kit part) and tiny noise colours start off
+        const onOf = (i: number) => onParts[i] >= 0.3 && a.clusters[i].count / opaque >= 0.003 && onBadges[i] < 0.8 * onParts[i];
         setClusters(
-          a.clusters.map((c, i) => ({
-            id: c.id,
-            // the default name is shown as a placeholder, so it follows the interface language; name = typed by the user
-            name: '',
-            auto: `Warna ${i + 1}`,
-            // the empty background (almost no pixels on a kit part) and tiny noise colours start off
-            on: onParts[i] >= 0.3 && c.count / opaque >= 0.003 && onBadges[i] < 0.8 * onParts[i],
-          }))
+          a.clusters.map((c, i) => {
+            // a shade of another colour (mesh, folds, shadow) starts merged into it; the fabric detail keeps the shading
+            const to = a.shades?.[i] ?? i;
+            const merge = to !== i && onOf(to) ? a.clusters[to].id : undefined;
+            return {
+              id: c.id,
+              // the default name is shown as a placeholder, so it follows the interface language; name = typed by the user
+              name: '',
+              auto: `Warna ${i + 1}`,
+              on: onOf(i) || merge !== undefined,
+              merge,
+            };
+          })
         );
       };
       w.onerror = (e) => {
         setAnalyzing(false);
         setError(e.message || 'Analisis warna gagal.');
       };
-      w.postMessage({ id, datas: [imageData, ...extras.map((x) => x.data)], tolerance, denoise } satisfies PngAnalyzeRequest);
+      w.postMessage({ id, datas: [imageData, ...extras.map((x) => x.data)], tolerance, denoise, logos: separateLogos } satisfies PngAnalyzeRequest);
     }, 150);
     return () => clearTimeout(timer);
-  }, [imageData, tolerance, extras, denoise]);
+  }, [imageData, tolerance, extras, denoise, separateLogos]);
 
   // preview of the selected clusters (merged colours drawn as the colour they joined), or of their part groups
   useEffect(() => {
@@ -239,9 +248,25 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
         out.data[o] = out.data[o + 1] = out.data[o + 2] = hl === lab ? 140 : 50;
       }
     }
+    // logos in their own colours (they are kept as they are), each with a box
+    const logos = analysis.logos;
+    if (logos && imageData && view === 'colors') {
+      for (let p = 0; p < SIZE * SIZE; p++) {
+        if (!logos.map[p]) continue;
+        const o = p * 4;
+        out.data[o] = imageData.data[o];
+        out.data[o + 1] = imageData.data[o + 1];
+        out.data[o + 2] = imageData.data[o + 2];
+      }
+    }
     ctx.putImageData(out, 0, 0);
+    if (logos && view === 'colors') {
+      ctx.strokeStyle = 'rgba(251,191,36,0.9)';
+      ctx.lineWidth = 2;
+      for (const l of logos.logos) ctx.strokeRect(l.box[0] - 3, l.box[1] - 3, l.box[2] + 6, l.box[3] + 6);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [analysis, clusters, alias, highlight, view]);
+  }, [analysis, clusters, alias, highlight, view, imageData]);
 
   /** A click on the preview picks the colour under it and scrolls its row into view. */
   const pickFromPreview = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -415,7 +440,7 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
     setProgress({ done: 0, total: chosen.length + 1 });
     logActivity(
       'png',
-      `konversi "${colorFile?.name}" toleransi ${tolerance}, noise ${denoise}, detail ${fabricDetail}, motif ${fabricDetail && motif}, gradasi ${gradient}, pisah ${splitPieces}, versi lain ${extras.length}; ` +
+      `konversi "${colorFile?.name}" toleransi ${tolerance}, noise ${denoise}, logo ${analysis.logos?.logos.length ?? 'off'}, detail ${fabricDetail}, motif ${fabricDetail && motif}, gradasi ${gradient}, pisah ${splitPieces}, versi lain ${extras.length}; ` +
         `dipakai: ${chosen.map((c) => `${c.name.trim() || c.auto} ${clusterHex(analysis.clusters[c.id].color)}`).join(', ')}; ` +
         `tidak: ${clusters.filter((c) => !c.on && c.merge === undefined).map((c) => clusterHex(analysis.clusters[c.id].color)).join(', ') || '-'}; ` +
         `digabung: ${clusters.filter((c) => c.merge !== undefined).length}`
@@ -438,6 +463,8 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
         splitPieces,
         minArea,
         maxZones: MAX_ZONES,
+        logos: analysis.logos ? { map: analysis.logos.map, list: analysis.logos.logos.map((l) => ({ bg: l.bg, group: l.group })) } : undefined,
+        sharedSlots,
       };
       // the cutting and the PSD writing run in a worker, so the app stays usable meanwhile
       worker.current?.terminate();
@@ -460,7 +487,11 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
       if (!ok) throw new Error('PSD gagal disimpan ke library/templates.');
       // the report lists the layers the PSD holds, base first, each with its part groups
       const sorted = [...chosen].sort((a, b) => (a.id === baseId ? -1 : b.id === baseId ? 1 : 0));
-      setReport(sorted.map((c) => ({ name: c.id === baseId ? 'Base' : c.name.trim() || c.auto, parts: groupsOf(c.id) })));
+      const logoCount = analysis.logos?.logos.length ?? 0;
+      setReport([
+        ...sorted.map((c) => ({ name: c.id === baseId ? 'Base' : c.name.trim() || c.auto, parts: groupsOf(c.id) })),
+        ...(logoCount ? [{ name: `Logo & sponsor: ${logoCount} layer`, parts: [...new Set(analysis.logos!.logos.map((l) => l.group))] }] : []),
+      ]);
       setReportPsd(true);
       logActivity('png', `PSD tersimpan: ${templateName.trim() || 'Template PNG'}`);
     } catch (e: any) {
@@ -638,6 +669,21 @@ export const ImportPngModal: React.FC<ImportPngModalProps> = ({ isOpen, onClose,
                   <input type="range" min={4} max={80} value={tolerance} onChange={(e) => setTolerance(Number(e.target.value))} className="w-full accent-sky-500" />
                 </label>
                 <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
+                  <label className={`${check} col-span-2`}>
+                    <input type="checkbox" checked={separateLogos} onChange={(e) => setSeparateLogos(e.target.checked)} className="mt-0.5 accent-sky-500" />
+                    <span className="flex items-center gap-1">
+                      Pisahkan logo & sponsor
+                      <InfoTip text="Logo, sponsor, dan lambang klub jadi layer sendiri dengan warna aslinya (kotak kuning di pratinjau), jadi bisa disembunyikan atau diganti. Di bawahnya diisi warna dasar. Garis, strip, dan panel tetap jadi warna." />
+                    </span>
+                    {analysis?.logos && <span className="ml-auto text-[10px] text-amber-300 tabular-nums">{`${analysis.logos.logos.length} ditemukan`}</span>}
+                  </label>
+                  <label className={`${check} col-span-2`}>
+                    <input type="checkbox" checked={sharedSlots} onChange={(e) => setSharedSlots(e.target.checked)} className="mt-0.5 accent-sky-500" />
+                    <span className="flex items-center gap-1">
+                      Satu slot per warna untuk semua bagian
+                      <InfoTip text="Biru di baju, celana, dan kaus kaki jadi satu slot warna: ganti sekali, semua ikut. Matikan untuk slot terpisah per bagian (baju, celana, kaus kaki)." />
+                    </span>
+                  </label>
                   <label className={check}>
                     <input type="checkbox" checked={denoise} onChange={(e) => setDenoise(e.target.checked)} className="mt-0.5 accent-sky-500" />
                     <span className="flex items-center gap-1">

@@ -82,7 +82,11 @@ PSD blend modes, clipping masks, layer and vector masks, shape layers and group 
 
 - *One PNG, split by colour* turns a picture of a template (ideally 2048 × 2048 in the PES layout) into a layered PSD
   in `library/templates`: one layer per colour and part group, the largest colour as the *Base* of each group (its
-  own colour slot), soft edges from the picture. Options: *Colour tolerance*; the list next to each colour to merge
+  own colour slot), soft edges from the picture. *Separate logos & sponsors* (on by default) finds the sponsors, crests
+  and maker logos (yellow boxes in the preview) and keeps each as a layer in its own colours, with the base colour
+  under it, so it can be hidden or replaced; stripes and panels stay colours. Shades of one colour (mesh, folds,
+  shadow) start merged into it, and *One colour slot for all parts* (on by default) gives each colour one slot for
+  the shirt, shorts and socks together (the *All* row of the colour slots). Options: *Colour tolerance*; the list next to each colour to merge
   it into another (a shade that split off joins its colour); a click on the preview finds a colour in the list
   (*Parts* colours the preview by part: Shirt, Shorts, Socks, Details, and each colour in the list names its parts); *Clean up noise* (for WebP / JPG); *Other colourways* (up to two more
   pictures of the same template in other colours, so areas that share a colour in one picture are still told

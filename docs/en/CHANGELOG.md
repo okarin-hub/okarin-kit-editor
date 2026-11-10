@@ -2,6 +2,21 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## Unreleased
+
+- **Import PNG keeps logos and sponsors apart.** With *Separate logos & sponsors* (on by default), the sponsors,
+  crests and maker logos of a kit picture are found and become layers of their own in their original colours (a yellow
+  box in the preview, *N found* next to the option). The base colour is filled in under them, their edge loses the
+  old base colour so they sit clean on a new one, and they no longer split into colour layers or come back in the fabric
+  detail. Stripes, piping, side panels and cuffs stay colour layers. On a Persib kit 15 logos are found and the colour
+  slots drop from 26 to 22; on a Dundalk kit black sponsors on grey and the crest on black shorts are found too.
+- **Import PNG: one colour, one slot.** Shades of one colour that run through each other (mesh lines, folds, light
+  and shadow: a blue split into blue, dark blue and mesh blue) start merged into that colour; the fabric detail keeps
+  the shading. Shades that make an area of their own (stripes, a panel, a gradient band) stay apart. With *One colour
+  slot for all parts* (on by default) the blue of the shirt, shorts and socks is one slot, shown in an *All* row of
+  the colour slots. On the Persib kit the colour slots drop from 26 to 7, and one change to Base turns the whole kit
+  another colour with its logos and shading kept.
+
 ## 0.6.9 — Auto fit for font letters, same-width character boxes, sharper font sheets
 
 - **Auto fit for the letter size.** Next to *Letter size %* in the font generator, *Auto fit* finds the largest size
