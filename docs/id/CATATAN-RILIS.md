@@ -2,7 +2,7 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
-## Belum dirilis
+## 0.7.1 — Gambar → kit, panduan jiplak dari foto, simpan font yang tidak terlihat membeku
 
 - **Gambar → kit (uji coba).** *Alat → Pola dari foto jersey* dibuka dengan cara baru, *Gambar → kit*: titik-titik di
   foto (leher, pundak, ketiak, bawah baju, manset; ditaruh otomatis, geser untuk menyesuaikan) menempelkan foto langsung

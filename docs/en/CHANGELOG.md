@@ -2,7 +2,7 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
-## Unreleased
+## 0.7.1 — Photo → kit, a tracing guide from a photo, font saving that does not look frozen
 
 - **Photo → kit (trial).** *Tools → Pattern from a jersey photo* opens on a new way, *Photo → kit*: points on the photo
   (neck, shoulders, armpits, hem, cuffs; first placed for you, drag to adjust) map the photo straight onto the shirt
