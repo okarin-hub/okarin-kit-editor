@@ -56,6 +56,8 @@ interface KitCanvasWrapperProps {
   isExportingClean?: boolean;
   stageRef: React.RefObject<Konva.Stage | null>;
   canvasDisplaySize: number;
+  /** a picture shown faintly over everything (tracing guide); not part of the kit */
+  traceGuide?: { src: string; opacity: number } | null;
 }
 
 export const KitCanvasWrapper: React.FC<KitCanvasWrapperProps> = (props) => {

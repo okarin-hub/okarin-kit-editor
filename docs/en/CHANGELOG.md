@@ -2,6 +2,26 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## Unreleased
+
+- **Photo → kit (trial).** *Tools → Pattern from a jersey photo* opens on a new way, *Photo → kit*: points on the photo
+  (neck, shoulders, armpits, hem, cuffs; first placed for you, drag to adjust) map the photo straight onto the shirt
+  pieces, so the print comes over as it is: gradients, abstract prints, sashes and logos included. Two ways to use it:
+  *Use as the design* puts it on the kit at once (see it in 3D, export it as it is); *Use as a guide* shows it faintly
+  over the 2D canvas, to build the kit over it with colours, patterns, objects and logos (a *Photo guide* bar shows /
+  hides it, sets its opacity and removes it; it is never exported or saved). Without a back photo the back takes the
+  front with its logos and sponsors filled in. Two waist points follow the curve of the body's sides, and *Even out
+  lighting* (50 % by default) takes the photo's broad shadows and highlights out by changing only the lightness. The
+  old way stays as *Neat pattern*. (Splitting a photo into colour layers was tried and left out: a photo's folds and
+  lighting turn into bands of colour that are not in the design.)
+- **Saving fonts no longer looks frozen.** The font generator makes its files one at a time with a short pause between
+  them and shows how far it is (*Making kit_chest.ftex (2/5)…*); before, the window stopped drawing until every file
+  was done, which on a slower PC looked like a freeze. Each file's drawing and encoding time goes into the activity
+  log, so a save that hangs shows where. (Reported on Reddit with the chest numbers ticked; not reproduced here: the
+  chest file takes about 0.25 s, like the shorts file.)
+- **Fix: Import PNG took a main colour for the backdrop** when a little of it spilled past a part's box (as in a
+  photo texture); a backdrop now needs a real share of its pixels outside the parts.
+
 ## 0.7.0 — Import PNG made easy: logos kept apart, one slot per colour, result preview
 
 - **Import PNG keeps logos and sponsors apart.** With *Separate logos & sponsors* (on by default), the sponsors,

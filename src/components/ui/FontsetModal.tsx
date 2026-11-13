@@ -38,6 +38,7 @@ import { encodeDDS } from '@/utils/ddsEncoder';
 import { encodeFtex } from '@/utils/ftexEncoder';
 import { parseKitConfig, setKitConfigValue, kitConfigToFile } from '@/utils/kitConfig';
 import { downloadFile, saveFilesToFolder, OutFile } from '@/utils/folderSave';
+import { logActivity } from '@/utils/activityLog';
 
 type FileKind = 'back' | 'chest' | 'leg' | 'name' | 'name_ex';
 type Group = 'number' | 'name';
@@ -478,8 +479,15 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
     // a file that is not made is cleared in the config (empty = the game's own font), so no name points at nothing
     for (const f of FILES) if (f.configKey) text = setKitConfigValue(text, f.configKey, kinds.includes(f) ? fileName(f.kind) : '');
     const files: OutFile[] = [];
-    for (const f of kinds) {
+    for (const [i, f] of kinds.entries()) {
+      const name = `${fileName(f.kind)}.${format}`;
+      // one file at a time with a pause between: the window keeps drawing and says how far it is (all of it runs on
+      // this thread; without the pause a slow PC shows a frozen window for the whole save)
+      setStatus(t(`Membuat ${name} (${i + 1}/${kinds.length})…`));
+      await new Promise((r) => setTimeout(r, 30));
+      const t0 = performance.now();
       const canvas = render(f.kind);
+      const t1 = performance.now();
       let data: BlobPart;
       if (format === 'png') {
         data = await new Promise<Blob>((ok, fail) => canvas.toBlob((b) => (b ? ok(b) : fail(new Error('PNG'))), 'image/png'));
@@ -487,7 +495,8 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
         const dds = encodeDDS(fontsetImageData(canvas), 'dxt5', true);
         data = (format === 'dds' ? dds : await encodeFtex(dds)) as BlobPart;
       }
-      files.push({ name: `${fileName(f.kind)}.${format}`, data });
+      logActivity('font', `${name}: gambar ${Math.round(t1 - t0)} ms, encode ${Math.round(performance.now() - t1)} ms`);
+      files.push({ name, data });
     }
     return { files, configText: text };
   };
@@ -651,6 +660,7 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
       return;
     setBusy(true);
     setStatus('Membuat file font…');
+    logActivity('font', `simpan ${format}: ${kinds.map((f) => f.kind).join(', ')}`);
     try {
       const withConfig = writeConfig && format === 'ftex';
       let text = configText;
@@ -661,7 +671,9 @@ export const FontsetModal: React.FC<FontsetModalProps> = ({
       });
       if (withConfig && msg && !msg.startsWith('Dibatalkan')) onConfigChange(text);
       setStatus(msg);
+      logActivity('font', `selesai: ${msg ?? 'folder tidak dipilih'}`);
     } catch (err) {
+      logActivity('error', `simpan font: ${(err as Error)?.message || err}`);
       setStatus(`Gagal menyimpan: ${(err as Error)?.message || err}`);
     } finally {
       setBusy(false);

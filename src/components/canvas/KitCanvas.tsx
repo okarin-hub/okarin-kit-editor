@@ -94,6 +94,8 @@ interface KitCanvasProps {
   brush?: PatternBrushState;
   isExportingClean?: boolean;
   stageRef: React.RefObject<Konva.Stage | null>;
+  /** a picture shown faintly over everything (tracing guide); not part of the kit */
+  traceGuide?: { src: string; opacity: number } | null;
   canvasDisplaySize: number;
 }
 
@@ -185,6 +187,7 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
   onPatternMaskChange,
   brush,
   isExportingClean = false,
+  traceGuide = null,
   stageRef,
   canvasDisplaySize,
 }) => {
@@ -195,6 +198,7 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
   const underPatterns = patternsUnderLayers(templateBundle?.state.patterns, templateBundle?.def.zones.map((z) => z.id) ?? []);
   // Imported finished design (replaces or overlays the generated parts)
   const [baseImg] = useImage(baseTexture?.src ?? '', 'anonymous');
+  const [guideImg] = useImage(traceGuide?.src ?? '');
   const replaceWithImport = !!baseTexture && baseTexture.mode === 'replace' && !!baseImg;
   // Official PES 2021 template guide (labelled pieces) from /public/templates
   const [templateImg] = useImage('/templates/pes2021_template_labeled.png');
@@ -1535,6 +1539,11 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
             />
           </Group>
         )}
+          </Layer>
+        )}
+        {traceGuide && guideImg && !isExportingClean && (
+          <Layer listening={false} opacity={traceGuide.opacity}>
+            <KonvaImage image={guideImg} x={0} y={0} width={CANVAS_TEXTURE_SIZE} height={CANVAS_TEXTURE_SIZE} listening={false} />
           </Layer>
         )}
         {prefs.wide && (

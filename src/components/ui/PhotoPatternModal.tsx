@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { X, Shirt, ImagePlus, Trash2 } from 'lucide-react';
 import { InfoTip } from '@/components/ui/InfoTip';
 import { PhotoRect, PhotoMark, guessAreas } from '@/utils/photoPattern';
+import { KIT_MARKS, KIT_MARK_LINES, KitMarks, KitMarkId, guessKitMarks, projectKit } from '@/utils/photoKit';
 import type { PhotoPatternRequest, PhotoPatternReply } from '@/workers/photoPattern.worker';
 import type { RecognisedPattern } from '@/utils/patternRecognise';
 
@@ -16,6 +17,8 @@ interface Shot {
   /** sleeve boxes, by their side in the photo */
   left: PhotoRect;
   right: PhotoRect;
+  /** the points of "photo -> kit" */
+  marks: KitMarks;
 }
 
 /** What a mouse action on the photo does: draw one of the boxes, or mark a colour as pattern (keep) or not (drop). */
@@ -28,6 +31,10 @@ interface PhotoPatternModalProps {
   onDone: (file: File) => void;
   /** a recognised regular pattern: set the part colours and add it as a pattern layer */
   onApplyPattern: (pattern: RecognisedPattern) => void;
+  /** "photo -> kit": use the projected texture as the kit's design (shown in 3D at once) */
+  onUseAsDesign: (src: string, name: string) => void;
+  /** "photo -> kit": show the projected texture faintly over the 2D canvas, to rebuild the kit over it */
+  onUseAsGuide: (src: string) => void;
 }
 
 const VIEW = 300;
@@ -47,7 +54,11 @@ const ShotView: React.FC<{
   onRect: (r: PhotoRect) => void;
   marks?: PhotoMark[];
   onMark?: (m: PhotoMark) => void;
-}> = ({ shot, area, sleeves, onRect, marks = [], onMark }) => {
+  /** "photo -> kit": the points instead of the boxes, dragged one by one */
+  onKitMark?: (id: KitMarkId, p: { x: number; y: number }) => void;
+}> = ({ shot, area, sleeves, onRect, marks = [], onMark, onKitMark }) => {
+  const kit = !!onKitMark;
+  const dragPoint = useRef<KitMarkId | null>(null);
   const marking = area === 'keep' || area === 'drop';
   const ref = useRef<HTMLCanvasElement | null>(null);
   const drag = useRef<{ x: number; y: number } | null>(null);
@@ -80,6 +91,7 @@ const ShotView: React.FC<{
       className={`relative mx-auto ${marking && !onMark ? 'cursor-not-allowed' : 'cursor-crosshair'}`}
       style={{ width: vw, height: vh }}
       onMouseDown={(e) => {
+        if (kit) return;
         if (marking) {
           const p = at(e);
           onMark?.({ x: Math.round(p.x), y: Math.round(p.y), keep: area === 'keep' });
@@ -88,16 +100,58 @@ const ShotView: React.FC<{
         drag.current = at(e);
       }}
       onMouseMove={(e) => {
+        if (kit) {
+          if (dragPoint.current) onKitMark!(dragPoint.current, at(e));
+          return;
+        }
         const s = drag.current;
         if (!s) return;
         const p = at(e);
         if (Math.abs(p.x - s.x) * scale + Math.abs(p.y - s.y) * scale < 6) return;
         onRect({ x: Math.min(s.x, p.x), y: Math.min(s.y, p.y), w: Math.abs(p.x - s.x), h: Math.abs(p.y - s.y) });
       }}
-      onMouseUp={() => (drag.current = null)}
-      onMouseLeave={() => (drag.current = null)}
+      onMouseUp={() => {
+        drag.current = null;
+        dragPoint.current = null;
+      }}
+      onMouseLeave={() => {
+        drag.current = null;
+        dragPoint.current = null;
+      }}
     >
       <canvas ref={ref} className="block rounded" style={{ width: vw, height: vh }} />
+      {kit ? (
+        <svg className="absolute inset-0" width={vw} height={vh}>
+          {KIT_MARK_LINES.map((line, i) => (
+            <polyline
+              key={i}
+              points={line.map((id) => `${shot.marks[id].x * scale},${shot.marks[id].y * scale}`).join(' ')}
+              fill="none"
+              stroke="rgba(56,189,248,0.9)"
+              strokeWidth={1.5}
+            />
+          ))}
+          {KIT_MARKS.map(([id, label]) => (
+            <circle
+              key={id}
+              cx={shot.marks[id].x * scale}
+              cy={shot.marks[id].y * scale}
+              r={5}
+              className="cursor-move"
+              fill={id.startsWith('cuff') ? '#fbbf24' : '#38bdf8'}
+              stroke="#fff"
+              strokeWidth={1.5}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                dragPoint.current = id;
+              }}
+            >
+              <title>{label}</title>
+            </circle>
+          ))}
+        </svg>
+      ) : (
+      <>
       <div
         className="absolute pointer-events-none"
         style={{ left: dim.x * scale, top: dim.y * scale, width: dim.w * scale, height: dim.h * scale, boxShadow: '0 0 0 9999px rgba(2,6,23,0.45)' }}
@@ -112,12 +166,19 @@ const ShotView: React.FC<{
           style={{ left: m.x * scale, top: m.y * scale }}
         />
       ))}
+      </>
+      )}
     </div>
   );
 };
 
 /** Pattern of a jersey photo (front, optional back) as a flat kit texture; logos are left out. */
-export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, onClose, onDone, onApplyPattern }) => {
+export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, onClose, onDone, onApplyPattern, onUseAsDesign, onUseAsGuide }) => {
+  // kit = the photo projected onto the shirt as it is (print, gradients, logos); pattern = the pattern recognised and redrawn flat
+  const [method, setMethod] = useState<'kit' | 'pattern'>('kit');
+  const [kitResult, setKitResult] = useState<{ texture: HTMLCanvasElement; colour: string } | null>(null);
+  // "Ratakan cahaya": how much of the photo's lighting is evened out (%)
+  const [light, setLight] = useState(50);
   const [front, setFront] = useState<Shot | null>(null);
   const [back, setBack] = useState<Shot | null>(null);
   const [minShare, setMinShare] = useState(8);
@@ -168,7 +229,7 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
 
   // flatten the pattern again shortly after the last change
   useEffect(() => {
-    if (!isOpen || !front) {
+    if (!isOpen || !front || method !== 'pattern') {
       setBusy(false);
       return setResult(null);
     }
@@ -186,22 +247,37 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
       worker.current?.postMessage(req);
     }, 200);
     return () => clearTimeout(t);
-  }, [isOpen, front, back, minShare, withSleeves, marks]);
+  }, [isOpen, front, back, minShare, withSleeves, marks, method]);
+
+  // photo -> kit: projected again shortly after a point moves (a few triangles: quick, no worker needed)
+  useEffect(() => {
+    if (!isOpen || !front || method !== 'kit') return setKitResult(null);
+    const t = setTimeout(() => {
+      try {
+        setKitResult(projectKit({ image: front.image, marks: front.marks }, back ? { image: back.image, marks: back.marks } : null, false, light / 100));
+        setStatus(null);
+      } catch (e) {
+        setStatus(`Tekstur gagal dibuat: ${(e as Error)?.message || e}`);
+      }
+    }, 120);
+    return () => clearTimeout(t);
+  }, [isOpen, front, back, method, light]);
 
   // marks belong to one photo
   useEffect(() => setMarks([]), [front?.image]);
 
   // preview: the shirt pieces of the texture (front, back and sleeves)
+  const shown = method === 'kit' ? kitResult : result;
   useEffect(() => {
     const c = previewRef.current;
-    if (!c || !result) return;
+    if (!c || !shown) return;
     const src = { x: 0, y: 0, w: 1024, h: 940 };
     c.width = 512;
     c.height = Math.round((512 * src.h) / src.w);
     const ctx = c.getContext('2d')!;
     ctx.clearRect(0, 0, c.width, c.height);
-    ctx.drawImage(result.texture, src.x, src.y, src.w, src.h, 0, 0, c.width, c.height);
-  }, [result]);
+    ctx.drawImage(shown.texture, src.x, src.y, src.w, src.h, 0, 0, c.width, c.height);
+  }, [shown]);
 
   if (!isOpen) return null;
 
@@ -213,18 +289,22 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
       image.src = url;
       await image.decode();
       const g = guessAreas(image);
-      set({ image, bitmap: await createImageBitmap(image), name: file.name, rect: g.body, left: g.left, right: g.right });
+      set({ image, bitmap: await createImageBitmap(image), name: file.name, rect: g.body, left: g.left, right: g.right, marks: guessKitMarks(image) });
       setStatus(null);
     } catch {
       setStatus('Gambar gagal dibaca.');
     }
   };
 
+  const baseName = (front?.name ?? 'jersey').replace(/\.[^.]+$/, '');
+  // photo -> kit: the final texture, with the front's logos left out of a back copied from the front
+  const finalKit = () =>
+    front ? projectKit({ image: front.image, marks: front.marks }, back ? { image: back.image, marks: back.marks } : null, true, light / 100) : null;
   const finish = () => {
     if (!result) return;
     result.texture.toBlob((blob) => {
       if (!blob) return setStatus('Tekstur gagal dibuat.');
-      onDone(new File([blob], `${(front?.name ?? 'jersey').replace(/\.[^.]+$/, '')}-pola.png`, { type: 'image/png' }));
+      onDone(new File([blob], `${baseName}-pola.png`, { type: 'image/png' }));
     }, 'image/png');
   };
 
@@ -247,12 +327,15 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
             area={mode}
             sleeves={withSleeves}
             onRect={(r) => set({ ...shot, [mode]: r })}
+            onKitMark={method === 'kit' ? (id, p) => set({ ...shot, marks: { ...shot.marks, [id]: p } }) : undefined}
             // colours are marked on the front photo (its colours are the pattern colours)
             marks={optional ? [] : marks}
             onMark={optional ? undefined : (m) => setMarks((prev) => [...prev, m])}
           />
           <p className="text-[10px] text-slate-500 text-center">
-            {mode === 'keep' || mode === 'drop'
+            {method === 'kit'
+              ? 'Geser titik ke tempatnya: leher, pundak, ketiak, bawah baju, dan ujung lengan (kuning).'
+              : mode === 'keep' || mode === 'drop'
               ? optional
                 ? 'Tandai warna di foto depan.'
                 : mode === 'keep'
@@ -310,7 +393,26 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto grid grid-cols-1 lg:grid-cols-[1fr_1fr_1.3fr] gap-5 p-5">
-          {(front || back) && (
+          <div className="lg:col-span-3 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400 -mb-2">
+            <span>Cara:</span>
+            {(
+              [
+                ['kit', 'Gambar → kit', 'Foto ditempel ke baju apa adanya lewat titik-titik patokan: motif rumit, gradasi, dan logo ikut. Logo nanti bisa dipisah di Import PNG.'],
+                ['pattern', 'Pola rapi', 'Pola dikenali lalu digambar ulang rata (strip, polos); logo dan tulisan dibuang.'],
+              ] as const
+            ).map(([k, label, tip]) => (
+              <button
+                key={k}
+                type="button"
+                title={tip}
+                onClick={() => setMethod(k)}
+                className={`px-2 py-1 rounded border ${method === k ? 'border-sky-500 bg-sky-500/15 text-sky-200' : 'border-slate-700 hover:bg-slate-800'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {method === 'pattern' && (front || back) && (
             <div className="lg:col-span-2 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400 -mb-2">
               <span>Kotak yang ditarik:</span>
               {(
@@ -359,7 +461,7 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
               )}
             </div>
           )}
-          {(front || back) && <div className="hidden lg:block" />}
+          {method === 'pattern' && (front || back) && <div className="hidden lg:block" />}
           {slot('Depan', front, setFront, frontInput, false)}
           {slot('Belakang', back, setBack, backInput, true)}
           <section className="space-y-2 min-w-0">
@@ -371,9 +473,25 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
               className="rounded-lg border border-slate-800 overflow-hidden"
               style={{ backgroundImage: 'repeating-conic-gradient(#64748b 0% 25%, #475569 0% 50%)', backgroundSize: '16px 16px' }}
             >
-              {result ? <canvas ref={previewRef} className="w-full h-auto block" /> : <div className="h-40" />}
+              {shown ? <canvas ref={previewRef} className="w-full h-auto block" /> : <div className="h-40" />}
             </div>
-            {result && (
+            {method === 'kit' && kitResult && (
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                <span>Warna utama:</span>
+                <span className="w-4 h-4 rounded border border-slate-600" style={{ background: kitResult.colour }} />
+                <span className="font-mono text-[10px]">{kitResult.colour}</span>
+              </div>
+            )}
+            {method === 'kit' && (
+              <label className="flex items-center justify-between gap-2 text-[11px] text-slate-400">
+                <span className="flex items-center gap-1">
+                  {`Ratakan cahaya ${light}%`}
+                  <InfoTip text="Menghapus bayangan dan sorotan lampu yang lebar dari foto (sisi badan yang gelap, bagian yang mengkilap). Tulisan dan garis tetap. Kalau gradasi motif ikut memudar, kecilkan." />
+                </span>
+                <input type="range" min={0} max={100} value={light} onChange={(e) => setLight(Number(e.target.value))} className="w-28 accent-sky-500" />
+              </label>
+            )}
+            {method === 'pattern' && result && (
               <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
                 <span>Warna pola:</span>
                 {result.palette.map((c) => (
@@ -384,7 +502,7 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
                 ))}
               </div>
             )}
-            {result?.recognised && (
+            {method === 'pattern' && result?.recognised && (
               <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-2.5 space-y-1 text-[11px] text-emerald-200">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span>Pola dikenali:</span>
@@ -399,6 +517,8 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
                 </p>
               </div>
             )}
+            {method === 'pattern' && (
+            <>
             <label className="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer">
               <input type="checkbox" checked={withSleeves} onChange={(e) => setWithSleeves(e.target.checked)} className="accent-sky-500" />
               Lengan dan bahu dari foto (kotak kuning)
@@ -410,6 +530,8 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
               </span>
               <input type="range" min={3} max={25} value={minShare} onChange={(e) => setMinShare(Number(e.target.value))} className="w-28 accent-sky-500" />
             </label>
+            </>
+            )}
           </section>
         </div>
 
@@ -418,6 +540,32 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800">
             Batal
           </button>
+          {method === 'kit' ? (
+            <>
+              <button
+                onClick={() => {
+                  const out = finalKit();
+                  if (out) onUseAsGuide(out.texture.toDataURL('image/png'));
+                }}
+                disabled={!kitResult}
+                className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-200 border border-slate-600 hover:bg-slate-800 disabled:opacity-50"
+                title="Foto tampil samar di atas kanvas 2D sebagai panduan: bangun kitnya dengan warna, pola, objek, dan logo di atasnya. Tidak ikut diekspor."
+              >
+                Pakai sebagai panduan
+              </button>
+              <button
+                onClick={() => {
+                  const out = finalKit();
+                  if (out) onUseAsDesign(out.texture.toDataURL('image/png'), `${baseName} (foto)`);
+                }}
+                disabled={!kitResult}
+                className="px-5 py-2 rounded-lg text-xs font-bold text-white bg-sky-600 hover:bg-sky-500 disabled:opacity-50"
+                title="Pakai sebagai desain kit dan lihat di 3D. Buka dialog ini lagi untuk menggeser titiknya."
+              >
+                Pakai sebagai desain
+              </button>
+            </>
+          ) : (
           <button
             onClick={finish}
             disabled={!result}
@@ -429,7 +577,8 @@ export const PhotoPatternModal: React.FC<PhotoPatternModalProps> = ({ isOpen, on
           >
             Lanjut: jadikan layer warna
           </button>
-          {result?.recognised && (
+          )}
+          {method === 'pattern' && result?.recognised && (
             <button
               onClick={() => onApplyPattern(result.recognised!)}
               className="px-5 py-2 rounded-lg text-xs font-bold text-white bg-sky-600 hover:bg-sky-500"

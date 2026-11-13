@@ -519,9 +519,9 @@ function growLogoMap(src: Uint16Array, steps: number): Uint16Array {
   return cur;
 }
 
-/** The area under the logos at the picture's size (logos grown 2 px at 1024, so their soft edge goes too). */
-export function logoHole(map: Uint16Array, size: number): Uint8Array {
-  const g = growLogoMap(map, 2), k = SIZE / size;
+/** The area under the logos at the picture's size (logos grown `grow` px at 1024, so their soft edge goes too). */
+export function logoHole(map: Uint16Array, size: number, grow = 2): Uint8Array {
+  const g = growLogoMap(map, grow), k = SIZE / size;
   return Uint8Array.from({ length: size * size }, (_, p) => (g[((((p / size) | 0) * k) | 0) * SIZE + (((p % size) * k) | 0)] ? 1 : 0));
 }
 
@@ -1042,7 +1042,8 @@ export function shadeMerges(labels: Uint16Array, colors: [number, number, number
 
 /**
  * Per cluster: true when it is the texture's backdrop (the colour around and between the parts) rather than a colour
- * of the kit: at least 80 % of its pixels connect to the area outside the parts without leaving the colour, and it
+ * of the kit: a real share of it (10 %) lies outside the parts (not a spill over a part's edge), at least 80 % of its
+ * pixels connect to the area outside the parts without leaving the colour, and it
  * covers none of the shirt, shorts or socks for 40 % or more (black shorts on a black backdrop stay a kit colour; the
  * collar / armband / credit boxes are mostly backdrop anyway).
  */
@@ -1059,7 +1060,7 @@ export function backdropClusters(labels: Uint16Array, clusterCount: number): boo
       if (q >= 0 && !reached[q] && labels[q] === labels[p]) { reached[q] = 1; queue[qt++] = q; }
     }
   }
-  const count = new Float64Array(clusterCount), reach = new Float64Array(clusterCount);
+  const count = new Float64Array(clusterCount), reach = new Float64Array(clusterCount), outside = new Float64Array(clusterCount);
   const inGroup = new Float64Array(clusterCount * G), groupArea = new Float64Array(G);
   for (let p = 0; p < labels.length; p++) {
     groupArea[gm[p]]++;
@@ -1067,10 +1068,11 @@ export function backdropClusters(labels: Uint16Array, clusterCount: number): boo
     if (l === 65535) continue;
     count[l]++;
     if (reached[p]) reach[l]++;
+    if (!gm[p]) outside[l]++;
     inGroup[l * G + gm[p]]++;
   }
   return Array.from({ length: clusterCount }, (_, l) => {
-    if (!count[l] || reach[l] < count[l] * 0.8) return false;
+    if (!count[l] || outside[l] < count[l] * 0.1 || reach[l] < count[l] * 0.8) return false;
     for (let g = 1; g <= 3; g++) if (inGroup[l * G + g] >= groupArea[g] * 0.4) return false;
     return true;
   });

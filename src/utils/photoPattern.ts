@@ -69,7 +69,7 @@ export function guessTorso(img: Photo): PhotoRect {
  * The body and the two sleeves of a shirt in a mockup photo, as boxes. Sleeves are the outer 22 % on each side,
  * from the shoulder down to the lowest shirt pixel near the outer edge (the cuff).
  */
-export function guessAreas(img: Photo): { body: PhotoRect; left: PhotoRect; right: PhotoRect } {
+export function guessAreas(img: Photo): { body: PhotoRect; left: PhotoRect; right: PhotoRect; bounds: PhotoRect } {
   const full = { x: 0, y: 0, w: img.width, h: img.height };
   const { c, d, k } = draw(img, full, 400);
   const w = c.width, h = c.height;
@@ -86,7 +86,7 @@ export function guessAreas(img: Photo): { body: PhotoRect; left: PhotoRect; righ
   });
   const x0 = cols.findIndex((n) => n > h * 0.05), x1 = w - 1 - [...cols].reverse().findIndex((n) => n > h * 0.05);
   const y0 = rows.findIndex((n) => n > w * 0.05), y1 = h - 1 - [...rows].reverse().findIndex((n) => n > w * 0.05);
-  if (x0 < 0 || y0 < 0 || x1 <= x0 || y1 <= y0) return { body: full, left: full, right: full };
+  if (x0 < 0 || y0 < 0 || x1 <= x0 || y1 <= y0) return { body: full, left: full, right: full, bounds: full };
   const bw = x1 - x0, bh = y1 - y0;
   const back = (r: PhotoRect) => ({ x: r.x / k, y: r.y / k, w: r.w / k, h: r.h / k });
   // the cuff: the lowest shirt pixel in a column near the outer edge
@@ -103,6 +103,8 @@ export function guessAreas(img: Photo): { body: PhotoRect; left: PhotoRect; righ
     body: back({ x: x0 + bw * 0.22, y: y0 + bh * 0.17, w: bw * 0.56, h: bh * 0.81 }),
     left: back({ x: x0, y: top, w: sw, h: Math.max(bh * 0.15, cuff(x0 + bw * 0.04) - top) }),
     right: back({ x: x1 - sw, y: top, w: sw, h: Math.max(bh * 0.15, cuff(x1 - bw * 0.04) - top) }),
+    // the whole shirt
+    bounds: back({ x: x0, y: y0, w: bw, h: bh }),
   };
 }
 
@@ -882,7 +884,7 @@ export interface PhotoSleeves {
  * piece 638) and the cuff 147 px further out; y 471 is the top of the arm, the front half runs down to the underarm
  * at 611, the back half up to 341. The shoulder strip up to the neck (x 512) continues the top of the sleeve.
  */
-function drawSleeveHalf(
+export function drawSleeveHalf(
   ctx: CanvasRenderingContext2D,
   band: HTMLCanvasElement,
   piece: 'leftSleeve' | 'rightSleeve',

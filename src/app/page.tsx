@@ -83,7 +83,7 @@ import {
   DEFAULT_TEMPLATE_STATE,
   buildTemplateState,
 } from '@/constants/templates';
-import { Shirt, Shield, Hash, Type, LayoutGrid, LayoutTemplate } from 'lucide-react';
+import { Shirt, Shield, Hash, Type, LayoutGrid, LayoutTemplate, Eye, EyeOff, X } from 'lucide-react';
 import { startActivityLog } from '@/utils/activityLog';
 
 /** Shortest time between two rebuilds of the 3D texture while something keeps changing. */
@@ -360,6 +360,8 @@ export default function Home() {
   const [isPngImportOpen, setIsPngImportOpen] = useState(false);
   const [isPhotoPatternOpen, setIsPhotoPatternOpen] = useState(false);
   const [pngImportFile, setPngImportFile] = useState<File | null>(null);
+  // "Gambar → kit" as a tracing guide: the photo on the kit, faint over the 2D canvas (not exported, not saved)
+  const [traceGuide, setTraceGuide] = useState<{ src: string; opacity: number; visible: boolean } | null>(null);
 
   // Drawing a new layer on the 2D canvas
   const [drawTool, setDrawTool] = useState<'free' | 'poly' | 'stitch' | 'stitchFree' | 'gradient' | null>(null);
@@ -1785,7 +1787,41 @@ export default function Home() {
                   isExportingClean={isExportingClean}
                   stageRef={stageRef}
                   canvasDisplaySize={canvasDisplaySize}
+                  traceGuide={traceGuide?.visible ? traceGuide : null}
                 />
+                {traceGuide && (
+                  <div className="absolute left-3 bottom-3 z-20 flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/90 px-2.5 py-1.5 text-[11px] text-slate-300">
+                    <span className="font-semibold">Panduan foto</span>
+                    <button
+                      type="button"
+                      onClick={() => setTraceGuide((g) => g && { ...g, visible: !g.visible })}
+                      className="p-0.5 rounded hover:bg-slate-800"
+                      aria-label={traceGuide.visible ? 'Sembunyikan panduan' : 'Tampilkan panduan'}
+                      title={traceGuide.visible ? 'Sembunyikan panduan' : 'Tampilkan panduan'}
+                    >
+                      {traceGuide.visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                    </button>
+                    <input
+                      type="range"
+                      min={10}
+                      max={100}
+                      value={Math.round(traceGuide.opacity * 100)}
+                      onChange={(e) => setTraceGuide((g) => g && { ...g, opacity: Number(e.target.value) / 100 })}
+                      className="w-20 accent-sky-500"
+                      aria-label="Transparansi panduan"
+                      title="Transparansi panduan"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setTraceGuide(null)}
+                      className="p-0.5 rounded hover:bg-slate-800"
+                      aria-label="Hapus panduan"
+                      title="Hapus panduan"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -2000,6 +2036,15 @@ export default function Home() {
           setIsPhotoPatternOpen(false);
           setPngImportFile(file);
           setIsPngImportOpen(true);
+        }}
+        onUseAsGuide={(src) => {
+          setIsPhotoPatternOpen(false);
+          setTraceGuide({ src, opacity: 0.5, visible: true });
+        }}
+        onUseAsDesign={(src, name) => {
+          setIsPhotoPatternOpen(false);
+          // over the part colours, so the shorts and socks keep theirs
+          handleImportDesign({ src, name, mode: 'overlay', opacity: 1 });
         }}
         onApplyPattern={(r) => {
           setIsPhotoPatternOpen(false);

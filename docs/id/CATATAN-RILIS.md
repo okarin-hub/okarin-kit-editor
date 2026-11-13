@@ -2,6 +2,27 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## Belum dirilis
+
+- **Gambar → kit (uji coba).** *Alat → Pola dari foto jersey* dibuka dengan cara baru, *Gambar → kit*: titik-titik di
+  foto (leher, pundak, ketiak, bawah baju, manset; ditaruh otomatis, geser untuk menyesuaikan) menempelkan foto langsung
+  ke potongan baju, jadi cetakannya terbawa apa adanya: gradasi, motif abstrak, sash, dan logo ikut. Ada dua cara
+  memakainya: *Pakai sebagai desain* langsung memasangnya di kit (lihat di 3D, ekspor apa adanya); *Pakai sebagai
+  panduan* menampilkannya samar di atas kanvas 2D, untuk membangun kit di atasnya dengan warna, pola, objek, dan logo
+  (bilah *Panduan foto* menampilkan / menyembunyikan, mengatur transparansi, dan menghapusnya; tidak pernah ikut diekspor
+  atau disimpan). Tanpa foto belakang, punggung diisi dari depan dengan logo dan sponsornya ditambal. Dua titik pinggang
+  mengikuti lekukan sisi badan, dan *Ratakan cahaya* (bawaan 50 %) menghapus bayangan dan sorotan lampu yang lebar dari
+  foto dengan hanya mengubah kecerahan. Cara lama tetap ada sebagai *Pola rapi*. (Memecah foto jadi layer warna sudah
+  dicoba dan tidak dipakai: lipatan dan cahaya foto berubah jadi pita warna yang tidak ada di desainnya.)
+- **Menyimpan font tidak lagi terlihat membeku.** Font generator membuat filenya satu per satu dengan jeda singkat di
+  antaranya dan menampilkan kemajuannya (*Membuat kit_chest.ftex (2/5)…*); sebelumnya jendela berhenti menggambar sampai
+  semua file selesai, dan di PC yang lebih lambat itu terlihat seperti membeku. Lama menggambar dan meng-encode tiap
+  file dicatat di log aktivitas, jadi kalau penyimpanan tersangkut, kelihatan di mana. (Dilaporkan di Reddit saat nomor
+  dada dicentang; belum bisa direproduksi di sini: file nomor dada butuh sekitar 0,25 detik, sama dengan file nomor
+  celana.)
+- **Perbaikan: Import PNG mengira warna utama sebagai latar** kalau sedikit warnanya meluber ke luar kotak bagian
+  (seperti pada tekstur dari foto); latar sekarang harus punya cukup banyak piksel di luar bagian kit.
+
 ## 0.7.0 — Import PNG jadi mudah: logo terpisah, satu slot per warna, pratinjau hasil
 
 - **Import PNG memisahkan logo dan sponsor.** Dengan *Pisahkan logo & sponsor* (aktif secara bawaan), sponsor,
