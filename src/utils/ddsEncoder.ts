@@ -1,8 +1,10 @@
 /**
  * Minimal DDS encoder for exporting kit textures.
  * Supports DXT1 (BC1), DXT5 (BC3) and uncompressed BGRA8, with optional mip chain.
- * DXT blocks use a fast bounding-box endpoint fit: good for flat kit colours, not a
- * high-end compressor.
+ * DXT colour endpoints: the block's two extreme colours along its main colour axis (PCA), or the per-channel
+ * bounding box, whichever leaves the smaller error. The box alone fails at an edge between colours whose channels
+ * run opposite ways (yellow next to blue: its corners are a near-white and a dark green no pixel has), which made
+ * small logos jagged with olive and grey fringes.
  */
 
 export type DdsFormat = 'dxt1' | 'dxt5' | 'bgra';
@@ -66,6 +68,83 @@ function from565(c: number): [number, number, number] {
   return [(r << 3) | (r >> 2), (g << 2) | (g >> 4), (b << 3) | (b >> 2)];
 }
 
+/** Indices and squared error of a block for the endpoints c0 / c1 (565). */
+function fitBlock(px: Uint8Array, c0: number, c1: number, allowTransparent: boolean): { indices: number; err: number } {
+  const p0 = from565(c0);
+  const p1 = from565(c1);
+  const palette: [number, number, number][] = [p0, p1];
+  if (c0 > c1) {
+    palette.push(
+      [(2 * p0[0] + p1[0]) / 3, (2 * p0[1] + p1[1]) / 3, (2 * p0[2] + p1[2]) / 3],
+      [(p0[0] + 2 * p1[0]) / 3, (p0[1] + 2 * p1[1]) / 3, (p0[2] + 2 * p1[2]) / 3]
+    );
+  } else {
+    palette.push([(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2, (p0[2] + p1[2]) / 2]);
+  }
+  let indices = 0, err = 0;
+  for (let i = 0; i < 16; i++) {
+    let idx: number;
+    if (allowTransparent && px[i * 4 + 3] < 128 && c0 <= c1) {
+      idx = 3;
+    } else {
+      const r = px[i * 4], g = px[i * 4 + 1], b = px[i * 4 + 2];
+      let best = 0;
+      let bestDist = Infinity;
+      for (let k = 0; k < palette.length; k++) {
+        const dr = r - palette[k][0];
+        const dg = g - palette[k][1];
+        const db = b - palette[k][2];
+        const d = dr * dr + dg * dg + db * db;
+        if (d < bestDist) {
+          bestDist = d;
+          best = k;
+        }
+      }
+      idx = best;
+      err += bestDist;
+    }
+    indices |= idx << (2 * i);
+  }
+  return { indices, err };
+}
+
+/**
+ * The two colours of the block's pixels lying furthest apart along its main colour axis (power iteration on the
+ * covariance). Opaque pixels only when transparency is allowed. Null when all those pixels are one colour.
+ */
+function axisEndpoints(px: Uint8Array, allowTransparent: boolean): [number, number] | null {
+  let n = 0, mr = 0, mg = 0, mb = 0;
+  for (let i = 0; i < 16; i++) {
+    if (allowTransparent && px[i * 4 + 3] < 128) continue;
+    mr += px[i * 4]; mg += px[i * 4 + 1]; mb += px[i * 4 + 2];
+    n++;
+  }
+  if (n < 2) return null;
+  mr /= n; mg /= n; mb /= n;
+  let xx = 0, xy = 0, xz = 0, yy = 0, yz = 0, zz = 0;
+  for (let i = 0; i < 16; i++) {
+    if (allowTransparent && px[i * 4 + 3] < 128) continue;
+    const r = px[i * 4] - mr, g = px[i * 4 + 1] - mg, b = px[i * 4 + 2] - mb;
+    xx += r * r; xy += r * g; xz += r * b; yy += g * g; yz += g * b; zz += b * b;
+  }
+  if (xx + yy + zz < 1e-6) return null;
+  let vx = 1, vy = 1, vz = 1;
+  for (let k = 0; k < 8; k++) {
+    const nx = xx * vx + xy * vy + xz * vz, ny = xy * vx + yy * vy + yz * vz, nz = xz * vx + yz * vy + zz * vz;
+    const len = Math.hypot(nx, ny, nz);
+    if (len < 1e-9) break;
+    vx = nx / len; vy = ny / len; vz = nz / len;
+  }
+  let lo = Infinity, hi = -Infinity, iLo = 0, iHi = 0;
+  for (let i = 0; i < 16; i++) {
+    if (allowTransparent && px[i * 4 + 3] < 128) continue;
+    const t = (px[i * 4] - mr) * vx + (px[i * 4 + 1] - mg) * vy + (px[i * 4 + 2] - mb) * vz;
+    if (t < lo) { lo = t; iLo = i; }
+    if (t > hi) { hi = t; iHi = i; }
+  }
+  return [to565(px[iHi * 4], px[iHi * 4 + 1], px[iHi * 4 + 2]), to565(px[iLo * 4], px[iLo * 4 + 1], px[iLo * 4 + 2])];
+}
+
 /** Encodes the colour half of a block (8 bytes) from 16 RGBA pixels. */
 function writeColorBlock(
   px: Uint8Array,
@@ -93,49 +172,20 @@ function writeColorBlock(
     minR = minG = minB = maxR = maxG = maxB = 0;
   }
 
-  let c0 = to565(maxR, maxG, maxB);
-  let c1 = to565(minR, minG, minB);
   // BC1 uses 3-colour + transparent mode when c0 <= c1, 4-colour mode when c0 > c1
-  if (hasTransparent) {
-    if (c0 > c1) [c0, c1] = [c1, c0];
-  } else if (c0 < c1) {
-    [c0, c1] = [c1, c0];
-  }
-
-  const p0 = from565(c0);
-  const p1 = from565(c1);
-  const palette: [number, number, number][] = [p0, p1];
-  if (c0 > c1) {
-    palette.push(
-      [(2 * p0[0] + p1[0]) / 3, (2 * p0[1] + p1[1]) / 3, (2 * p0[2] + p1[2]) / 3],
-      [(p0[0] + 2 * p1[0]) / 3, (p0[1] + 2 * p1[1]) / 3, (p0[2] + 2 * p1[2]) / 3]
-    );
-  } else {
-    palette.push([(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2, (p0[2] + p1[2]) / 2]);
-  }
-
-  let indices = 0;
-  for (let i = 0; i < 16; i++) {
-    let idx: number;
-    if (allowTransparent && px[i * 4 + 3] < 128 && c0 <= c1) {
-      idx = 3;
-    } else {
-      const r = px[i * 4], g = px[i * 4 + 1], b = px[i * 4 + 2];
-      let best = 0;
-      let bestDist = Infinity;
-      for (let k = 0; k < palette.length; k++) {
-        const dr = r - palette[k][0];
-        const dg = g - palette[k][1];
-        const db = b - palette[k][2];
-        const d = dr * dr + dg * dg + db * db;
-        if (d < bestDist) {
-          bestDist = d;
-          best = k;
-        }
-      }
-      idx = best;
+  const order = (a: number, b: number): [number, number] => (hasTransparent ? (a > b ? [b, a] : [a, b]) : a < b ? [b, a] : [a, b]);
+  const candidates: [number, number][] = [order(to565(maxR, maxG, maxB), to565(minR, minG, minB))];
+  const axis = axisEndpoints(px, allowTransparent);
+  if (axis) candidates.push(order(axis[0], axis[1]));
+  let c0 = candidates[0][0], c1 = candidates[0][1];
+  let { indices, err } = fitBlock(px, c0, c1, allowTransparent);
+  for (const [a, b] of candidates.slice(1)) {
+    const f = fitBlock(px, a, b, allowTransparent);
+    if (f.err < err) {
+      ({ indices, err } = f);
+      c0 = a;
+      c1 = b;
     }
-    indices |= idx << (2 * i);
   }
 
   out[outOff] = c0 & 0xff;
@@ -198,6 +248,18 @@ function writeAlphaBlock(px: Uint8Array, out: Uint8Array, outOff: number): void 
   out[outOff + 5] = (bitsLo >>> 24) & 0xff;
   out[outOff + 6] = bitsHi & 0xff;
   out[outOff + 7] = (bitsHi >>> 8) & 0xff;
+}
+
+// self-check: a block half yellow, half blue (channels running opposite ways) comes back as exactly those two
+// colours (within 565 rounding), not the olive / grey of the bounding-box corners
+{
+  const px = new Uint8Array(64);
+  for (let i = 0; i < 16; i++) px.set(i < 8 ? [255, 220, 0, 255] : [16, 90, 200, 255], i * 4);
+  const o = new Uint8Array(8);
+  writeColorBlock(px, o, 0, false);
+  const c0 = o[0] | (o[1] << 8), c1 = o[2] | (o[3] << 8);
+  const { err } = fitBlock(px, c0, c1, false);
+  if (err > 16 * 3 * 8 * 8) console.error('ddsEncoder colour endpoint self-check failed', err);
 }
 
 function encodeLevel(

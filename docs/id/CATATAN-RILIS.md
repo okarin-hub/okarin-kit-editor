@@ -2,6 +2,15 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## Belum dirilis
+
+- **Perbaikan: tepi bergerigi di ekspor DDS / FTEX.** Logo kecil, nomor, dan badge keluar dengan tepi bertangga dan
+  pinggiran hijau zaitun atau abu-abu di tempat dua warna bertemu yang kanalnya berlawanan arah (kuning di atas biru,
+  merah di atas hijau). Kompresor DXT mengambil dua warna tiap kotak 4×4 dari nilai terkecil dan terbesar per kanal,
+  yang untuk pasangan seperti itu menghasilkan warna yang tidak dimiliki piksel mana pun. Sekarang warnanya diambil di
+  sepanjang arah warna utama kotak itu (dua warna ujung yang benar-benar ada) dan dipilih yang hasilnya paling dekat,
+  jadi tepinya tetap bersih seperti ekspor PNG. Tekstur font ikut mendapat perbaikan ini.
+
 ## 0.7.1 — Gambar → kit, panduan jiplak dari foto, simpan font yang tidak terlihat membeku
 
 - **Gambar → kit (uji coba).** *Alat → Pola dari foto jersey* dibuka dengan cara baru, *Gambar → kit*: titik-titik di

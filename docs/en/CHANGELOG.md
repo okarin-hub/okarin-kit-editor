@@ -2,6 +2,14 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## Unreleased
+
+- **Fix: jagged edges in DDS / FTEX exports.** Small logos, numbers and badges came out with stair-stepped edges and
+  olive or grey fringes where two colours meet whose channels run opposite ways (yellow on blue, red on green). The
+  DXT compressor took each 4×4 block's two colours from the per-channel minimum and maximum, which for such pairs are
+  colours no pixel has. It now takes them along the block's main colour axis (the two real extremes) and keeps
+  whichever fit is closer, so those edges stay clean like the PNG export. Font textures get the same fix.
+
 ## 0.7.1 — Photo → kit, a tracing guide from a photo, font saving that does not look frozen
 
 - **Photo → kit (trial).** *Tools → Pattern from a jersey photo* opens on a new way, *Photo → kit*: points on the photo
