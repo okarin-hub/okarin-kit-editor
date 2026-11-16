@@ -2,7 +2,7 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
-## Unreleased
+## 0.7.2 — Clean logo edges in DDS / FTEX exports
 
 - **Fix: jagged edges in DDS / FTEX exports.** Small logos, numbers and badges came out with stair-stepped edges and
   olive or grey fringes where two colours meet whose channels run opposite ways (yellow on blue, red on green). The

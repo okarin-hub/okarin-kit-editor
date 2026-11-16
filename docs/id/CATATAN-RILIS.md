@@ -2,7 +2,7 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
-## Belum dirilis
+## 0.7.2 — Tepi logo bersih di ekspor DDS / FTEX
 
 - **Perbaikan: tepi bergerigi di ekspor DDS / FTEX.** Logo kecil, nomor, dan badge keluar dengan tepi bertangga dan
   pinggiran hijau zaitun atau abu-abu di tempat dua warna bertemu yang kanalnya berlawanan arah (kuning di atas biru,
