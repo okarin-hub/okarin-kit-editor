@@ -90,6 +90,10 @@ export interface PatternLayer extends PatternSettings {
   backFlip?: boolean;
   /** Id of the template layer (object) this pattern is drawn right above; unset = under all template layers. */
   above?: string;
+  /** Blend mode (a canvas composite operation such as 'multiply'); unset = normal. */
+  blend?: GlobalCompositeOperation;
+  /** Drawn only inside the layer it is placed `above` (a clipping mask); ignored without one. */
+  clip?: boolean;
 }
 
 export interface KitPartConfig {
@@ -189,6 +193,12 @@ export interface KitGraphicItem {
   /** Text: a soft drop shadow under the letters. */
   textShadow?: boolean;
   visible?: boolean;
+  /** How it mixes with what is under it (Photoshop blend mode); unset = normal. */
+  blend?: GlobalCompositeOperation;
+  /** Shown only inside the logo under it (Photoshop clipping mask), see logoClipBase. */
+  clip?: boolean;
+  /** Eraser brush mask (PNG data URL, painted = hidden) over the logo's box, see logoMaskMatrix. */
+  erase?: string;
 }
 
 export interface PlayerMarkingsConfig {

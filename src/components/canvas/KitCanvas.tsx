@@ -18,7 +18,7 @@ import {
 import useImage from 'use-image';
 import { drawPatternLayersForPart, patternLayersForPart, patternsUnderLayers } from '@/utils/patternRenderer';
 import { preloadImage, subscribeAssets } from '@/utils/imageCache';
-import { renderKitCanvas } from '@/utils/textureGenerator';
+import { drawGraphicItems, logoClipBase, logoMaskMatrix, renderKitCanvas } from '@/utils/textureGenerator';
 import { drawTemplateForPart, setLiveErase, SEAM_CURVE_TENSION } from '@/utils/templateRenderer';
 import { getCanvasArea, getCanvasRulers, onPrefsChange, zoomFactor } from '@/utils/uiPrefs';
 import { CanvasRulers } from '@/components/canvas/CanvasRulers';
@@ -203,9 +203,23 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
   // Official PES 2021 template guide (labelled pieces) from /public/templates
   const [templateImg] = useImage('/templates/pes2021_template_labeled.png');
 
+  // A blended or clipped logo must see the kit under it, which the 2D view keeps on other canvases: then the kit and
+  // the logos up to the last such one are drawn as one picture by the 3D / export renderer, and those logos' own nodes
+  // only take the clicks. Not while one part is focused (the other parts are dimmed on the lower canvases only).
+  // A logo with an eraser mask, or the one the eraser brush is on, is drawn the same way.
+  const eraseLogo = brush?.active && !isExportingClean && selectedGraphicId ? graphicItems.find((g) => g.id === selectedGraphicId) : undefined;
+  const logoMixUpTo =
+    viewState.activePartId === 'all'
+      ? graphicItems
+          .map((g, i) => g.visible !== false && (!!g.blend || !!g.erase || g === eraseLogo || (!!g.clip && !!logoClipBase(graphicItems, i))))
+          .lastIndexOf(true)
+      : -1;
+  const graphicsLayerRef = useRef<Konva.Layer | null>(null);
+  const logoMix = useRef<{ deps: unknown[]; canvas: HTMLCanvasElement | null } | null>(null);
+
   // Redraw when a library image / font finishes loading (patterns draw from the shared cache)
   useEffect(
-    () => subscribeAssets(() => stageRef.current?.batchDraw()),
+    () => subscribeAssets(() => { logoMix.current = null; stageRef.current?.batchDraw(); }),
     [stageRef]
   );
 
@@ -311,7 +325,8 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
   const strokeRef = useRef<{ x: number; y: number } | null>(null);
 
   // eraser strokes of the selected layer: with a layer selected the brush erases only that layer
-  const zoneEraseRef = useRef<{ id: string; cv: HTMLCanvasElement; committed: string | undefined } | null>(null);
+  // (or of the selected logo: `logo`, its mask then lives in the logo's own box)
+  const zoneEraseRef = useRef<{ id: string; cv: HTMLCanvasElement; committed: string | undefined; logo?: boolean } | null>(null);
   const staticLayerRef = useRef<Konva.Layer | null>(null);
 
   if (!maskCanvasRef.current && typeof document !== 'undefined') {
@@ -355,7 +370,9 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
     const ctx = cv?.getContext('2d');
     if (!cv || !ctx || !brush) return;
     ctx.save();
-    if (target) {
+    const logo = target?.logo ? graphicItems.find((g) => g.id === target.id) : undefined;
+    if (logo) ctx.setTransform(logoMaskMatrix(logo).inverse());
+    else if (target) {
       // a layer's mask lives in the layer's own space: undo its move / turn / scale
       const z = templateBundle?.def.zones.find((d) => d.id === target.id);
       const zs = templateBundle?.state.zones[target.id];
@@ -371,7 +388,8 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
     ctx.lineTo(to.x + 0.01, to.y);
     ctx.stroke();
     ctx.restore();
-    if (zoneEraseRef.current) staticLayerRef.current?.batchDraw();
+    if (logo) graphicsLayerRef.current?.batchDraw();
+    else if (zoneEraseRef.current) staticLayerRef.current?.batchDraw();
     else patternLayerRef.current?.batchDraw();
   };
 
@@ -402,7 +420,7 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
     strokeRef.current = null;
     const target = zoneEraseRef.current;
     const cv = target?.cv ?? maskCanvasRef.current;
-    if (!cv || !(target ? onZoneTransform : onPatternMaskChange)) return;
+    if (!cv || !(target?.logo ? onUpdateGraphic : target ? onZoneTransform : onPatternMaskChange)) return;
     // An empty mask is stored as null so projects stay small
     const ctx = cv.getContext('2d');
     const data = ctx?.getImageData(0, 0, cv.width, cv.height).data;
@@ -419,7 +437,9 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
     if (target) {
       target.committed = url ?? undefined;
       if (url) preloadImage(url);
-      onZoneTransform!(target.id, { erase: url ?? undefined });
+      const logo = target.logo ? graphicItems.find((g) => g.id === target.id) : undefined;
+      if (logo) onUpdateGraphic({ ...logo, erase: url ?? undefined });
+      else onZoneTransform!(target.id, { erase: url ?? undefined });
       return;
     }
     lastCommittedMask.current = url;
@@ -497,27 +517,30 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
     : null;
 
   // Load the selected layer's eraser mask into a canvas the brush paints on (again after undo / redo)
-  const eraseTargetId = brushActive && selectedZone ? selectedZone.id : null;
-  const eraseTargetUrl = selectedZoneState?.erase;
+  // (a selected logo comes first)
+  const eraseTargetId = eraseLogo ? eraseLogo.id : brushActive && selectedZone ? selectedZone.id : null;
+  const eraseTargetUrl = eraseLogo ? eraseLogo.erase : selectedZoneState?.erase;
   useEffect(() => {
     const cur = zoneEraseRef.current;
     if (cur && cur.id !== eraseTargetId) {
       setLiveErase(cur.id, null);
       zoneEraseRef.current = null;
       staticLayerRef.current?.batchDraw();
+      graphicsLayerRef.current?.batchDraw();
     }
     if (!eraseTargetId) return;
     const now = zoneEraseRef.current;
     if (now && now.committed === eraseTargetUrl) return;
     const id = eraseTargetId;
     const cv = now?.cv ?? document.createElement('canvas');
-    zoneEraseRef.current = { id, cv, committed: eraseTargetUrl };
+    zoneEraseRef.current = { id, cv, committed: eraseTargetUrl, logo: !!eraseLogo };
     const show = (img?: HTMLImageElement) => {
       cv.width = CANVAS_TEXTURE_SIZE;
       cv.height = CANVAS_TEXTURE_SIZE;
       if (img) cv.getContext('2d')!.drawImage(img, 0, 0, cv.width, cv.height);
       setLiveErase(id, cv);
       staticLayerRef.current?.batchDraw();
+      graphicsLayerRef.current?.batchDraw();
     };
     if (!eraseTargetUrl) {
       show();
@@ -994,9 +1017,9 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
                 // other canvases: then draw the whole kit up to the template here, exactly like the 3D texture (the
                 // fabric and an overlaid design still come after, from this layer). Not while one part is focused:
                 // the other parts are dimmed on the lower canvases only.
-                const blended = templateBundle.def.zones.some(
-                  (z) => z.blend && !z.base && !z.clipTo && templateBundle.state.zones[z.id]?.visible
-                );
+                const blended =
+                  templateBundle.def.zones.some((z) => z.blend && !z.base && !z.clipTo && templateBundle.state.zones[z.id]?.visible) ||
+                  (templateBundle.state.patterns ?? []).some((l) => l.blend && l.visible);
                 if (blended && viewState.activePartId === 'all') {
                   const replace = baseTexture?.mode === 'replace' ? baseTexture : null;
                   const kit = renderKitCanvas(partsConfig, [], undefined, false, CANVAS_TEXTURE_SIZE, undefined, replace, patternMask, templateBundle);
@@ -1067,12 +1090,31 @@ export const KitCanvas: React.FC<KitCanvasProps> = ({
 
 
         {/* Layer 3: Graphics, Badges, and Logos Layer */}
-        <Layer id="graphics-layer" listening={!locked}>
+        <Layer id="graphics-layer" ref={graphicsLayerRef} listening={!locked}>
+          {logoMixUpTo >= 0 && (
+            <Shape
+              listening={false}
+              sceneFunc={(context) => {
+                const c = (context as any)._context as CanvasRenderingContext2D;
+                // the kit under the logos is cached (the layer redraws every frame while a logo is dragged or erased)
+                const deps = [partsConfig, fabricConfig, baseTexture, patternMask, templateBundle];
+                if (!logoMix.current || logoMix.current.deps.some((d, k) => d !== deps[k]))
+                  logoMix.current = {
+                    deps,
+                    canvas: renderKitCanvas(partsConfig, [], undefined, false, CANVAS_TEXTURE_SIZE, fabricConfig, baseTexture, patternMask, templateBundle),
+                  };
+                if (logoMix.current.canvas) c.drawImage(logoMix.current.canvas, 0, 0, CANVAS_TEXTURE_SIZE, CANVAS_TEXTURE_SIZE);
+                drawGraphicItems(c, graphicItems.slice(0, logoMixUpTo + 1), CANVAS_TEXTURE_SIZE, shapeParts);
+              }}
+            />
+          )}
           {graphicItems
-            .filter((item) => item.visible !== false)
-            .map((item) => (
+            .map((item, i) => ({ item, ghost: i <= logoMixUpTo }))
+            .filter(({ item }) => item.visible !== false)
+            .map(({ item, ghost }) => (
               <InteractiveGraphicItem
                 key={item.id}
+                ghost={ghost}
                 item={item}
                 isSelected={selectedGraphicId === item.id}
                 onSelect={() => onSelectGraphic(item.id)}

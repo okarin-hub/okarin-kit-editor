@@ -1,6 +1,7 @@
 'use client';
 
 import { ImportButton } from '@/components/ui/ImportMenu';
+import { BlendClipControls } from '@/components/ui/BlendClipControls';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Eye,
@@ -36,6 +37,7 @@ import {
   CopyPlus,
   Merge,
   X,
+  CornerLeftDown,
 } from 'lucide-react';
 import {
   BaseTexture,
@@ -420,6 +422,8 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
       const moved: PatternLayer = { ...src };
       if (above) moved.above = above;
       else delete moved.above;
+      // a clipped pattern moved onto another layer leaves its clip (as a clipped object does)
+      if (src.above !== above) delete moved.clip;
       next[slot] = moved;
     });
     if (changed) onChangePatterns(next);
@@ -430,6 +434,19 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
   };
   // ---- Folders (layer groups): a run of layers sharing KitZoneDef.layerGroup; a pattern placed above a member is in it too
   const zoneById = (id: string) => template.zones.find((z) => z.id === id);
+  /** What a layer would clip to: the nearest layer under it in its group that is not clipped itself (a clip group
+   *  shares one base, like Photoshop). Never a base layer: that is the whole part already. */
+  /** What a pattern clips to: the object it is placed right above, unless that one is clipped itself (it is then
+   *  drawn inside its own base, and the pattern with it would not show). */
+  const patternClipTarget = (l: PatternLayer): KitZoneDef | undefined => {
+    const z = l.above ? zoneById(l.above) : undefined;
+    return z && !z.clipTo ? z : undefined;
+  };
+  const clipTargetOf = (z: KitZoneDef): KitZoneDef | undefined => {
+    const zones = mainZonesOf(z.group);
+    const under = zones.slice(0, zones.findIndex((x) => x.id === z.id)).reverse().find((x) => !x.clipTo);
+    return under && !under.base ? under : undefined;
+  };
   const folderOf = (e: StackEntry): string | undefined => {
     if (e.kind === 'zone') return zoneById(e.id)?.layerGroup;
     const above = patterns.find((x) => x.id === e.id)?.above;
@@ -450,7 +467,9 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
     applyStack(stack);
     if (entry.kind === 'zone') {
       const want = folder === undefined ? folderOf(targetEntry) : folder ?? undefined;
-      if (zoneById(entry.id)?.layerGroup !== want) onUpdateZoneDef(entry.id, { layerGroup: want });
+      const z = zoneById(entry.id);
+      // a clipped layer dragged elsewhere leaves its clip group (as in Photoshop)
+      if (z && (z.layerGroup !== want || z.clipTo)) onUpdateZoneDef(entry.id, { layerGroup: want, clipTo: undefined });
     }
   };
   /** Moves a whole folder (its layers and the patterns placed above them) right above row `target`. */
@@ -985,6 +1004,11 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           className={`${rowClass(selected || picked, zs.visible)} ${draggable ? 'cursor-grab active:cursor-grabbing' : ''} ${drag?.id === z.id ? 'opacity-40' : ''}`}
         >
           {draggable && <GripVertical className="w-3 h-3 -mx-1 shrink-0 text-slate-600" aria-hidden />}
+          {z.clipTo && zoneById(z.clipTo) && (
+            <span title={`Clip ke: ${zoneById(z.clipTo)!.name}`} className="shrink-0 text-sky-400">
+              <CornerLeftDown className="w-3 h-3" aria-label="Di-clip ke layer bawah" />
+            </span>
+          )}
           <button
             type="button"
             onClick={() => onUpdateZone(z.id, { visible: !zs.visible })}
@@ -1102,6 +1126,11 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
           className={`${rowClass(open, l.visible)} cursor-grab active:cursor-grabbing ${drag?.id === l.id && drag.from === g ? 'opacity-40' : ''}`}
         >
           <GripVertical className="w-3 h-3 -mx-1 shrink-0 text-slate-600" aria-hidden />
+          {l.clip && patternClipTarget(l) && (
+            <span title={`Clip ke: ${patternClipTarget(l)!.name}`} className="shrink-0 text-sky-400">
+              <CornerLeftDown className="w-3 h-3" aria-label="Di-clip ke layer bawah" />
+            </span>
+          )}
           <button
             type="button"
             onClick={() => updatePattern(l.id, { visible: !l.visible })}
@@ -1184,10 +1213,10 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
         {open &&
           (editorMode === 'side' ? (
             <LayerSidePanel anchor={`${l.id}-${g}`} title={name} onClose={() => setOpenPattern(null)}>
-              <PatternLayerEditor bare layer={l} group={g} library={library} onUpdate={(patch) => updatePattern(l.id, patch)} />
+              <PatternLayerEditor bare layer={l} group={g} library={library} clipTarget={patternClipTarget(l)?.name} onUpdate={(patch) => updatePattern(l.id, patch)} />
             </LayerSidePanel>
           ) : (
-            <PatternLayerEditor layer={l} group={g} library={library} onUpdate={(patch) => updatePattern(l.id, patch)} />
+            <PatternLayerEditor layer={l} group={g} library={library} clipTarget={patternClipTarget(l)?.name} onUpdate={(patch) => updatePattern(l.id, patch)} />
           ))}
       </div>
     );
@@ -1272,6 +1301,16 @@ export const TemplatePanel: React.FC<TemplatePanelProps> = ({
         </div>
 
         <Slider label="Transparansi" value={Math.round((zs.opacity ?? 1) * 100)} min={10} max={100} step={5} unit="%" onChange={(v) => onUpdateZone(z.id, { opacity: v / 100 })} />
+
+        {!z.base && (
+          <BlendClipControls
+            blend={z.blend}
+            onBlend={(blend) => onUpdateZoneDef(z.id, { blend })}
+            clipped={!!z.clipTo}
+            clipTarget={(z.clipTo ? zoneById(z.clipTo) : clipTargetOf(z))?.name}
+            onClip={(on) => onUpdateZoneDef(z.id, { clipTo: on ? clipTargetOf(z)?.id : undefined })}
+          />
+        )}
 
         {!isMask && (
           <div className="space-y-1.5 text-[11px] text-slate-400">

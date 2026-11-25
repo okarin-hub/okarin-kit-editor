@@ -24,9 +24,12 @@ import {
   Replace,
   ChevronDown,
   ChevronRight,
+  CornerLeftDown,
 } from 'lucide-react';
 import { KitGraphicItem, KitPartId } from '@/types/kit';
 import { LogoStylePanel } from '@/components/ui/LogoStylePanel';
+import { BlendClipControls } from '@/components/ui/BlendClipControls';
+import { logoClipBase } from '@/utils/textureGenerator';
 import { LayerSidePanel } from '@/components/ui/LayerSidePanel';
 import { useLayerEditorMode } from '@/hooks/useLayerEditorMode';
 import { PES_2021_PARTS } from '@/constants/pes2021Parts';
@@ -152,6 +155,7 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
   );
 
   const selectedItem = graphicItems.find((g) => g.id === selectedGraphicId);
+  const selectedClipBase = selectedItem ? logoClipBase(graphicItems, graphicItems.indexOf(selectedItem)) : undefined;
   // width / height ratio taken when a size field gets focus: the fields apply every keystroke, so working it out
   // from the current size let "15" on the way to "150" (height clamped to 10) break the ratio for good
   const sizeRatio = useRef<number | null>(null);
@@ -659,6 +663,14 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
                 className="w-full accent-rose-500 cursor-pointer"
               />
             </div>
+
+            <BlendClipControls
+              blend={selectedItem.blend}
+              onBlend={(blend) => onUpdateGraphic({ ...selectedItem, blend })}
+              clipped={!!selectedItem.clip && !!selectedClipBase}
+              clipTarget={selectedClipBase?.name}
+              onClip={(on) => onUpdateGraphic({ ...selectedItem, clip: on || undefined })}
+            />
           </div>
       </div>
     );
@@ -768,6 +780,9 @@ export const LogosPanel: React.FC<LogosPanelProps> = ({
                 >
                   <div className="flex items-center gap-1.5 min-w-0">
                     {isLocked && <Lock className="w-3 h-3 text-amber-400 shrink-0" />}
+                    {item.clip && logoClipBase(graphicItems, graphicItems.indexOf(item)) && (
+                      <CornerLeftDown className="w-3 h-3 text-sky-400 shrink-0" aria-label="Di-clip ke layer bawah" />
+                    )}
                     <span className="truncate max-w-[120px]">{item.name}</span>
                   </div>
 

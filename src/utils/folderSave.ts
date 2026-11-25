@@ -1,4 +1,5 @@
 /** Writing files into a folder the user picks (File System Access API), or downloading them where it is missing. */
+import { configFileRefs } from '@/utils/kitConfig';
 
 export interface OutFile {
   name: string;
@@ -48,6 +49,19 @@ export async function saveFilesToFolder(build: () => Promise<OutFile[]>, pickerI
     const w = await (await dir.getFileHandle(f.name, { create: true })).createWritable();
     await w.write(new Blob([f.data]));
     await w.close();
+  }
+  // a config that names a file the folder does not have (renamed by hand, or not saved there): kitserver would not
+  // find it, so say which
+  const cfg = files.find((f) => f.name.toLowerCase() === 'config.txt' && typeof f.data === 'string');
+  if (cfg) {
+    const has = (n: string) => dir.getFileHandle(n).then(() => true, () => false);
+    const missing: string[] = [];
+    for (const ref of configFileRefs(cfg.data as string)) {
+      if (!(await has(`${ref}.ftex`)) && !(await has(`${ref}.dds`))) missing.push(`${ref}.ftex`);
+    }
+    if (missing.length) {
+      return `Tersimpan di folder "${dir.name}": ${names}. Perhatian: config.txt menyebut ${missing.join(', ')}, tapi file itu tidak ada di folder ini (namanya harus sama persis, termasuk garis bawah).`;
+    }
   }
   return `Tersimpan di folder "${dir.name}": ${names}.`;
 }

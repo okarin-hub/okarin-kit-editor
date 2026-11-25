@@ -2,6 +2,29 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
+## Belum dirilis
+
+- **Mode blend dan clipping untuk layer bentuk, pola, dan logo.** Pengaturan layer sekarang punya daftar *Mode blend* (Multiply,
+  Screen, Overlay, dan mode Photoshop lain yang dimiliki kanvas) dan *Clip ke layer bawah* (clipping mask Photoshop:
+  layer hanya tampil di dalam layer di bawahnya). Keduanya tampil di 2D, 3D, dan ekspor, dan sebelumnya hanya bisa
+  diatur lewat PSD. Layer yang di-clip diberi tanda di daftar; menggesernya ke tempat lain melepas clip-nya. Pola
+  juga punya daftar blend yang sama, dan bisa di-clip ke objek tepat di bawahnya (geser pola ke atas objek itu di
+  daftar), misalnya garis-garis hanya di dalam panel dada. Logo dan teks juga punya keduanya: di-clip ke logo tepat
+  di atasnya di daftar *Di kit* (yang digambar di bawahnya), misalnya gambar bergaris hanya di dalam bentuk crest.
+  Selama logo yang di-blend atau di-clip digeser, tampilan 2D menampilkannya biasa sampai dilepas.
+- **Kuas hapus untuk logo.** Kalau logo atau teks sedang dipilih, kuas hapus (toolbar, E) hanya menyembunyikan logo itu
+  di area yang disapu, dan *Pulihkan* mengembalikannya; *Reset* di bar kuas menghapus semua sapuannya. Bagian yang
+  dihapus ikut logo saat dipindah, diputar, atau diubah ukurannya, dan tampil di 2D, 3D, dan ekspor.
+- **Simpan ke folder kit memeriksa nama file di config.txt.** Setelah *Simpan ke folder kit* (ekspor, config
+  Kitserver, atau generator font), setiap tekstur yang disebut config.txt (KitFile dan font nomor / nama) dicari di
+  folder itu. Yang tidak ada disebutkan di pesan simpan, karena kitserver butuh nama yang sama persis, termasuk garis
+  bawah.
+- **Ekspor memberi peringatan soal nama & nomor di tekstur game.** Kalau *Sertakan Nama & Nomor Punggung di Tekstur*
+  menyala untuk ekspor DDS / FTEX atau folder kitserver, dialog memberi tahu bahwa nama dan nomor akan muncul dobel di
+  game (kitserver menggambar milik tiap pemain) dan semua pemain memakai nama dan nomor contoh.
+- **Dialog Ekspor muat di layar.** Kalau semua pilihan terbuka, dialognya memanjang melewati bawah jendela; sekarang
+  bagian tengahnya bisa digulir dan tombol Download tetap terlihat.
+
 ## 0.7.2 — Tepi logo bersih di ekspor DDS / FTEX
 
 - **Perbaikan: tepi bergerigi di ekspor DDS / FTEX.** Logo kecil, nomor, dan badge keluar dengan tepi bertangga dan

@@ -101,3 +101,9 @@ welcome (see [Contributing](CONTRIBUTING.md)).
 |---|---|---|
 | 47 | P3 | **Update from the app** exists from 0.4.0 on: 0.3.3 and older must download 0.4.0 by hand once. The 0.4.0 updater can fail with "ZIP decompression failed" (fixed in 0.4.1): try again or download the zip by hand. It needs internet access to GitHub and only works in the Windows app (not from source, not in the browser). If the copy fails halfway (a file locked by another program), download the zip again by hand; the `library` folder is never touched. |
 | 48 | P3 | The eraser brush keeps a layer's erased spots at 1024 px in the layer's own space; a layer scaled up a lot shows them a little softer. *Save as template* does not take the erased spots along (they stay in the project). |
+
+## Added in 0.7.3
+
+| # | Pri | Issue |
+|---|---|---|
+| 54 | P3 | **Logo blend mode, clipping and eraser in the 2D view:** while such a logo is dragged or resized it shows plain until it is dropped; while one part is focused (not *All parts*) the 2D view shows logos without these effects; the *original PES template* overlay is hidden under the kit while one of them is on the kit. 3D and the export are always exact. A logo clips to the logo listed right above it in *On the kit*; the ↑ / ↓ buttons change that target instead of unclipping it. Each erased logo keeps a 1024 px mask in the project. |

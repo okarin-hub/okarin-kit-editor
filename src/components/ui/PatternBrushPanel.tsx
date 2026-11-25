@@ -33,7 +33,7 @@ export const PatternBrushPanel: React.FC<PatternBrushPanelProps> = ({
       <span className="flex items-center gap-1.5 text-[11px] font-bold text-white whitespace-nowrap">
         <Eraser className="w-3.5 h-3.5 text-rose-400" />
         Kuas Hapus
-        <InfoTip text="Pilih layer dulu untuk menghapus layer itu saja di area yang disapu (misalnya watermark atau logo yang tidak diinginkan). Tanpa layer yang dipilih, kuas menghapus pola. Pulihkan mengembalikannya." />
+        <InfoTip text="Pilih layer atau logo dulu untuk menghapus itu saja di area yang disapu (misalnya watermark, atau bagian logo yang tidak diinginkan). Tanpa yang dipilih, kuas menghapus pola. Pulihkan mengembalikannya." />
       </span>
 
       <span className="text-[11px] text-slate-400 whitespace-nowrap max-w-[200px] truncate">

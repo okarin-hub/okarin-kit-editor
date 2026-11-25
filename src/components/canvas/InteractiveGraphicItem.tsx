@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Image as KonvaImage, Shape, Group, Rect } from 'react-konva';
 import useImage from 'use-image';
 import { KitGraphicItem } from '@/types/kit';
@@ -13,6 +13,8 @@ interface InteractiveGraphicItemProps {
   isSelected: boolean;
   onSelect: () => void;
   onChange: (newAttrs: KitGraphicItem) => void;
+  /** The kit canvas draws this logo itself (blended / clipped): the node only takes clicks, and shows while moved. */
+  ghost?: boolean;
 }
 
 export const InteractiveGraphicItem: React.FC<InteractiveGraphicItemProps> = ({
@@ -20,8 +22,11 @@ export const InteractiveGraphicItem: React.FC<InteractiveGraphicItemProps> = ({
   isSelected,
   onSelect,
   onChange,
+  ghost,
 }) => {
   const shapeRef = useRef<any>(null);
+  const [moving, setMoving] = useState(false);
+  const opacity = ghost && !moving ? 0 : item.opacity;
 
   // Load image with anonymous crossOrigin to prevent canvas tainting
   const [image] = useImage(item.src || '', 'anonymous');
@@ -60,16 +65,20 @@ export const InteractiveGraphicItem: React.FC<InteractiveGraphicItemProps> = ({
         e.cancelBubble = true;
         lockStart(e);
         onSelect();
+        setMoving(true);
       }}
       onDragMove={lockAxis}
       onDragEnd={(e) => {
+        setMoving(false);
         onChange({
           ...item,
           x: Math.round(e.target.x() - item.width / 2),
           y: Math.round(e.target.y() - item.height / 2),
         });
       }}
+      onTransformStart={() => setMoving(true)}
       onTransformEnd={() => {
+        setMoving(false);
         const node = shapeRef.current;
         if (!node) return;
 
@@ -118,7 +127,7 @@ export const InteractiveGraphicItem: React.FC<InteractiveGraphicItemProps> = ({
           image={image}
           width={item.width}
           height={item.height}
-          opacity={item.opacity}
+          opacity={opacity}
         />
       )}
       {item.type === 'image' && image && styled && (
@@ -128,7 +137,7 @@ export const InteractiveGraphicItem: React.FC<InteractiveGraphicItemProps> = ({
           y={-styled.pad}
           width={styled.canvas.width / 2}
           height={styled.canvas.height / 2}
-          opacity={item.opacity}
+          opacity={opacity}
         />
       )}
 
@@ -136,7 +145,7 @@ export const InteractiveGraphicItem: React.FC<InteractiveGraphicItemProps> = ({
         // the same drawing as the 3D texture and the export (one line, outline behind, optional shadow)
         <Shape
           listening={false}
-          opacity={item.opacity}
+          opacity={opacity}
           sceneFunc={(context) => {
             const c = (context as any)._context as CanvasRenderingContext2D;
             c.save();

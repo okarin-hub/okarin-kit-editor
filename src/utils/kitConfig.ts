@@ -158,6 +158,17 @@ export function parseKitConfig(text: string): Record<string, string> {
   return out;
 }
 
+/** The texture files a config names (KitFile and the number / name fonts), without extension; empty ones left out. */
+export function configFileRefs(text: string): string[] {
+  const c = parseKitConfig(text);
+  return ['KitFile', 'BackNumbersFile', 'ChestNumbersFile', 'LegNumbersFile', 'NameFontFile'].map((k) => c[k] ?? '').filter(Boolean);
+}
+
+// self-check: comments and empty values are left out
+if (configFileRefs(['KitFile=u1p1 ; kit', 'ChestNumbersFile=', 'NameFontFile=u1p1_name'].join('\n')).join() !== 'u1p1,u1p1_name') {
+  console.error('kitConfig configFileRefs self-check failed');
+}
+
 const ADDED_HEADER = '; values added by Okarin Kit Editor';
 
 /** Change (or add) one key, keeping the comment and the 50-column padding kserv's save_config writes. */

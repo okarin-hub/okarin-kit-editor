@@ -1737,6 +1737,9 @@ export default function Home() {
                   brush={brush}
                   onChange={(u) => setBrush((prev) => ({ ...prev, ...u }))}
                   {...(() => {
+                    // a selected logo comes first (same order as the 2D canvas)
+                    const g = selectedGraphicId ? graphicItems.find((d) => d.id === selectedGraphicId) : undefined;
+                    if (g) return { targetName: g.name, hasMask: !!g.erase, onClear: () => handleUpdateGraphic({ ...g, erase: undefined }) };
                     const z = selectedZoneId ? tplBundle?.def.zones.find((d) => d.id === selectedZoneId) : undefined;
                     return z
                       ? {

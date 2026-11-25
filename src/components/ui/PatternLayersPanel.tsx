@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { AlignCenterHorizontal, AlignEndVertical, AlignStartVertical, FlipHorizontal2, FlipVertical2, FolderOpen, LayoutGrid, List, RefreshCw, Search } from 'lucide-react';
 import { KitCategory, KitPartId, PatternLayer } from '@/types/kit';
 import { InfoTip } from '@/components/ui/InfoTip';
+import { BlendClipControls } from '@/components/ui/BlendClipControls';
 import { PATTERN_LABEL, PATTERN_OPTIONS, REPEATING_PATTERNS, THICKNESS_PATTERNS } from '@/constants/patterns';
 import { AssetLibrary } from '@/hooks/useAssetLibrary';
 import { ReloadButton } from '@/components/ui/ReloadButton';
@@ -84,6 +85,8 @@ interface PatternLayerEditorProps {
   onUpdate: (patch: Partial<PatternLayer>) => void;
   /** In the side panel: no indent / guide line. */
   bare?: boolean;
+  /** Name of the object the pattern is placed right above (what it can clip to). */
+  clipTarget?: string;
 }
 
 /** Slider with a label and a live value. */
@@ -117,7 +120,7 @@ const Slider: React.FC<{
 );
 
 /** The settings of one pattern layer, opened under its row in the Layer list. */
-export const PatternLayerEditor: React.FC<PatternLayerEditorProps> = ({ layer: l, group, library, onUpdate, bare }) => {
+export const PatternLayerEditor: React.FC<PatternLayerEditorProps> = ({ layer: l, group, library, onUpdate, bare, clipTarget }) => {
   const update = (_id: string, patch: Partial<PatternLayer>) => onUpdate(patch);
   const isLib = l.pattern === 'custom-image';
   const img = isLib && l.patternImage ? getCachedImage(l.patternImage) : undefined;
@@ -318,6 +321,13 @@ export const PatternLayerEditor: React.FC<PatternLayerEditorProps> = ({ layer: l
                   />
                 )}
                 <Slider label="Opasitas" value={Math.round(l.patternOpacity * 100)} min={5} max={100} step={5} unit="%" onChange={(v) => update(l.id, { patternOpacity: v / 100 })} />
+                <BlendClipControls
+                  blend={l.blend}
+                  onBlend={(blend) => update(l.id, { blend })}
+                  clipped={!!l.clip && !!clipTarget}
+                  clipTarget={clipTarget}
+                  onClip={(on) => update(l.id, { clip: on || undefined })}
+                />
 
                 <div className="space-y-1.5 pt-2 border-t border-slate-800/80">
                   <div className="flex items-center justify-between text-[11px]">

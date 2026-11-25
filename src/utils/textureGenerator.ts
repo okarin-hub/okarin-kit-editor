@@ -9,7 +9,7 @@ import {
   TemplateBundle,
 } from '@/types/kit';
 import { drawPatternLayersForPart, patternsUnderLayers } from '@/utils/patternRenderer';
-import { drawTemplateForPart } from '@/utils/templateRenderer';
+import { drawTemplateForPart, eraseMaskOf } from '@/utils/templateRenderer';
 import { drawCreditText } from '@/utils/creditRenderer';
 import { partPolygons, pointInPolygons, tracePolygons } from '@/utils/partShape';
 import { drawFabricForPart } from '@/utils/fabricRenderer';
@@ -186,9 +186,44 @@ export function renderKitCanvas(
   }
 
   // 3. Render Graphic Items (Logos, Crest, Sponsor, Text)
-  graphicItems.forEach((item) => {
-    if (item.visible === false) return;
+  drawGraphicItems(ctx, graphicItems, resolution, shapeParts);
 
+  // 4. Player markings, placed from the kitserver config values
+  if (markings && markings.showPreview && includeMarkings) {
+    ctx.save();
+    if (scaleRatio !== 1) ctx.scale(scaleRatio, scaleRatio);
+    drawPlayerMarkings(ctx, markings);
+    ctx.restore();
+  }
+
+  return canvas;
+}
+
+/** Size of a logo's eraser mask (PNG), stretched over the logo's box plus a margin for its outline. */
+export const LOGO_MASK_SIZE = 1024;
+
+/** Texture-space matrix of a logo's eraser mask: it covers the logo's box and a margin, and follows its move / turn / size. */
+export function logoMaskMatrix(item: KitGraphicItem): DOMMatrix {
+  const m = Math.max(item.width, item.height) * 0.25;
+  return new DOMMatrix()
+    .translate(item.x + item.width / 2, item.y + item.height / 2)
+    .rotate(item.rotation || 0)
+    .translate(-item.width / 2 - m, -item.height / 2 - m)
+    .scale((item.width + 2 * m) / LOGO_MASK_SIZE, (item.height + 2 * m) / LOGO_MASK_SIZE);
+}
+
+/**
+ * Logos and texts, in list order (first = bottom), with blend modes, clipping and eraser masks. `resolution` is the
+ * size of the texture `ctx` draws in device pixels (scratch layers are that size, drawn at 0,0 in ctx's space).
+ */
+export function drawGraphicItems(
+  ctx: CanvasRenderingContext2D,
+  graphicItems: KitGraphicItem[],
+  resolution: number,
+  shapeParts: ReturnType<typeof partsForSleeveShape>
+): void {
+  const scaleRatio = resolution / CANVAS_TEXTURE_SIZE;
+  const drawItem = (ctx: CanvasRenderingContext2D, item: KitGraphicItem) => {
     ctx.save();
     if (scaleRatio !== 1) {
       ctx.scale(scaleRatio, scaleRatio);
@@ -249,17 +284,47 @@ export function renderKitCanvas(
     }
 
     ctx.restore();
-  });
-
-  // 4. Player markings, placed from the kitserver config values
-  if (markings && markings.showPreview && includeMarkings) {
+  };
+  // with its eraser mask (painted = hidden) applied, the mask moving / turning / scaling with the logo
+  const drawMasked = (ctx: CanvasRenderingContext2D, item: KitGraphicItem) => {
+    const mask = eraseMaskOf(item.id, item.erase);
+    if (!mask) return drawItem(ctx, item);
+    const lg = scratch();
+    drawItem(lg, item);
+    lg.setTransform(new DOMMatrix().scale(scaleRatio).multiply(logoMaskMatrix(item)));
+    lg.globalCompositeOperation = 'destination-out';
+    lg.drawImage(mask, 0, 0, LOGO_MASK_SIZE, LOGO_MASK_SIZE);
+    ctx.drawImage(lg.canvas, 0, 0);
+  };
+  const scratch = () => {
+    const c = document.createElement('canvas');
+    c.width = c.height = resolution;
+    return c.getContext('2d')!;
+  };
+  graphicItems.forEach((item, i) => {
+    if (item.visible === false) return;
+    const base = item.clip ? logoClipBase(graphicItems, i) : undefined;
     ctx.save();
-    if (scaleRatio !== 1) ctx.scale(scaleRatio, scaleRatio);
-    drawPlayerMarkings(ctx, markings);
+    if (item.blend) ctx.globalCompositeOperation = item.blend;
+    if (!base) drawMasked(ctx, item);
+    else if (base.visible !== false) {
+      // clipped: only where the logo below it has pixels, like a Photoshop clipping mask
+      const lg = scratch();
+      drawMasked(lg, item);
+      lg.globalCompositeOperation = 'destination-in';
+      const b = scratch();
+      drawMasked(b, base);
+      lg.drawImage(b.canvas, 0, 0);
+      ctx.drawImage(lg.canvas, 0, 0);
+    }
     ctx.restore();
-  }
+  });
+}
 
-  return canvas;
+/** The logo a clipped logo is clipped to: the nearest one under it (earlier in the list) that is not clipped itself. */
+export function logoClipBase(items: KitGraphicItem[], index: number): KitGraphicItem | undefined {
+  for (let k = index - 1; k >= 0; k--) if (!items[k].clip) return items[k];
+  return undefined;
 }
 
 /** Same as renderKitCanvas but returns a PNG data URL ('' when unavailable). */

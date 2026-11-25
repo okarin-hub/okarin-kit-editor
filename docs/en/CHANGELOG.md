@@ -2,6 +2,29 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
+## Unreleased
+
+- **Blend mode and clipping for shape layers, patterns and logos.** A layer's settings now have a *Blend mode* list (Multiply, Screen,
+  Overlay and the other Photoshop modes the canvas has) and *Clip to the layer below* (a Photoshop clipping mask: the
+  layer shows only inside the layer under it). Both show in 2D, in 3D and in the export, and were only set by a PSD
+  until now. A clipped layer is marked in the list; dragging it elsewhere unclips it. A pattern gets the same blend
+  list, and clips to the object it is placed right above (drag it over that object in the list), e.g. stripes only
+  inside a chest panel. A logo or text has them too: it clips to the logo listed right above it in *On the kit*
+  (the one drawn under it), e.g. a striped picture shown only inside a crest. While a blended or clipped logo is
+  dragged, the 2D view shows it plain until it is dropped.
+- **Eraser brush on a logo.** With a logo or text selected, the eraser brush (toolbar, E) hides only that logo where
+  you brush, and *Restore* brings it back; *Reset* in the brush bar clears it. The erased part stays with the logo when
+  it is moved, turned or resized, and shows in 2D, 3D and the export.
+- **Saving to a kit folder checks config.txt's file names.** After *Save to kit folder* (export, Kitserver config or
+  the font generator), every texture config.txt names (KitFile and the number / name fonts) is looked for in that
+  folder. One that is not there is named in the saved message, since kitserver needs the name to match exactly,
+  underscores included.
+- **Export warns about name & number on a game texture.** With *Include Back Name & Number in the Texture* on for a
+  DDS / FTEX export or a kitserver folder, the dialog says they would show twice in game (kitserver draws each player's
+  own) and every player would wear the sample name and number.
+- **The Export dialog fits the screen.** With every option open it ran past the bottom of the window; now its
+  middle part scrolls and the Download button stays in view.
+
 ## 0.7.2 — Clean logo edges in DDS / FTEX exports
 
 - **Fix: jagged edges in DDS / FTEX exports.** Small logos, numbers and badges came out with stair-stepped edges and

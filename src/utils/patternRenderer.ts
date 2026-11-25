@@ -474,6 +474,7 @@ export function drawPatternLayersForPart(
 ): void {
   patternLayersForPart(layers, part.id).forEach((layer) => {
     ctx.save();
+    if (layer.blend) ctx.globalCompositeOperation = layer.blend;
     if (layer.backFlip && part.id === 'back') {
       const cx = part.bounds.x + part.bounds.width / 2;
       const cy = part.bounds.y + part.bounds.height / 2;
@@ -558,7 +559,7 @@ function paintedSpanX(part: KitPartDefinition, layer: PatternLayer): [number, nu
   const g = measureCanvas.getContext('2d', { willReadFrequently: true })!;
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.clearRect(0, 0, 1024, 1024);
-  drawPatternLayersForPart(g, part, [{ ...layer, visible: true, patternOpacity: 1 }]);
+  drawPatternLayersForPart(g, part, [{ ...layer, visible: true, patternOpacity: 1, blend: undefined }]);
   const px = g.getImageData(0, 0, 1024, 1024).data;
   let x0 = 1024;
   let x1 = -1;

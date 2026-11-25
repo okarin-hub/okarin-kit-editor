@@ -365,8 +365,8 @@ export function remapErase(url: string, m: DOMMatrix): string | null {
   return cv.toDataURL('image/png');
 }
 
-/** A layer's eraser mask (texture space, painted = hidden), if it has one ready to draw. */
-function eraseMaskOf(zoneId: string, erase: string | undefined): CanvasImageSource | null {
+/** A layer's (or logo's) eraser mask (painted = hidden), if it has one ready to draw. */
+export function eraseMaskOf(zoneId: string, erase: string | undefined): CanvasImageSource | null {
   const live = liveErase.get(zoneId);
   if (live) return live;
   if (!erase) return null;
@@ -506,8 +506,17 @@ export function drawTemplateForPart(
   const drawn = new Set(zones.map((z) => z.id));
   template.zones.forEach((zone) => {
     if (drawn.has(zone.id)) drawZone(zone);
-    const above = patternsAbove.get(zone.id);
-    if (above) drawPatternLayersForPart(ctx, part, above);
+    (patternsAbove.get(zone.id) ?? []).forEach((l) => {
+      // (a layer clipped itself is drawn inside its base, so the pattern's clip is ignored there, as the panel shows)
+      if (!l.clip || (zone.clipTo && byId.has(zone.clipTo))) return drawPatternLayersForPart(ctx, part, [l]);
+      // clipped: only inside this layer's own pixels, so nothing where the layer is not on this part or hidden
+      if (!drawn.has(zone.id)) return;
+      const base = isolated(0, zone, state.zones[zone.id]);
+      const lg = scratchLayer(1, ctx);
+      drawPatternLayersForPart(lg, part, [{ ...l, blend: undefined }]);
+      blit(lg, base, 'destination-in');
+      blit(ctx, lg.canvas as HTMLCanvasElement, l.blend);
+    });
   });
 
   // 2. Seams

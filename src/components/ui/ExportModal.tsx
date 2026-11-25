@@ -71,7 +71,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   return (
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none animate-in fade-in duration-200">
-      <div className="bg-[#121622] border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col">
+      <div className="bg-[#121622] border border-slate-800 rounded-2xl w-full max-w-lg max-h-[calc(100vh-2rem)] shadow-2xl overflow-hidden flex flex-col">
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#0f131c]">
           <div className="flex items-center gap-2.5">
@@ -93,7 +93,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-5 flex-1 min-h-0 overflow-y-auto">
           {/* 1. Format Selection */}
           <div className="space-y-2">
             <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
@@ -265,6 +265,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     </p>
                   </div>
                 </label>
+                {/* for the game (FTEX / DDS / a kitserver folder) the name and number would show twice */}
+                {includeMarkings && (fileFormat !== 'png' || pack) && (
+                  <p className="mt-1.5 flex items-start gap-1.5 text-[10px] text-amber-300 leading-snug">
+                    <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                    <span>Nama dan nomor akan tercetak di tekstur. Di game kitserver juga menggambar nama dan nomor pemain, jadi hasilnya dobel, dan semua pemain memakai nama dan nomor contoh ini.</span>
+                  </p>
+                )}
               </div>
 
               {/* Kitserver package: texture + config + fonts in one folder */}

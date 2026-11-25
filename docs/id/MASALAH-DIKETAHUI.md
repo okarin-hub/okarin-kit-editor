@@ -101,3 +101,9 @@ salah satunya sangat disambut (lihat [Berkontribusi](KONTRIBUSI.md)).
 |---|---|---|
 | 47 | P3 | **Pembaruan dari aplikasi** baru ada mulai 0.4.0: pengguna 0.3.3 ke bawah perlu mengunduh 0.4.0 manual sekali. Updater 0.4.0 bisa gagal dengan "ZIP decompression failed" (diperbaiki di 0.4.1): coba lagi atau unduh zip-nya manual. Fitur ini butuh internet ke GitHub dan hanya jalan di aplikasi Windows (tidak dari source, tidak di browser). Kalau penyalinan gagal di tengah (file dikunci program lain), unduh zip-nya manual; folder `library` tidak pernah disentuh. |
 | 48 | P3 | Kuas hapus menyimpan area hapus tiap layer di 1024 px dalam ruang layer itu sendiri; layer yang diperbesar jauh menampilkannya sedikit lebih lembut. *Simpan sebagai template* tidak membawa area hapusnya (tetap tersimpan di proyek). |
+
+## Ditambahkan di 0.7.3
+
+| # | Pri | Masalah |
+|---|---|---|
+| 54 | P3 | **Mode blend, clipping, dan kuas hapus logo di tampilan 2D:** selama logo seperti itu digeser atau diubah ukurannya, ia tampil biasa sampai dilepas; selama satu bagian difokuskan (bukan *Semua bagian*) tampilan 2D menampilkan logo tanpa efek ini; overlay *template PES asli* tertutup kit selama salah satunya ada di kit. 3D dan export selalu tepat. Logo di-clip ke logo tepat di atasnya di daftar *Di kit*; tombol ↑ / ↓ memindah targetnya, bukan melepas clip-nya. Tiap logo yang dihapus sebagian menyimpan mask 1024 px di project. |
