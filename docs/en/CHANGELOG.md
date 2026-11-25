@@ -2,7 +2,7 @@
 
 [Bahasa Indonesia](../id/CATATAN-RILIS.md) · [Back to README](../../README.md)
 
-## Unreleased
+## 0.7.3 — Blend modes, clipping and an eraser mask, like Photoshop
 
 - **Blend mode and clipping for shape layers, patterns and logos.** A layer's settings now have a *Blend mode* list (Multiply, Screen,
   Overlay and the other Photoshop modes the canvas has) and *Clip to the layer below* (a Photoshop clipping mask: the

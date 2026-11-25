@@ -2,7 +2,7 @@
 
 [English](../en/CHANGELOG.md) · [Kembali ke README](../../README.id.md)
 
-## Belum dirilis
+## 0.7.3 — Mode blend, clipping, dan mask kuas hapus, seperti Photoshop
 
 - **Mode blend dan clipping untuk layer bentuk, pola, dan logo.** Pengaturan layer sekarang punya daftar *Mode blend* (Multiply,
   Screen, Overlay, dan mode Photoshop lain yang dimiliki kanvas) dan *Clip ke layer bawah* (clipping mask Photoshop:
